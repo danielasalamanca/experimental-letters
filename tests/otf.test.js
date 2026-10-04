@@ -73,3 +73,17 @@ test("raw export keeps tangent tips; the minimum join thickens them", async () =
   assert.equal(tip(raw), 2, "as is, the outline touches itself at the tip");
   assert.equal(tip(join), 0, "with the minimum join the tip is a 15-unit neck");
 });
+
+test("square-grid glyphs export filled or as an outline, and can mix with circles", async () => {
+  const font = sampleFont();
+  font.glyphs.o.grid = "squares"; // the "o" uses the dot grid, the rest circles
+  font.rounding = 0.4;
+  const contours = (otf) => otf.charToGlyph("o").path.commands.filter((c) => c.type === "M").length;
+  const fill = opentype.parse(await buildOtf(font));
+  assert.equal(contours(fill), 2); // ring: outside + counter
+  font.style = "outline";
+  const outline = opentype.parse(await buildOtf(font));
+  assert.equal(contours(outline), 4); // each edge of the ring becomes a band
+  // The "A" still uses the circle grid.
+  assert.equal(fill.charToGlyph("A").path.commands.length, outline.charToGlyph("A").path.commands.length);
+});

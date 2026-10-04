@@ -1,8 +1,15 @@
 # Letras experimentales
 
-Editor web para crear letras sobre una grilla de círculos. Cada celda rellena
-dibuja la estrella cóncava que queda entre cuatro círculos vecinos; la
-curvatura de esos círculos define el carácter de la letra.
+Editor web para crear letras sobre grillas modulares. Hay dos tipos de
+grilla:
+
+- **Círculos (estrellas):** cada celda rellena dibuja la estrella cóncava que
+  queda entre cuatro círculos vecinos; la curvatura de esos círculos define el
+  carácter de la letra.
+- **Puntos (cuadrados):** una grilla de puntos, como la de un cuaderno
+  punteado, donde cada celda es un cuadrado. Las esquinas se pueden redondear
+  y la letra puede ser rellena o solo un **contorno** que recorre el borde de
+  los cuadrados.
 
 **Abrir el editor:** https://danielasalamanca.github.io/experimental-letters/
 
@@ -57,6 +64,11 @@ curvatura de esos círculos define el carácter de la letra.
   clic para borrarla.
 
 ### Grilla y unidades
+- **Tipo de grilla** (panel Grilla): círculos o puntos, para toda la fuente.
+  Cada glifo puede usar otra en **Grilla de este glifo** (panel Glifo); en el
+  mapa de caracteres se marca con un cuadradito naranja. El dibujo (las celdas)
+  es el mismo en ambas grillas, así que puedes cambiar de una a otra cuando
+  quieras.
 - La fuente usa un sistema de **UPM** (por defecto 1000 unidades por em).
 - Cada celda mide un número fijo de unidades (por defecto 50), así que la
   grilla queda mapeada a las unidades de la fuente.
@@ -92,10 +104,13 @@ curvatura de esos círculos define el carácter de la letra.
   glifos cambiarán, y se puede deshacer.
 
 ### Forma
-- **Curvatura global** para toda la fuente, con la opción de darle a un glifo
-  su **curvatura propia** (marcada con un punto azul en el mapa) y volver
-  con **Usar curvatura global**.
-- **Unión mínima** (activada por defecto, 15 u): engrosa las puntas donde dos
+- **Curvatura global** (grilla de círculos) o **redondeo global** de las
+  esquinas (grilla de puntos), con la opción de darle a un glifo un valor
+  propio (marcado con un punto azul en el mapa) y volver al global.
+- Grilla de puntos: **Estilo** relleno o contorno, y **grosor del contorno**
+  en unidades (hasta casi media celda). El contorno se exporta como tal a la
+  fuente.
+- **Unión mínima** (grilla de círculos; activada por defecto, 15 u): engrosa las puntas donde dos
   estrellas solo se tocan, para que queden unidas con al menos ese grosor. El
   lienzo la muestra mientras dibujas, así lo que ves es lo que se exporta.
 - Colores de tinta y fondo.

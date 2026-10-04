@@ -2,7 +2,8 @@
 
 import { key, parseKey } from "./geometry.js";
 import {
-  METRICS, createGlyph, normalizeFont, glyphCurve, setMetric, sameMetrics,
+  METRICS, createGlyph, normalizeFont, setMetric, sameMetrics,
+  GRIDS, glyphGrid, shapeKey, hasOwnShape,
   planFit, applyFit, advanceWidth, resolvedCells, canUseComponent, dependents,
   kerningValue, setKerning, layoutText,
 } from "./model.js";
@@ -181,7 +182,8 @@ function updateThumb(char) {
   label.className = "cm-label";
   label.textContent = char === " " ? "esp" : char;
   cell.replaceChildren(svg, label);
-  if (g.curve != null) cell.appendChild(marker("own-dot", "Usa curvatura propia"));
+  if (hasOwnShape(font, g)) cell.appendChild(marker("own-dot", "Usa curvatura o redondeo propio"));
+  if (g.grid != null) cell.appendChild(marker("grid-mark", `Grilla propia: ${GRIDS[g.grid]}`));
   if (g.components.length) cell.appendChild(marker("comp-mark", "Compuesto con componentes"));
   cell.classList.toggle("empty", empty);
   cell.classList.toggle("active", char === font.active);
@@ -217,7 +219,7 @@ function renderGallery() {
     const svg = document.createElementNS(SVG_NS, "svg");
     drawGlyph(svg, font, draft, { frame: "advance" });
     item.appendChild(svg);
-    if (draft.curve != null) item.appendChild(marker("own-dot", "Usa curvatura propia"));
+    if (hasOwnShape(font, draft)) item.appendChild(marker("own-dot", "Usa curvatura o redondeo propio"));
     item.addEventListener("click", () => {
       checkpoint();
       const { lsb, rsb } = glyph();
@@ -482,6 +484,7 @@ $("background").addEventListener("change", (e) => {
 });
 
 function buildToolbar() {
+  for (const [value, name] of Object.entries(GRIDS)) $("gridType").appendChild(new Option(name, value));
   for (const [value, name] of Object.entries(AXES)) {
     $("mirrorAxis").appendChild(new Option(name, value));
   }
@@ -589,6 +592,10 @@ function syncGlyphPanel() {
   $("glyphChar").textContent = char === " " ? "␣" : char;
   $("glyphName").textContent = glyphName(char);
   $("glyphCode").textContent = codepoint(char);
+  const gridSelect = $("glyphGrid");
+  gridSelect.replaceChildren(new Option(`Como la fuente (${GRIDS[font.grid]})`, ""));
+  for (const [value, name] of Object.entries(GRIDS)) gridSelect.appendChild(new Option(name, value));
+  gridSelect.value = g.grid ?? "";
   $("cols").value = g.cols;
   $("colsOut").textContent = g.cols;
   $("lsb").value = g.lsb;
@@ -678,6 +685,7 @@ $("copyFrom").addEventListener("click", () => {
   const g = glyph();
   Object.assign(g, {
     cells: [...src.cells], cols: src.cols, lsb: src.lsb, rsb: src.rsb, curve: src.curve,
+    grid: src.grid, rounding: src.rounding,
     metrics: { ...src.metrics },
     components: src.components.filter((c) => canUseComponent(font, font.active, c.glyph)).map((c) => ({ ...c })),
   });
@@ -749,13 +757,32 @@ function syncControls() {
   $("gridOpacity").value = Math.round(font.view.gridOpacity * 100);
   $("gridOpacityOut").textContent = Math.round(font.view.gridOpacity * 100) + "%";
   $("gridOpacity").disabled = !font.view.guides;
-  $("curve").value = Math.round(font.curve * 100);
-  $("curveOut").textContent = Math.round(font.curve * 100) + "%";
-  const own = g.curve != null;
+  // The shape controls edit the setting of the active glyph's grid:
+  // circle size for circles, corner rounding for squares.
+  const squares = glyphGrid(font, g) === "squares";
+  const k = shapeKey(font, g);
+  const word = squares ? "Redondeo" : "Curvatura";
+  const pct = (v) => Math.round(v * 100) + "%";
+  for (const id of ["curve", "glyphCurve"]) $(id).min = squares ? 0 : 20;
+  $("curveLabel").textContent = `${word} global`;
+  $("curve").value = Math.round(font[k] * 100);
+  $("curveOut").textContent = pct(font[k]);
+  const own = g[k] != null;
   $("glyphCurveGlobal").hidden = own;
   $("glyphCurveOwn").hidden = !own;
-  $("glyphCurve").value = Math.round(glyphCurve(font, g) * 100);
-  $("glyphCurveOut").textContent = Math.round(glyphCurve(font, g) * 100) + "%";
+  $("glyphCurveText").textContent = `Este glifo usa ${squares ? "el redondeo global" : "la curvatura global"}.`;
+  $("ownCurve").textContent = `${word} propi${squares ? "o" : "a"}`;
+  $("glyphCurveLabel").textContent = `${word} propi${squares ? "o" : "a"}`;
+  $("useGlobal").textContent = `Usar ${squares ? "redondeo global" : "curvatura global"}`;
+  $("glyphCurve").value = Math.round((g[k] ?? font[k]) * 100);
+  $("glyphCurveOut").textContent = pct(g[k] ?? font[k]);
+  $("circleOptions").hidden = squares;
+  $("squareOptions").hidden = !squares;
+  $("style").value = font.style;
+  $("stroke").value = font.stroke;
+  $("stroke").max = Math.floor(font.cell * 0.45);
+  $("stroke").disabled = font.style !== "outline";
+  $("gridType").value = font.grid;
   $("join").checked = font.join.enabled;
   $("joinWidth").value = font.join.width;
   $("joinWidth").disabled = !font.join.enabled;
@@ -801,10 +828,14 @@ bind("cell", "change", (t) => { font.cell = clampNum(+t.value, 5, 250, font.cell
 bind("upm", "change", (t) => { font.upm = clampNum(Math.round(+t.value), 16, 16384, font.upm); }, null);
 bind("guides", "change", (t) => { font.view.guides = t.checked; }, null);
 bind("gridOpacity", "input", (t) => { font.view.gridOpacity = t.value / 100; }, null);
-bind("curve", "input", (t) => { font.curve = t.value / 100; }, "font");
-bind("glyphCurve", "input", (t) => { glyph().curve = t.value / 100; });
-bind("ownCurve", "click", () => { glyph().curve = font.curve; });
-bind("useGlobal", "click", () => { glyph().curve = null; });
+bind("curve", "input", (t) => { font[shapeKey(font, glyph())] = t.value / 100; }, "font");
+bind("glyphCurve", "input", (t) => { glyph()[shapeKey(font, glyph())] = t.value / 100; });
+bind("ownCurve", "click", () => { const k = shapeKey(font, glyph()); glyph()[k] = font[k]; });
+bind("useGlobal", "click", () => { glyph()[shapeKey(font, glyph())] = null; });
+bind("gridType", "change", (t) => { font.grid = t.value; }, "font");
+bind("glyphGrid", "change", (t) => { glyph().grid = t.value || null; });
+bind("style", "change", (t) => { font.style = t.value; }, "font");
+bind("stroke", "change", (t) => { font.stroke = clampNum(Math.round(+t.value), 1, Math.floor(font.cell * 0.45), font.stroke); }, "font");
 bind("join", "change", (t) => { font.join.enabled = t.checked; }, "font");
 bind("joinWidth", "change", (t) => { font.join.width = clampNum(+t.value, 1, 250, font.join.width); }, "font");
 bind("ink", "input", (t) => { font.view.ink = t.value; }, "font");

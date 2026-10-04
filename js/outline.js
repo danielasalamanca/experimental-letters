@@ -203,3 +203,62 @@ function holeContour(P, geo) {
   }
   return b.close();
 }
+
+// --- Square grid ---
+// Each filled cell is a square, so the ink is the union of the squares:
+// exactly the traced loops. `rounding` (0–1) rounds every corner with a
+// radius of up to half a cell: outer corners get a fillet inside the ink,
+// inner corners a fillet that fills the empty corner.
+//
+// With `stroke` (in cells, below 0.5) the glyph is an outline instead: the
+// ink minus a copy inset by `stroke`. Insetting a rounded corner of radius r
+// gives r − stroke on outer corners and r + stroke on inner ones, so the
+// inset loop is built the same way and added in the opposite direction.
+export const MAX_STROKE = 0.45;
+
+export function squareContours(cells, { rounding = 0, stroke = 0 }) {
+  const set = new Set(cells);
+  const has = (c, r) => set.has(key(c, r));
+  const radius = Math.min(Math.max(rounding, 0), 1) / 2;
+  const t = Math.min(Math.max(stroke, 0), MAX_STROKE);
+  const contours = [];
+  for (const loop of traceLoops(set, has)) {
+    const corners = loop.map((v) => ({ ...v, turn: (v.dout - v.din + 4) % 4 })).filter((v) => v.turn !== 0);
+    contours.push(roundedLoop(corners.map((v) => ({ ...v, r: radius }))));
+    if (t > 0) {
+      const inset = corners.map((v) => {
+        const [ax, ay] = DIRS[(v.din + 1) % 4], [bx, by] = DIRS[(v.dout + 1) % 4];
+        return {
+          x: v.x + t * (ax + bx), y: v.y + t * (ay + by),
+          // Reversed: the inset is a hole in the ink.
+          din: (v.dout + 2) % 4, dout: (v.din + 2) % 4,
+          r: v.turn === 1 ? Math.max(radius - t, 0) : radius + t,
+        };
+      }).reverse();
+      contours.push(roundedLoop(inset));
+    }
+  }
+  return contours;
+}
+
+// A loop of corners joined by straight edges; each corner is cut by a
+// quarter circle of radius r tangent to both edges.
+function roundedLoop(corners) {
+  const b = new Builder();
+  const K = 0.5522847498; // cubic approximation of a quarter circle
+  const ends = corners.map((v) => {
+    const [ix, iy] = DIRS[v.din], [ox, oy] = DIRS[v.dout];
+    return { v, s: [v.x - v.r * ix, v.y - v.r * iy], e: [v.x + v.r * ox, v.y + v.r * oy], ix, iy, ox, oy };
+  });
+  b.moveTo(ends[0].e);
+  for (let i = 1; i <= ends.length; i++) {
+    const { v, s, e, ix, iy, ox, oy } = ends[i % ends.length];
+    b.lineTo(s);
+    if (v.r > EPS) {
+      const k = K * v.r;
+      b.cmds.push({ type: "C", x1: s[0] + k * ix, y1: s[1] + k * iy, x2: e[0] - k * ox, y2: e[1] - k * oy, x: e[0], y: e[1] });
+      b.cur = e;
+    }
+  }
+  return b.close();
+}

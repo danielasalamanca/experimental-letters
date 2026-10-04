@@ -113,6 +113,10 @@ body {
   font-size: 17px; color: #c5c3bd;
 }
 .cm-cell.active { outline: 2px solid var(--fg); outline-offset: -1px; }
+.grid-mark {
+  position: absolute; bottom: 14px; right: 3px;
+  width: 6px; height: 6px; background: #d97706;
+}
 .comp-mark {
   position: absolute; top: 3px; left: 3px;
   width: 7px; height: 7px; border: 1.5px solid var(--sb); border-radius: 1px;

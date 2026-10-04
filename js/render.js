@@ -2,7 +2,8 @@
 // Font units have y up; SVG has y down, so every y is negated here.
 
 import { starPath, joinBridges, parseKey } from "./geometry.js";
-import { METRICS, glyphCurve, resolvedCells, advanceWidth, layoutText } from "./model.js";
+import { squareContours } from "./outline.js";
+import { METRICS, glyphShape, glyphGrid, resolvedCells, advanceWidth, layoutText } from "./model.js";
 
 export const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -88,7 +89,24 @@ export function drawGlyph(svg, font, glyph, opts = {}) {
     svg.appendChild(zones);
   }
 
-  if (guides) {
+  if (guides && glyphGrid(font, glyph) === "squares") {
+    // Dot grid, like a dotted notebook: a dot on every cell corner.
+    const g = el("g", { opacity: font.view.gridOpacity ?? 1 });
+    const lines = el("g", { stroke: "#e2e0da", "stroke-width": 1 });
+    for (let c = 0; c <= cols; c++) {
+      lines.appendChild(el("line", { x1: c * cu, x2: c * cu, y1: -hi * cu, y2: -lo * cu, "vector-effect": "non-scaling-stroke" }));
+    }
+    for (let r = lo; r <= hi; r++) {
+      lines.appendChild(el("line", { x1: 0, x2: cols * cu, y1: -r * cu, y2: -r * cu, "vector-effect": "non-scaling-stroke" }));
+    }
+    g.appendChild(lines);
+    const dots = el("g", { fill: "#8f8d88" });
+    for (let c = 0; c <= cols; c++) {
+      for (let r = lo; r <= hi; r++) dots.appendChild(el("circle", { cx: c * cu, cy: -r * cu, r: cu * 0.06 }));
+    }
+    g.appendChild(dots);
+    svg.appendChild(g);
+  } else if (guides) {
     const g = el("g", { fill: "none", stroke: "#c8c8c8", "stroke-width": 1, opacity: font.view.gridOpacity ?? 1 });
     for (let c = 0; c <= cols; c++) {
       for (let r = lo; r <= hi; r++) {
@@ -101,22 +119,22 @@ export function drawGlyph(svg, font, glyph, opts = {}) {
 
   if (opts.background) {
     const bg = opts.background;
-    const layer = drawShapes(font, resolvedCells(font, bg), glyphCurve(font, bg), BACKGROUND_COLOR,
+    const layer = drawShapes(font, resolvedCells(font, bg), glyphShape(font, bg), BACKGROUND_COLOR,
       { lo, hi, cols: Math.max(cols, bg.cols) });
     layer.setAttribute("opacity", 0.25);
     svg.appendChild(layer);
   }
 
-  const curve = glyphCurve(font, glyph);
+  const shape = glyphShape(font, glyph);
   const all = resolvedCells(font, glyph);
   if (components && all.length > glyph.cells.length) {
     // Component cells are drawn lighter so the glyph's own drawing stands out.
-    const faint = drawShapes(font, all, curve, ink, bounds);
+    const faint = drawShapes(font, all, shape, ink, bounds);
     faint.setAttribute("opacity", 0.35);
     svg.appendChild(faint);
-    svg.appendChild(drawShapes(font, glyph.cells, curve, ink, bounds));
+    svg.appendChild(drawShapes(font, glyph.cells, shape, ink, bounds));
   } else {
-    svg.appendChild(drawShapes(font, all, curve, ink, bounds));
+    svg.appendChild(drawShapes(font, all, shape, ink, bounds));
   }
 
   if (metrics) {
@@ -170,14 +188,21 @@ function label(x, y, text, cu) {
   return t;
 }
 
-// The ink: one path per star plus the "unión mínima" bridges.
-export function drawShapes(font, cellList, curve, ink, { lo, hi, cols }) {
+// The ink. Circle grid: one path per star plus the "unión mínima" bridges.
+// Square grid: a single path with the outline of the rounded squares
+// (the same contours the .otf uses).
+export function drawShapes(font, cellList, { grid, curve, rounding }, ink, { lo, hi, cols }) {
   const cu = font.cell;
   const cells = cellList.filter((k) => {
     const [c, r] = parseKey(k);
     return c >= 0 && c < cols && r >= lo && r < hi;
   });
   const g = el("g", { fill: ink });
+  if (grid === "squares") {
+    const stroke = font.style === "outline" ? font.stroke / cu : 0;
+    g.appendChild(el("path", { d: contoursToPath(squareContours(cells, { rounding, stroke }), cu) }));
+    return g;
+  }
   for (const k of cells) {
     const [c, r] = parseKey(k);
     g.appendChild(el("path", { d: starPath(c * cu, -(r + 1) * cu, cu, curve) }));
@@ -222,7 +247,7 @@ export function drawText(svg, font, text, { size, ink, paper, pair = null, metri
     const id = `t${ids.size}`;
     ids.set(char, id);
     const cells = resolvedCells(font, glyph);
-    const shapes = drawShapes(font, cells, glyphCurve(font, glyph), ink, { lo: -1e6, hi: 1e6, cols: glyph.cols });
+    const shapes = drawShapes(font, cells, glyphShape(font, glyph), ink, { lo: -1e6, hi: 1e6, cols: glyph.cols });
     shapes.setAttribute("id", id);
     defs.appendChild(shapes);
   }
@@ -281,4 +306,18 @@ export function drawText(svg, font, text, { size, ink, paper, pair = null, metri
     }));
   }
   return layout;
+}
+
+// Contours in cells (y up) as an SVG path in units (y down).
+export function contoursToPath(contours, cu) {
+  const n = (v) => Math.round(v * cu * 100) / 100;
+  const parts = [];
+  for (const contour of contours) {
+    for (const c of contour) {
+      if (c.type === "M" || c.type === "L") parts.push(`${c.type}${n(c.x)},${n(-c.y)}`);
+      else if (c.type === "C") parts.push(`C${n(c.x1)},${n(-c.y1)} ${n(c.x2)},${n(-c.y2)} ${n(c.x)},${n(-c.y)}`);
+      else parts.push("Z");
+    }
+  }
+  return parts.join(" ");
 }

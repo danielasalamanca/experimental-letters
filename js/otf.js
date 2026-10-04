@@ -1,10 +1,10 @@
 // Font export: builds an OpenType (CFF) font with opentype.js, then adds a
 // GPOS table with the kerning pairs, which opentype.js cannot write.
 
-import { glyphContours } from "./outline.js";
+import { glyphContours, squareContours } from "./outline.js";
 import { parseKey } from "./geometry.js";
 import { CHARSET, glyphName } from "./charset.js";
-import { advanceWidth, resolvedCells, glyphCurve } from "./model.js";
+import { advanceWidth, resolvedCells, glyphShape } from "./model.js";
 
 const loadOpentype = () => import("./vendor/opentype.min.js");
 
@@ -57,11 +57,15 @@ export function glyphPath(opentype, font, glyph, mode) {
     const [c] = parseKey(k);
     return c >= 0 && c < glyph.cols;
   });
+  const shape = glyphShape(font, glyph);
   const joinWidth = mode === "join" && font.join.enabled ? font.join.width / cu : 0;
+  const contours = shape.grid === "squares"
+    ? squareContours(cells, { rounding: shape.rounding, stroke: font.style === "outline" ? font.stroke / cu : 0 })
+    : glyphContours(cells, { curve: shape.curve, joinWidth });
   const path = new opentype.Path();
   const X = (x) => Math.round(glyph.lsb + x * cu);
   const Y = (y) => Math.round(y * cu);
-  for (const contour of glyphContours(cells, { curve: glyphCurve(font, glyph), joinWidth })) {
+  for (const contour of contours) {
     let last = null;
     for (const c of contour) {
       if (c.type === "M") { path.moveTo(X(c.x), Y(c.y)); last = [X(c.x), Y(c.y)]; }

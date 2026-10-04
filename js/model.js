@@ -39,10 +39,10 @@ const SAMPLE_A = [
 // `metrics` remembers the metrics it was drawn with (see planFit).
 export function createGlyph({
   cols = 8, cells = [], curve = null, metrics = DEFAULT_METRICS,
-  lsb = 50, rsb = 50, components = [],
+  lsb = 50, rsb = 50, components = [], grid = null, rounding = null,
 } = {}) {
   return {
-    cols, cells: [...cells], curve, metrics: { ...metrics }, lsb, rsb,
+    cols, cells: [...cells], curve, metrics: { ...metrics }, lsb, rsb, grid, rounding,
     components: components.map((c) => ({ glyph: c.glyph, dx: c.dx ?? 0, dy: c.dy ?? 0 })),
   };
 }
@@ -88,8 +88,14 @@ export function createFont() {
     cell: 50,
     metrics: { ...DEFAULT_METRICS },
     overshoot: 12,
+    // Grid type: "circles" (stars between circles) or "squares" (dot grid).
+    grid: "circles",
     curve: 1,
     join: { enabled: true, width: 15 },
+    // Square grid: corner rounding (0–1), fill or outline, outline width (u).
+    rounding: 0.3,
+    style: "fill",
+    stroke: 12,
     view: {
       ink: "#1d1d1b", paper: "#ffffff", guides: true, metrics: true,
       mirrorH: false, mirrorV: false, mirrorAxis: "auto", background: "",
@@ -158,7 +164,25 @@ export function normalizeFont(data) {
   return font;
 }
 
+export const GRIDS = { circles: "Círculos (estrellas)", squares: "Puntos (cuadrados)" };
+
+export const glyphGrid = (font, glyph) => glyph.grid ?? font.grid;
+
 export const glyphCurve = (font, glyph) => glyph.curve ?? font.curve;
+
+export const glyphRounding = (font, glyph) => glyph.rounding ?? font.rounding;
+
+// The shape setting that the "Curvatura" controls edit for this glyph's grid.
+export const shapeKey = (font, glyph) => (glyphGrid(font, glyph) === "squares" ? "rounding" : "curve");
+
+export const hasOwnShape = (font, glyph) => glyph[shapeKey(font, glyph)] != null;
+
+// Everything needed to draw a glyph's cells.
+export const glyphShape = (font, glyph) => ({
+  grid: glyphGrid(font, glyph),
+  curve: glyphCurve(font, glyph),
+  rounding: glyphRounding(font, glyph),
+});
 
 export const advanceWidth = (font, glyph) => glyph.lsb + glyph.cols * font.cell + glyph.rsb;
 

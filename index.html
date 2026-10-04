@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
-  <link rel="stylesheet" href="style.css?v=6">
+  <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
   <header class="topbar">
@@ -81,6 +81,7 @@
           <span id="glyphChar" class="glyph-char"></span>
           <span><strong id="glyphName"></strong><br><small id="glyphCode"></small></span>
         </div>
+        <label class="row">Grilla de este glifo <select id="glyphGrid"></select></label>
         <label>Columnas <output id="colsOut"></output>
           <input type="range" id="cols" min="1" max="24">
         </label>
@@ -108,10 +109,11 @@
 
       <fieldset>
         <legend>Grilla</legend>
+        <label class="row">Tipo de grilla <select id="gridType"></select></label>
         <label class="row">Unidades por celda <input type="number" id="cell" min="5" max="250" step="5"></label>
         <label class="row">UPM (unidades por em) <input type="number" id="upm" min="16" max="16384" step="1"></label>
         <p class="info" id="gridInfo"></p>
-        <label class="check"><input type="checkbox" id="guides"> Mostrar círculos</label>
+        <label class="check"><input type="checkbox" id="guides"> Mostrar grilla</label>
         <label>Opacidad de la grilla <output id="gridOpacityOut"></output>
           <input type="range" id="gridOpacity" min="5" max="100" step="5">
         </label>
@@ -119,21 +121,32 @@
 
       <fieldset>
         <legend>Forma</legend>
-        <label>Curvatura global <output id="curveOut"></output>
+        <label><span id="curveLabel">Curvatura global</span> <output id="curveOut"></output>
           <input type="range" id="curve" min="20" max="100">
         </label>
         <div id="glyphCurveGlobal" class="glyph-curve">
-          <span>Este glifo usa la curvatura global.</span>
+          <span id="glyphCurveText">Este glifo usa la curvatura global.</span>
           <button id="ownCurve" type="button">Curvatura propia</button>
         </div>
         <div id="glyphCurveOwn" class="glyph-curve own" hidden>
-          <label>Curvatura propia <span class="badge">propia</span> <output id="glyphCurveOut"></output>
+          <label><span id="glyphCurveLabel">Curvatura propia</span> <span class="badge">propia</span> <output id="glyphCurveOut"></output>
             <input type="range" id="glyphCurve" min="20" max="100">
           </label>
           <button id="useGlobal" type="button">Usar curvatura global</button>
         </div>
-        <label class="check"><input type="checkbox" id="join"> Unión mínima</label>
-        <label class="row">Grosor de unión (u) <input type="number" id="joinWidth" min="1" max="250" step="1"></label>
+        <div id="circleOptions">
+          <label class="check"><input type="checkbox" id="join"> Unión mínima</label>
+          <label class="row">Grosor de unión (u) <input type="number" id="joinWidth" min="1" max="250" step="1"></label>
+        </div>
+        <div id="squareOptions" hidden>
+          <label class="row">Estilo
+            <select id="style">
+              <option value="fill">Relleno</option>
+              <option value="outline">Contorno</option>
+            </select>
+          </label>
+          <label class="row">Grosor del contorno (u) <input type="number" id="stroke" min="1" step="1"></label>
+        </div>
         <label class="row color">Tinta <input type="color" id="ink"></label>
         <label class="row color">Fondo <input type="color" id="paper"></label>
       </fieldset>
@@ -215,17 +228,17 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=6",
-        "./js/geometry.js": "./js/geometry.js?v=6",
-        "./js/model.js": "./js/model.js?v=6",
-        "./js/render.js": "./js/render.js?v=6",
-        "./js/tools.js": "./js/tools.js?v=6",
-        "./js/outline.js": "./js/outline.js?v=6",
-        "./js/otf.js": "./js/otf.js?v=6",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=6"
+        "./js/charset.js": "./js/charset.js?v=7",
+        "./js/geometry.js": "./js/geometry.js?v=7",
+        "./js/model.js": "./js/model.js?v=7",
+        "./js/render.js": "./js/render.js?v=7",
+        "./js/tools.js": "./js/tools.js?v=7",
+        "./js/outline.js": "./js/outline.js?v=7",
+        "./js/otf.js": "./js/otf.js?v=7",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=7"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=6"></script>
+  <script type="module" src="js/main.js?v=7"></script>
 </body>
 </html>
