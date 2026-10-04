@@ -223,10 +223,54 @@ dialog h3 { margin: 0 0 8px; font-size: 16px; }
 dialog p { margin: 0 0 16px; line-height: 1.45; }
 dialog::backdrop { background: rgba(0, 0, 0, 0.25); }
 
+/* Bottom bar: text test and kerning */
+.testbar {
+  flex: none;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  padding: 10px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 42vh;
+}
+.test-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.test-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+#testText {
+  flex: 1 1 260px;
+  min-width: 0;
+  font: inherit;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  resize: vertical;
+  min-height: 30px;
+  max-height: 120px;
+}
+#testPreset { font: inherit; font-size: 12px; padding: 4px; border: 1px solid var(--line); background: var(--surface); max-width: 180px; }
+.segmented { display: flex; }
+.segmented .tool + .tool { border-left: 0; }
+.kern { display: flex; align-items: center; gap: 4px; }
+.kern-label { font-size: 12px; color: var(--muted); margin-right: 2px; }
+.kern-pair { min-width: 34px; text-align: center; font-size: 15px; color: #d6249f; }
+#kernValue { width: 64px; }
+.test-view {
+  overflow: auto;
+  min-height: 60px;
+  border: 1px solid var(--line);
+  cursor: text;
+  outline: none;
+}
+.test-view:focus-visible { border-color: #d6249f; }
+.test-view svg { display: block; }
+.kern-list { display: flex; flex-wrap: wrap; gap: 4px; font-size: 12px; color: var(--muted); min-height: 20px; }
+.kern-chip { padding: 2px 8px; font-size: 12px; border-color: var(--line); font-variant-numeric: tabular-nums; }
+.kern-chip.active { border-color: #d6249f; color: #d6249f; }
+
 @media (max-width: 900px) {
   body { display: block; }
   .app { grid-template-columns: 1fr; }
   .zone-center { order: -1; height: 80vh; padding: 12px; }
   .zone-left, .zone-right { border: 0; border-top: 1px solid var(--line); }
+  .testbar { max-height: none; }
   #board { max-height: none; }
 }

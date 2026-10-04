@@ -92,7 +92,10 @@ export function createFont() {
     view: {
       ink: "#1d1d1b", paper: "#ffffff", guides: true, metrics: true,
       mirrorH: false, mirrorV: false, mirrorAxis: "auto", background: "",
+      gridOpacity: 1,
+      test: { text: "hamburgefonstiv", size: 72, inverted: false },
     },
+    kerning: {},
     active: "a",
     glyphs: { a: createGlyph({ cells: SAMPLE_A }) },
     drafts: [],
@@ -140,7 +143,8 @@ export function normalizeFont(data) {
     ...data,
     metrics: { ...base.metrics, ...data.metrics },
     join: { ...base.join, ...data.join },
-    view: { ...base.view, ...data.view },
+    view: { ...base.view, ...data.view, test: { ...base.view.test, ...data.view?.test } },
+    kerning: { ...data.kerning },
     glyphs: { ...data.glyphs },
     drafts: [...(data.drafts ?? [])],
   };
@@ -286,4 +290,43 @@ export function applyFit(font, plan) {
     glyph.cells = cells;
     glyph.metrics = { ...font.metrics };
   }
+}
+
+// --- Spacing and kerning ---
+// Kerning pairs are stored as two-character keys, e.g. "AV": -40 (units).
+
+export const pairKey = (left, right) => left + right;
+
+export const kerningValue = (font, left, right) => font.kerning[pairKey(left, right)] ?? 0;
+
+export function setKerning(font, left, right, value) {
+  const k = pairKey(left, right);
+  const v = Math.round(value);
+  if (v === 0) delete font.kerning[k];
+  else font.kerning[k] = v;
+}
+
+// Characters outside the set are shown as an empty box this wide.
+export const missingAdvance = (font) => Math.round(font.upm / 2);
+
+// Places each character of `text` using advance widths, sidebearings and
+// kerning. Returns one item per character: { char, line, index, x, advance,
+// glyph, kern } where `kern` is the kerning applied after it.
+export function layoutText(font, text) {
+  const items = [];
+  const lines = text.split("\n");
+  let width = 0;
+  lines.forEach((line, li) => {
+    const chars = [...line];
+    let x = 0;
+    chars.forEach((char, i) => {
+      const glyph = font.glyphs[char] ?? null;
+      const advance = glyph ? advanceWidth(font, glyph) : missingAdvance(font);
+      const kern = i + 1 < chars.length ? kerningValue(font, char, chars[i + 1]) : 0;
+      items.push({ char, line: li, index: i, x, advance, glyph, kern });
+      x += advance + kern;
+    });
+    width = Math.max(width, x);
+  });
+  return { items, lines: lines.length, width };
 }

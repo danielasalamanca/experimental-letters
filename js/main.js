@@ -4,9 +4,10 @@ import { key, parseKey } from "./geometry.js";
 import {
   METRICS, createGlyph, normalizeFont, glyphCurve, setMetric, sameMetrics,
   planFit, applyFit, advanceWidth, resolvedCells, canUseComponent, dependents,
+  kerningValue, setKerning, layoutText,
 } from "./model.js";
 import { GROUPS, CHARSET, glyphName, fileName, codepoint } from "./charset.js";
-import { drawGlyph, el, SVG_NS } from "./render.js";
+import { drawGlyph, drawText, el, SVG_NS } from "./render.js";
 import { AXES, axisRows, mirrorKeys, translate, cellsInRect, connectedCells } from "./tools.js";
 
 const STORAGE_KEY = "experimental-letters:v2";
@@ -84,6 +85,7 @@ function render(scope = "glyph") {
   updateInfo();
   if (scope === "font") renderCharmap();
   else if (scope === "glyph") dependents(font, font.active).forEach(updateThumb);
+  if (scope) scheduleTest();
   persist();
 }
 
@@ -541,7 +543,7 @@ function paste() {
 }
 
 window.addEventListener("keydown", (e) => {
-  if (e.target.matches?.("input, select, textarea")) return;
+  if (e.target.matches?.("input, select, textarea") || e.target.closest?.(".testbar")) return;
   const mod = e.metaKey || e.ctrlKey;
   const k = e.key.toLowerCase();
   if (mod) {
@@ -744,6 +746,9 @@ function syncControls() {
   $("cell").value = font.cell;
   $("upm").value = font.upm;
   $("guides").checked = font.view.guides;
+  $("gridOpacity").value = Math.round(font.view.gridOpacity * 100);
+  $("gridOpacityOut").textContent = Math.round(font.view.gridOpacity * 100) + "%";
+  $("gridOpacity").disabled = !font.view.guides;
   $("curve").value = Math.round(font.curve * 100);
   $("curveOut").textContent = Math.round(font.curve * 100) + "%";
   const own = g.curve != null;
@@ -794,6 +799,7 @@ bind("rsb", "change", (t) => { glyph().rsb = clampNum(Math.round(+t.value), -100
 bind("cell", "change", (t) => { font.cell = clampNum(+t.value, 5, 250, font.cell); }, "font");
 bind("upm", "change", (t) => { font.upm = clampNum(Math.round(+t.value), 16, 16384, font.upm); }, null);
 bind("guides", "change", (t) => { font.view.guides = t.checked; }, null);
+bind("gridOpacity", "input", (t) => { font.view.gridOpacity = t.value / 100; }, null);
 bind("curve", "input", (t) => { font.curve = t.value / 100; }, "font");
 bind("glyphCurve", "input", (t) => { glyph().curve = t.value / 100; });
 bind("ownCurve", "click", () => { glyph().curve = font.curve; });
@@ -866,6 +872,167 @@ $("fit").addEventListener("click", () => {
   };
   dialog.showModal();
 });
+
+// --- Text test bar ---
+const PRESETS = [
+  "hamburgefonstiv",
+  "HOHOHOH nonono",
+  "Hamburgefonstiv",
+  "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ",
+  "abcdefghijklmnñopqrstuvwxyz",
+  "0123456789 .,;:!?-'\"()",
+  "AV To Ta Ye LT Wa",
+  "El veloz murciélago hindú comía feliz cardillo y kiwi.",
+  "niño año ñandú canción",
+];
+const KERN_STEP = 10;
+
+let kernPair = null; // { left, right, line, index } — line/index when it is in the text
+let testLayout = null;
+let testFrame = 0;
+
+function scheduleTest() {
+  if (testFrame) return;
+  testFrame = requestAnimationFrame(() => {
+    testFrame = 0;
+    renderTest();
+  });
+}
+
+function renderTest() {
+  const t = font.view.test;
+  const ink = t.inverted ? font.view.paper : font.view.ink;
+  const paper = t.inverted ? font.view.ink : font.view.paper;
+  // Keep the pair's position only while the text still has it there.
+  if (kernPair?.line != null) {
+    const items = layoutText(font, t.text).items;
+    const i = items.findIndex((it) => it.line === kernPair.line && it.index === kernPair.index);
+    if (i < 0 || items[i].char !== kernPair.left || items[i + 1]?.char !== kernPair.right || items[i + 1]?.line !== kernPair.line) {
+      kernPair = { left: kernPair.left, right: kernPair.right };
+    }
+  }
+  testLayout = drawText($("testSvg"), font, t.text, {
+    size: t.size, ink, paper, pair: kernPair?.line != null ? kernPair : null,
+  });
+  $("testView").style.background = paper;
+  syncTestControls();
+}
+
+function syncTestControls() {
+  const t = font.view.test;
+  if ($("testText").value !== t.text) $("testText").value = t.text;
+  document.querySelectorAll(".segmented [data-size]").forEach((b) => b.classList.toggle("active", +b.dataset.size === t.size));
+  $("testInvert").classList.toggle("active", t.inverted);
+  $("testInvert").setAttribute("aria-pressed", t.inverted);
+
+  const has = !!kernPair;
+  $("kernPair").textContent = has ? `${kernPair.left}${kernPair.right}` : "—";
+  $("kernValue").value = has ? kerningValue(font, kernPair.left, kernPair.right) : "";
+  for (const id of ["kernMinus", "kernValue", "kernPlus", "kernClear"]) $(id).disabled = !has;
+
+  const list = $("kernList");
+  list.replaceChildren();
+  const pairs = Object.entries(font.kerning);
+  if (!pairs.length) {
+    list.textContent = "Clic entre dos letras del texto para ajustar su kerning (también con ← →).";
+    return;
+  }
+  for (const [pair, value] of pairs) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "kern-chip";
+    chip.classList.toggle("active", has && pair === kernPair.left + kernPair.right);
+    chip.textContent = `${pair} ${value > 0 ? "+" : ""}${value}`;
+    chip.addEventListener("click", () => {
+      const [left, right] = [...pair];
+      const at = testLayout.items.find((it, i, all) => it.char === left && all[i + 1]?.char === right && all[i + 1].line === it.line);
+      kernPair = at ? { left, right, line: at.line, index: at.index } : { left, right };
+      renderTest();
+    });
+    list.appendChild(chip);
+  }
+}
+
+function setPairKerning(value) {
+  if (!kernPair) return;
+  checkpoint("kern");
+  setKerning(font, kernPair.left, kernPair.right, value);
+  renderTest();
+  updateInfo();
+  persist();
+}
+
+const adjustKerning = (delta) => kernPair && setPairKerning(kerningValue(font, kernPair.left, kernPair.right) + delta);
+
+// Clicking the right half of a letter picks the pair it forms with the next
+// one; the left half picks the pair with the previous one.
+function pairFromEvent(evt) {
+  const hit = evt.target.closest?.(".t-hit");
+  if (!hit) return null;
+  const line = +hit.dataset.line, index = +hit.dataset.index;
+  const box = hit.getBoundingClientRect();
+  const leftIndex = evt.clientX > box.left + box.width / 2 ? index : index - 1;
+  const items = testLayout.items;
+  const a = items.find((it) => it.line === line && it.index === leftIndex);
+  const b = items.find((it) => it.line === line && it.index === leftIndex + 1);
+  return a && b ? { left: a.char, right: b.char, line, index: leftIndex } : null;
+}
+
+$("testView").addEventListener("click", (evt) => {
+  kernPair = pairFromEvent(evt);
+  $("testView").focus({ preventScroll: true });
+  renderTest();
+});
+
+$("testView").addEventListener("dblclick", (evt) => {
+  const hit = evt.target.closest?.(".t-hit");
+  if (!hit) return;
+  const item = testLayout.items.find((it) => it.line === +hit.dataset.line && it.index === +hit.dataset.index);
+  if (item && font.glyphs[item.char]) selectGlyph(item.char);
+});
+
+$("testView").addEventListener("keydown", (evt) => {
+  const step = evt.shiftKey ? KERN_STEP * 5 : KERN_STEP;
+  if (evt.key === "ArrowLeft" && kernPair) { evt.preventDefault(); adjustKerning(-step); }
+  else if (evt.key === "ArrowRight" && kernPair) { evt.preventDefault(); adjustKerning(step); }
+  else if (evt.key === "Escape") { kernPair = null; renderTest(); }
+});
+
+$("testText").addEventListener("input", (e) => {
+  font.view.test.text = e.target.value;
+  renderTest();
+  persist();
+});
+
+$("testPreset").addEventListener("change", (e) => {
+  if (!e.target.value) return;
+  font.view.test.text = e.target.value;
+  e.target.value = "";
+  kernPair = null;
+  renderTest();
+  persist();
+});
+
+document.querySelectorAll(".segmented [data-size]").forEach((b) => {
+  b.addEventListener("click", () => {
+    font.view.test.size = +b.dataset.size;
+    renderTest();
+    persist();
+  });
+});
+
+$("testInvert").addEventListener("click", () => {
+  font.view.test.inverted = !font.view.test.inverted;
+  renderTest();
+  persist();
+});
+
+$("kernMinus").addEventListener("click", (e) => adjustKerning(e.shiftKey ? -KERN_STEP * 5 : -KERN_STEP));
+$("kernPlus").addEventListener("click", (e) => adjustKerning(e.shiftKey ? KERN_STEP * 5 : KERN_STEP));
+$("kernValue").addEventListener("change", (e) => setPairKerning(+e.target.value || 0));
+$("kernClear").addEventListener("click", () => setPairKerning(0));
+
+for (const text of PRESETS) $("testPreset").appendChild(new Option(text, text));
 
 // --- Export ---
 function exportSvgString() {

@@ -2,7 +2,7 @@
 // Font units have y up; SVG has y down, so every y is negated here.
 
 import { starPath, joinBridges, parseKey } from "./geometry.js";
-import { METRICS, glyphCurve, resolvedCells, advanceWidth } from "./model.js";
+import { METRICS, glyphCurve, resolvedCells, advanceWidth, layoutText } from "./model.js";
 
 export const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -89,7 +89,7 @@ export function drawGlyph(svg, font, glyph, opts = {}) {
   }
 
   if (guides) {
-    const g = el("g", { fill: "none", stroke: "#c8c8c8", "stroke-width": 1 });
+    const g = el("g", { fill: "none", stroke: "#c8c8c8", "stroke-width": 1, opacity: font.view.gridOpacity ?? 1 });
     for (let c = 0; c <= cols; c++) {
       for (let r = lo; r <= hi; r++) {
         g.appendChild(el("rect", { x: c * cu - cu / 2, y: -r * cu - cu / 2, width: cu, height: cu, "vector-effect": "non-scaling-stroke" }));
@@ -188,4 +188,80 @@ export function drawShapes(font, cellList, curve, ink, { lo, hi, cols }) {
     }
   }
   return g;
+}
+
+// --- Test text ---
+export const KERN_COLOR = "#d6249f";
+
+// Draws `text` set in the font. Each distinct glyph is drawn once in <defs>
+// and placed with <use>. Options: size (em in px), ink, paper,
+// pair ({ line, index } of the left character of the selected pair).
+// Returns the layout so the caller can map clicks to characters.
+export function drawText(svg, font, text, { size, ink, paper, pair = null }) {
+  const cu = font.cell;
+  const m = font.metrics;
+  const asc = m.ascender * cu, desc = m.descender * cu;
+  const lineHeight = Math.round((asc - desc) * 1.15);
+  const pad = cu;
+  const layout = layoutText(font, text);
+  const w = Math.max(layout.width, cu) + pad * 2;
+  const h = layout.lines * lineHeight + pad;
+  const top = -asc - pad / 2;
+  const scale = size / font.upm;
+
+  svg.setAttribute("viewBox", `${-pad} ${top} ${w} ${h}`);
+  svg.setAttribute("width", Math.ceil(w * scale));
+  svg.setAttribute("height", Math.ceil(h * scale));
+  svg.replaceChildren();
+  svg.appendChild(el("rect", { x: -pad, y: top, width: w, height: h, fill: paper }));
+
+  const defs = el("defs");
+  const ids = new Map();
+  for (const { char, glyph } of layout.items) {
+    if (!glyph || ids.has(char)) continue;
+    const id = `t${ids.size}`;
+    ids.set(char, id);
+    const cells = resolvedCells(font, glyph);
+    const shapes = drawShapes(font, cells, glyphCurve(font, glyph), ink, { lo: -1e6, hi: 1e6, cols: glyph.cols });
+    shapes.setAttribute("id", id);
+    defs.appendChild(shapes);
+  }
+  svg.appendChild(defs);
+
+  const lineY = (line) => line * lineHeight;
+  for (const item of layout.items) {
+    const y = lineY(item.line);
+    if (item.glyph) {
+      svg.appendChild(el("use", { href: `#${ids.get(item.char)}`, x: item.x + item.glyph.lsb, y }));
+    } else {
+      svg.appendChild(el("rect", {
+        x: item.x + cu / 2, y: y - m.capHeight * cu, width: item.advance - cu, height: m.capHeight * cu,
+        fill: "none", stroke: ink, "stroke-opacity": 0.4, "stroke-dasharray": "10 8", "stroke-width": cu / 10,
+      }));
+    }
+  }
+
+  // Selected kerning pair: a marker between the two characters.
+  const left = pair && layout.items.find((i) => i.line === pair.line && i.index === pair.index);
+  if (left) {
+    const x = left.x + left.advance + left.kern / 2;
+    const y = lineY(left.line);
+    svg.appendChild(el("line", {
+      x1: x, x2: x, y1: y - asc, y2: y - desc, stroke: KERN_COLOR, "stroke-width": 2, "vector-effect": "non-scaling-stroke",
+    }));
+    svg.appendChild(el("rect", {
+      x: left.x, y: y - asc, width: left.advance + left.kern, height: asc - desc,
+      fill: KERN_COLOR, "fill-opacity": 0.06,
+    }));
+  }
+
+  // Invisible hit areas, one per character.
+  for (const item of layout.items) {
+    svg.appendChild(el("rect", {
+      class: "t-hit", "data-line": item.line, "data-index": item.index,
+      x: item.x, y: lineY(item.line) - asc, width: Math.max(item.advance + item.kern, 1), height: asc - desc,
+      fill: "transparent",
+    }));
+  }
+  return layout;
 }

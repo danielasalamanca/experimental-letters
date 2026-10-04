@@ -60,6 +60,22 @@ curvatura de esos círculos define el carácter de la letra.
 - La fuente usa un sistema de **UPM** (por defecto 1000 unidades por em).
 - Cada celda mide un número fijo de unidades (por defecto 50), así que la
   grilla queda mapeada a las unidades de la fuente.
+- **Opacidad de la grilla:** atenúa los círculos de fondo para ver mejor la
+  letra.
+
+### Probar y espaciar
+- La barra inferior **Probar** compone en tiempo real lo que escribas con tu
+  fuente, usando los anchos de avance, márgenes y kerning reales. Admite
+  varias líneas; los caracteres que no están en el set aparecen como una caja
+  punteada.
+- **Textos de prueba** predefinidos (hamburgefonstiv, HOHOHOH nonono,
+  alfabetos, números, pares típicos de kerning y frases en español).
+- **Tamaños:** pequeño, mediano y display. **Invertir** cambia tinta y fondo.
+- **Kerning:** haz clic entre dos letras del texto (en la mitad derecha de la
+  primera o la izquierda de la segunda) para elegir el par; ajústalo con − y +,
+  con las flechas ← → (Shift: de a 50 u) o escribiendo el valor. Los pares
+  ajustados aparecen como etiquetas debajo; clic para volver a uno.
+- **Doble clic** en una letra del texto la abre en el editor.
 
 ### Métricas verticales
 - Líneas guía con nombre y color: **ascendente**, **altura de mayúsculas**,
@@ -131,4 +147,5 @@ npm test
 
 Los tests (`node --test`, sin dependencias) cubren la geometría, la migración
 de datos, el ajuste de glifos a métricas, el set de caracteres, los
-componentes y las herramientas de dibujo (espejo, selección y trazos).
+componentes, las herramientas de dibujo (espejo, selección y trazos) y la
+composición de texto con kerning.
