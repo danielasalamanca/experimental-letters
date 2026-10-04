@@ -8,14 +8,33 @@ curvatura de esos círculos define el carácter de la letra.
 
 ## Qué se puede hacer
 
+### Mapa de caracteres y glifos
+- A la izquierda está el set completo: A–Z, a–z, 0–9, puntuación básica
+  (. , ; : ! ? - ' " ( )), ñ, Ñ, las vocales acentuadas (á é í ó ú), los
+  acentos usados como componentes (´ y ˜) y el espacio.
+- Cada celda muestra la miniatura del glifo, o el carácter en gris si está
+  vacío. Clic para abrirlo en el editor.
+- Marcas en las celdas: **punto azul** = curvatura propia; **cuadrado verde**
+  = glifo compuesto.
+- Panel **Glifo**: carácter y código Unicode, columnas, **márgenes laterales**
+  izquierdo y derecho (también se arrastran en el lienzo desde sus etiquetas
+  verdes, en pasos de una décima de celda) y el **ancho de avance**
+  resultante.
+- **Componentes:** un glifo puede reutilizar otro con un desplazamiento en
+  columnas (x) y filas (y). Las vocales acentuadas y la ñ/Ñ ya vienen como
+  letra + acento, así que al editar la "a" o el acento se actualiza la "á".
+  En el lienzo, lo que viene de componentes se ve en gris. **Descomponer**
+  copia todo al dibujo propio del glifo.
+
 ### Dibujo
 - Clic o arrastre sobre la grilla para rellenar celdas; si empiezas sobre una
   celda rellena, el arrastre borra.
 - **Columnas:** ancho del dibujo del glifo, en celdas.
 - **Invertir**, **Limpiar**, **Deshacer** y **Rehacer**
   (Cmd/Ctrl + Z y Cmd/Ctrl + Shift + Z).
-- **Guardar letra:** guarda una copia en "Mis letras". Clic para cargarla,
-  doble clic para borrarla.
+- **Guardar como borrador:** guarda una copia del glifo en "Borradores", al
+  final del mapa de caracteres. Clic para copiarla al glifo abierto, doble
+  clic para borrarla.
 
 ### Grilla y unidades
 - La fuente usa un sistema de **UPM** (por defecto 1000 unidades por em).
@@ -38,7 +57,7 @@ curvatura de esos círculos define el carácter de la letra.
 
 ### Forma
 - **Curvatura global** para toda la fuente, con la opción de darle a un glifo
-  su **curvatura propia** (marcada con un punto azul en "Mis letras") y volver
+  su **curvatura propia** (marcada con un punto azul en el mapa) y volver
   con **Usar curvatura global**.
 - **Unión mínima** (activada por defecto, 15 u): engrosa las puntas donde dos
   estrellas solo se tocan, para que queden unidas con al menos ese grosor. El
@@ -46,10 +65,11 @@ curvatura de esos círculos define el carácter de la letra.
 - Colores de tinta y fondo.
 
 ### Exportar
-- **SVG** y **PNG** del glifo, con las guías y métricas que estén visibles.
+- **SVG** y **PNG** del glifo abierto, con las guías y métricas que estén
+  visibles.
 
-Todo se guarda automáticamente en el navegador. Si usaste la versión anterior,
-tu letra pasa a la "a" y tus letras guardadas aparecen en "Mis letras".
+Todo se guarda automáticamente en el navegador. Si usaste la primera versión,
+tu letra pasa a la "a" y tus letras guardadas aparecen en "Borradores".
 
 ## Glosario
 
@@ -67,6 +87,10 @@ tu letra pasa a la "a" y tus letras guardadas aparecen en "Mis letras".
   del mismo tamaño que las rectas.
 - **Sidebearing (margen lateral):** el espacio vacío a la izquierda y a la
   derecha de un glifo, dentro de su ancho de avance.
+- **Ancho de avance:** cuánto avanza el cursor después de un glifo: margen
+  izquierdo + dibujo + margen derecho.
+- **Componente:** un glifo reutilizado dentro de otro (la "a" dentro de la
+  "á"), de modo que los cambios se propagan.
 - **Kerning:** ajuste del espacio entre un par concreto de letras, por
   ejemplo "AV" o "To".
 
@@ -84,4 +108,5 @@ npm test
 ```
 
 Los tests (`node --test`, sin dependencias) cubren la geometría, la migración
-de datos y el ajuste de glifos a métricas.
+de datos, el ajuste de glifos a métricas, el set de caracteres y los
+componentes.

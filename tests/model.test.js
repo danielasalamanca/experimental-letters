@@ -84,3 +84,43 @@ test("unión mínima bridges only tangent neighbours", () => {
   // Wide necks need no bridge.
   assert.equal(joinBridges(cells, 0.5, 0.3).length, 0);
 });
+
+test("every character of the set has a glyph; accents start as composites", async () => {
+  const { CHARSET, ACUTE, TILDE } = await import("../js/charset.js");
+  const font = normalizeFont(null);
+  for (const char of CHARSET) assert.ok(font.glyphs[char], `falta ${char}`);
+  assert.deepEqual(font.glyphs["á"].components.map((c) => c.glyph), ["a", ACUTE]);
+  assert.equal(font.glyphs["Ñ"].components[1].glyph, TILDE);
+  assert.equal(font.glyphs["Ñ"].components[1].dy, font.metrics.capHeight - font.metrics.xHeight);
+  assert.equal(font.glyphs[" "].lsb, 0);
+});
+
+test("composites follow their components", async () => {
+  const { resolvedCells, advanceWidth } = await import("../js/model.js");
+  const { ACUTE } = await import("../js/charset.js");
+  const font = normalizeFont(null);
+  font.glyphs[ACUTE].cells = ["0,10"];
+  const dx = font.glyphs["á"].components[1].dx;
+  const before = resolvedCells(font, font.glyphs["á"]);
+  assert.ok(before.includes(`${dx},10`));
+  assert.equal(before.length, font.glyphs.a.cells.length + 1);
+  font.glyphs.a.cells.push("7,7");
+  assert.ok(resolvedCells(font, font.glyphs["á"]).includes("7,7"));
+  assert.equal(advanceWidth(font, font.glyphs.a), 50 + 8 * 50 + 50);
+});
+
+test("components cannot create cycles", async () => {
+  const { canUseComponent } = await import("../js/model.js");
+  const font = normalizeFont(null);
+  assert.equal(canUseComponent(font, "a", "á"), false); // á already uses a
+  assert.equal(canUseComponent(font, "a", "a"), false);
+  assert.equal(canUseComponent(font, "h", "n"), true);
+});
+
+test("glyph names are safe for files and the .otf", async () => {
+  const { glyphName, fileName } = await import("../js/charset.js");
+  assert.equal(glyphName("?"), "question");
+  assert.equal(glyphName("7"), "seven");
+  assert.equal(fileName("A"), "A-mayus");
+  assert.equal(fileName("a"), "a");
+});

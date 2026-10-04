@@ -9,14 +9,17 @@
 <body>
   <header class="topbar">
     <h1>Letras experimentales</h1>
-    <p>Clic o arrastre sobre la grilla para dibujar · arrastra las etiquetas de color para mover las métricas</p>
+    <p>Elige un carácter · clic o arrastre sobre la grilla para dibujar · arrastra las etiquetas de color para mover métricas y márgenes</p>
   </header>
 
   <div class="app">
     <aside class="zone zone-left">
-      <h2>Mis letras</h2>
-      <p class="hint">Clic para cargar · doble clic para borrar</p>
-      <div id="gallery"></div>
+      <div id="charmap"></div>
+      <section class="drafts">
+        <h2>Borradores</h2>
+        <p class="hint">Clic para copiar al glifo actual · doble clic para borrar</p>
+        <div id="gallery"></div>
+      </section>
     </aside>
 
     <main class="zone zone-center">
@@ -25,10 +28,30 @@
 
     <aside class="zone zone-right">
       <fieldset>
-        <legend>Grilla</legend>
+        <legend>Glifo</legend>
+        <div class="glyph-head">
+          <span id="glyphChar" class="glyph-char"></span>
+          <span><strong id="glyphName"></strong><br><small id="glyphCode"></small></span>
+        </div>
         <label>Columnas <output id="colsOut"></output>
           <input type="range" id="cols" min="1" max="24">
         </label>
+        <label class="row"><span><i class="swatch sb"></i>Margen izquierdo (u)</span> <input type="number" id="lsb" step="1"></label>
+        <label class="row"><span><i class="swatch sb"></i>Margen derecho (u)</span> <input type="number" id="rsb" step="1"></label>
+        <p class="info" id="advanceInfo"></p>
+        <div class="components">
+          <h4>Componentes</h4>
+          <div id="componentList"></div>
+          <div class="add-component">
+            <select id="componentSource" aria-label="Glifo para agregar como componente"></select>
+            <button id="addComponent" type="button">Agregar</button>
+          </div>
+          <button id="decompose" type="button" class="wide">Descomponer (copiar al dibujo propio)</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Grilla</legend>
         <label class="row">Unidades por celda <input type="number" id="cell" min="5" max="250" step="5"></label>
         <label class="row">UPM (unidades por em) <input type="number" id="upm" min="16" max="16384" step="1"></label>
         <p class="info" id="gridInfo"></p>
@@ -72,7 +95,7 @@
           <button id="redo" type="button" title="Cmd/Ctrl + Shift + Z">Rehacer</button>
           <button id="invert" type="button">Invertir</button>
           <button id="clear" type="button">Limpiar</button>
-          <button id="save" type="button" class="wide">Guardar letra</button>
+          <button id="save" type="button" class="wide">Guardar como borrador</button>
           <button id="svg" type="button">Exportar SVG</button>
           <button id="png" type="button">Exportar PNG</button>
         </div>

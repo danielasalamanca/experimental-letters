@@ -2,6 +2,7 @@
 // Pure functions only (no DOM), so they can be tested with `node --test`.
 
 import { key, parseKey } from "./geometry.js";
+import { CHARSET, COMPOSITES, defaultCols } from "./charset.js";
 
 export const FORMAT = "experimental-letters";
 export const VERSION = 2;
@@ -33,8 +34,49 @@ const SAMPLE_A = [
   [1,0],[2,0],[3,0],[6,0],[7,0],
 ].map(([c, r]) => key(c, r));
 
-export function createGlyph({ cols = 8, cells = [], curve = null, metrics = DEFAULT_METRICS } = {}) {
-  return { cols, cells: [...cells], curve, metrics: { ...metrics } };
+// A glyph: its own drawing (cells), width in cells, sidebearings in units,
+// an optional curvature override and components reused from other glyphs.
+// `metrics` remembers the metrics it was drawn with (see planFit).
+export function createGlyph({
+  cols = 8, cells = [], curve = null, metrics = DEFAULT_METRICS,
+  lsb = 50, rsb = 50, components = [],
+} = {}) {
+  return {
+    cols, cells: [...cells], curve, metrics: { ...metrics }, lsb, rsb,
+    components: components.map((c) => ({ glyph: c.glyph, dx: c.dx ?? 0, dy: c.dy ?? 0 })),
+  };
+}
+
+// Empty glyph for a character of the set; accented letters start as
+// base + accent composites, with the accent centered over the base.
+export function defaultGlyph(font, char) {
+  const cols = defaultCols(char);
+  const space = char === " ";
+  const glyph = createGlyph({
+    cols, metrics: font.metrics,
+    lsb: space ? 0 : font.cell, rsb: space ? 0 : font.cell,
+  });
+  const parts = COMPOSITES[char];
+  if (parts) {
+    const [base, accent] = parts;
+    const baseCols = font.glyphs[base]?.cols ?? defaultCols(base);
+    glyph.cols = baseCols;
+    const accentCols = font.glyphs[accent]?.cols ?? defaultCols(accent);
+    const lift = /[A-ZÑ]/.test(char) ? font.metrics.capHeight - font.metrics.xHeight : 0;
+    glyph.components = [
+      { glyph: base, dx: 0, dy: 0 },
+      { glyph: accent, dx: Math.floor((baseCols - accentCols) / 2), dy: lift },
+    ];
+  }
+  return glyph;
+}
+
+// Makes sure every character of the set has a glyph.
+export function ensureCharset(font) {
+  for (const char of CHARSET) {
+    if (!font.glyphs[char]) font.glyphs[char] = defaultGlyph(font, char);
+  }
+  return font;
 }
 
 export function createFont() {
@@ -53,6 +95,8 @@ export function createFont() {
     drafts: [],
   };
 }
+
+export const createFullFont = () => ensureCharset(createFont());
 
 // Converts the first version's data (single letter + "Mis letras") to a font.
 // v1 used vertex keys "x,y" counted from the top-left with stars on interior
@@ -80,12 +124,12 @@ export function migrateV1(old) {
   font.view.guides = old.guides ?? true;
   font.glyphs.a = convert(old);
   font.drafts = (old.gallery ?? []).map(convert);
-  return font;
+  return ensureCharset(font);
 }
 
 // Fills in anything missing so older or hand-edited projects still load.
 export function normalizeFont(data) {
-  if (!data || typeof data !== "object") return createFont();
+  if (!data || typeof data !== "object") return createFullFont();
   if (data.format !== FORMAT) return migrateV1(data);
   const base = createFont();
   const font = {
@@ -100,11 +144,48 @@ export function normalizeFont(data) {
   const fix = (g) => createGlyph({ ...g, metrics: { ...font.metrics, ...g.metrics } });
   for (const k of Object.keys(font.glyphs)) font.glyphs[k] = fix(font.glyphs[k]);
   font.drafts = font.drafts.map(fix);
-  if (!font.glyphs[font.active]) font.glyphs[font.active] = createGlyph({ metrics: font.metrics });
+  ensureCharset(font);
+  if (!font.glyphs[font.active]) font.active = "a";
   return font;
 }
 
 export const glyphCurve = (font, glyph) => glyph.curve ?? font.curve;
+
+export const advanceWidth = (font, glyph) => glyph.lsb + glyph.cols * font.cell + glyph.rsb;
+
+// Cells contributed by components, shifted by their offsets (recursive).
+export function componentCells(font, glyph, seen = new Set()) {
+  const out = new Set();
+  for (const comp of glyph.components) {
+    const base = font.glyphs[comp.glyph];
+    if (!base || seen.has(comp.glyph)) continue;
+    const inner = new Set([...seen, comp.glyph]);
+    const cells = [...base.cells.filter((k) => parseKey(k)[0] < base.cols), ...componentCells(font, base, inner)];
+    for (const k of cells) {
+      const [c, r] = parseKey(k);
+      out.add(key(c + comp.dx, r + comp.dy));
+    }
+  }
+  return out;
+}
+
+// Own drawing plus components: what is rendered and exported.
+export const resolvedCells = (font, glyph) => [...new Set([...glyph.cells, ...componentCells(font, glyph)])];
+
+// True if `char`'s glyph uses `target` anywhere in its component tree.
+export function dependsOn(font, char, target, seen = new Set()) {
+  const glyph = font.glyphs[char];
+  if (!glyph || seen.has(char)) return false;
+  seen.add(char);
+  return glyph.components.some((c) => c.glyph === target || dependsOn(font, c.glyph, target, seen));
+}
+
+export const canUseComponent = (font, char, source) =>
+  source !== char && !!font.glyphs[source] && !dependsOn(font, source, char);
+
+// Glyphs whose look changes when `char` changes (itself included).
+export const dependents = (font, char) =>
+  Object.keys(font.glyphs).filter((k) => k === char || dependsOn(font, k, char));
 
 export const allGlyphs = (font) => [...Object.values(font.glyphs), ...font.drafts];
 
