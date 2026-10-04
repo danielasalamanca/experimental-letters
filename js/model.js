@@ -83,6 +83,7 @@ export function createFont() {
   return {
     format: FORMAT,
     version: VERSION,
+    meta: { family: "Letras Experimentales", style: "Regular", designer: "", version: "1.000" },
     upm: 1000,
     cell: 50,
     metrics: { ...DEFAULT_METRICS },
@@ -141,6 +142,7 @@ export function normalizeFont(data) {
   const font = {
     ...base,
     ...data,
+    meta: { ...base.meta, ...data.meta },
     metrics: { ...base.metrics, ...data.metrics },
     join: { ...base.join, ...data.join },
     view: { ...base.view, ...data.view, test: { ...base.view.test, ...data.view?.test } },

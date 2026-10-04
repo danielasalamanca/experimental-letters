@@ -197,7 +197,7 @@ export const KERN_COLOR = "#d6249f";
 // and placed with <use>. Options: size (em in px), ink, paper,
 // pair ({ line, index } of the left character of the selected pair).
 // Returns the layout so the caller can map clicks to characters.
-export function drawText(svg, font, text, { size, ink, paper, pair = null }) {
+export function drawText(svg, font, text, { size, ink, paper, pair = null, metrics = false }) {
   const cu = font.cell;
   const m = font.metrics;
   const asc = m.ascender * cu, desc = m.descender * cu;
@@ -229,10 +229,27 @@ export function drawText(svg, font, text, { size, ink, paper, pair = null }) {
   svg.appendChild(defs);
 
   const lineY = (line) => line * lineHeight;
+  if (metrics) {
+    // Metric lines across every line of text (for presentations).
+    const g = el("g");
+    for (let line = 0; line < layout.lines; line++) {
+      for (const def of METRICS) {
+        const y = lineY(line) - (def.key === "baseline" ? 0 : m[def.key] * cu);
+        g.appendChild(el("line", {
+          x1: -pad, x2: w - pad, y1: y, y2: y, stroke: def.color,
+          "stroke-width": def.key === "baseline" ? 2 : 1, "vector-effect": "non-scaling-stroke",
+        }));
+      }
+    }
+    svg.appendChild(g);
+  }
   for (const item of layout.items) {
     const y = lineY(item.line);
     if (item.glyph) {
-      svg.appendChild(el("use", { href: `#${ids.get(item.char)}`, x: item.x + item.glyph.lsb, y }));
+      const use = el("use", { href: `#${ids.get(item.char)}`, x: item.x + item.glyph.lsb, y });
+      // xlink:href too, for Illustrator and other older SVG readers.
+      use.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", `#${ids.get(item.char)}`);
+      svg.appendChild(use);
     } else {
       svg.appendChild(el("rect", {
         x: item.x + cu / 2, y: y - m.capHeight * cu, width: item.advance - cu, height: m.capHeight * cu,

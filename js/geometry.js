@@ -35,7 +35,8 @@ export const neckWidth = (curve) => 1 - curve;
 // the circle arcs are `minWidth` apart, so the outline stays continuous.
 // Returns rectangles in cell coordinates (y up): { x, y, w, h }.
 export function joinBridges(cells, curve, minWidth) {
-  const width = Math.min(Math.max(minWidth, 0), 1);
+  // Capped at 0.8 cells, like the exported outlines (see outline.js).
+  const width = Math.min(Math.max(minWidth, 0), 0.8);
   const rho = curve / 2;
   const half = (1 - width) / 2;
   if (width <= 0 || half >= rho) return [];

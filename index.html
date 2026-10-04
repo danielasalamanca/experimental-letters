@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
   <header class="topbar">
@@ -50,6 +50,31 @@
     </main>
 
     <aside class="zone zone-right">
+      <fieldset>
+        <legend>Fuente</legend>
+        <label class="row">Familia <input type="text" id="metaFamily" autocomplete="off"></label>
+        <label class="row">Estilo <input type="text" id="metaStyle" list="styleNames" autocomplete="off"></label>
+        <datalist id="styleNames">
+          <option value="Regular"></option><option value="Bold"></option><option value="Light"></option>
+          <option value="Italic"></option><option value="Black"></option>
+        </datalist>
+        <label class="row">Diseñadora <input type="text" id="metaDesigner" autocomplete="off"></label>
+        <label class="row">Versión <input type="text" id="metaVersion" autocomplete="off"></label>
+        <div class="buttons">
+          <button id="saveProject" type="button" title="Descarga todo el proyecto como .json">Guardar proyecto</button>
+          <button id="openProject" type="button" title="Abre un proyecto .json">Abrir proyecto</button>
+        </div>
+        <input type="file" id="projectFile" accept=".json,application/json" hidden>
+        <p class="info">También se guarda automáticamente en este navegador.</p>
+        <label class="row">Contornos
+          <select id="otfMode">
+            <option value="join">Con unión mínima</option>
+            <option value="raw">Exportar tal cual</option>
+          </select>
+        </label>
+        <button id="exportOtf" type="button" class="wide primary">Exportar fuente (.otf)</button>
+      </fieldset>
+
       <fieldset>
         <legend>Glifo</legend>
         <div class="glyph-head">
@@ -130,6 +155,16 @@
           <button id="invert" type="button">Invertir</button>
           <button id="clear" type="button">Limpiar</button>
           <button id="save" type="button" class="wide">Guardar como borrador</button>
+        </div>
+        <label class="row export-target">Exportar imagen de
+          <select id="exportTarget">
+            <option value="glyph">el glifo</option>
+            <option value="text">el texto de prueba</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" id="exportMetrics"> Con líneas de métricas</label>
+        <label class="check"><input type="checkbox" id="exportGrid"> Con grilla (solo glifo)</label>
+        <div class="buttons">
           <button id="svg" type="button">Exportar SVG</button>
           <button id="png" type="button">Exportar PNG</button>
         </div>
@@ -180,14 +215,17 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=5",
-        "./js/geometry.js": "./js/geometry.js?v=5",
-        "./js/model.js": "./js/model.js?v=5",
-        "./js/render.js": "./js/render.js?v=5",
-        "./js/tools.js": "./js/tools.js?v=5"
+        "./js/charset.js": "./js/charset.js?v=6",
+        "./js/geometry.js": "./js/geometry.js?v=6",
+        "./js/model.js": "./js/model.js?v=6",
+        "./js/render.js": "./js/render.js?v=6",
+        "./js/tools.js": "./js/tools.js?v=6",
+        "./js/outline.js": "./js/outline.js?v=6",
+        "./js/otf.js": "./js/otf.js?v=6",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=6"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=5"></script>
+  <script type="module" src="js/main.js?v=6"></script>
 </body>
 </html>

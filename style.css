@@ -159,6 +159,15 @@ input[type="number"] {
   background: var(--surface);
   text-align: right;
 }
+label.row input[type="text"] {
+  width: 150px;
+  font: inherit;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+label.row select { max-width: 160px; font: inherit; font-size: 13px; padding: 3px; border: 1px solid var(--line); background: var(--surface); }
+.export-target { margin-top: 12px !important; }
 input[type="number"]:disabled { color: var(--muted); background: var(--bg); }
 input[type="color"] { width: 40px; height: 26px; border: 1px solid var(--line); padding: 0; background: none; }
 

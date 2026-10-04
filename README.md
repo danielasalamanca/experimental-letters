@@ -100,12 +100,28 @@ curvatura de esos círculos define el carácter de la letra.
   lienzo la muestra mientras dibujas, así lo que ves es lo que se exporta.
 - Colores de tinta y fondo.
 
-### Exportar
-- **SVG** y **PNG** del glifo abierto, con las guías y métricas que estén
-  visibles.
+### Fuente, proyecto y exportación
+- Panel **Fuente**: nombre de la familia, estilo (Regular, Bold…),
+  diseñadora y versión.
+- **Guardar proyecto** descarga un `.json` con todo: glifos, métricas,
+  kerning, metadatos y preferencias. **Abrir proyecto** lo carga de nuevo (se
+  puede deshacer). Además, todo se guarda automáticamente en el navegador.
+- **Exportar fuente (.otf)**: genera una fuente OpenType instalable (doble
+  clic en el archivo) para usar en Illustrator, InDesign, etc.
+  - Cada glifo se convierte en contornos cerrados, sin superposiciones y con
+    la dirección correcta (exteriores en sentido antihorario y contraformas en
+    sentido horario), con la curvatura de cada glifo. Los arcos son curvas
+    Bézier, no polígonos.
+  - **Con unión mínima** (por defecto): las puntas que solo se tocan quedan
+    unidas con el grosor elegido, igual que en el lienzo.
+  - **Exportar tal cual**: sin unión; las estrellas que se tocan en un punto
+    quedan unidas solo por ese punto.
+  - Incluye el kerning (tabla GPOS), los anchos de avance y las métricas.
+- **Exportar SVG / PNG** del glifo o del texto de prueba, opcionalmente con
+  las líneas de métricas (y la grilla, en el glifo) para presentaciones.
 
-Todo se guarda automáticamente en el navegador. Si usaste la primera versión,
-tu letra pasa a la "a" y tus letras guardadas aparecen en "Borradores".
+Si usaste la primera versión, tu letra pasa a la "a" y tus letras guardadas
+aparecen en "Borradores".
 
 ## Glosario
 
@@ -145,7 +161,14 @@ python3 -m http.server 8123
 npm test
 ```
 
+La exportación usa [opentype.js](https://github.com/opentypejs/opentype.js)
+2.0.0 (licencia MIT), incluido en `js/vendor/`; la tabla de kerning GPOS la
+escribe `js/otf.js`, porque opentype.js no la genera.
+
 Los tests (`node --test`, sin dependencias) cubren la geometría, la migración
 de datos, el ajuste de glifos a métricas, el set de caracteres, los
 componentes, las herramientas de dibujo (espejo, selección y trazos) y la
-composición de texto con kerning.
+composición de texto con kerning, y la exportación: comparan los contornos
+con la forma dibujada en miles de puntos (sin superposiciones ni dirección
+invertida) y leen la fuente generada para comprobar glifos, nombres, anchos,
+kerning y sumas de verificación.

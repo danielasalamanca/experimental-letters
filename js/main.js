@@ -765,6 +765,7 @@ function syncControls() {
   $("overshoot").value = font.overshoot;
   syncMetricInputs();
   syncToolbar();
+  syncMeta();
 }
 
 function updateInfo() {
@@ -1034,14 +1035,102 @@ $("kernClear").addEventListener("click", () => setPairKerning(0));
 
 for (const text of PRESETS) $("testPreset").appendChild(new Option(text, text));
 
-// --- Export ---
-function exportSvgString() {
+// --- Font panel: metadata, project files and .otf ---
+const META_FIELDS = { metaFamily: "family", metaStyle: "style", metaDesigner: "designer", metaVersion: "version" };
+
+for (const [id, field] of Object.entries(META_FIELDS)) {
+  $(id).addEventListener("change", (e) => {
+    checkpoint();
+    font.meta[field] = e.target.value.trim();
+    updateInfo();
+    persist();
+  });
+}
+
+function syncMeta() {
+  for (const [id, field] of Object.entries(META_FIELDS)) $(id).value = font.meta[field];
+}
+
+// File-name-safe "Familia-Estilo".
+function baseName() {
+  const clean = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9]+/g, "");
+  return [clean(font.meta.family) || "LetrasExperimentales", clean(font.meta.style) || "Regular"].join("-");
+}
+
+function downloadBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  download(url, name);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+$("saveProject").addEventListener("click", () => {
+  downloadBlob(new Blob([JSON.stringify(font, null, 2)], { type: "application/json" }), `${baseName()}.json`);
+  toast("Proyecto guardado como archivo .json");
+});
+
+$("openProject").addEventListener("click", () => $("projectFile").click());
+
+$("projectFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  let data;
+  try {
+    data = JSON.parse(await file.text());
+  } catch {
+    toast("No se pudo leer el archivo: no es un JSON válido.");
+    return;
+  }
+  const isProject = data?.format === "experimental-letters" || Array.isArray(data?.filled);
+  if (!isProject) {
+    toast("Ese archivo no es un proyecto de Letras experimentales.");
+    return;
+  }
+  checkpoint();
+  font = normalizeFont(data);
+  kernPair = null;
+  zoomBox = null;
+  refreshAll();
+  toast(`Proyecto «${font.meta.family}» abierto · Cmd/Ctrl + Z para volver al anterior`);
+});
+
+$("exportOtf").addEventListener("click", async () => {
+  const button = $("exportOtf");
+  button.disabled = true;
+  button.textContent = "Generando…";
+  try {
+    const { buildOtf } = await import("./otf.js");
+    const buffer = await buildOtf(font, { mode: $("otfMode").value });
+    downloadBlob(new Blob([buffer], { type: "font/otf" }), `${baseName()}.otf`);
+    toast("Fuente exportada. Instálala con doble clic para usarla en Illustrator o InDesign.");
+  } catch (err) {
+    console.error(err);
+    toast(`No se pudo exportar la fuente: ${err.message}`);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Exportar fuente (.otf)";
+  }
+});
+
+// --- Export images (glyph or test text) ---
+function exportSvg() {
   const svg = el("svg", { xmlns: SVG_NS });
-  drawGlyph(svg, font, glyph(), { guides: font.view.guides, metrics: font.view.metrics, labels: font.view.metrics });
+  const metrics = $("exportMetrics").checked;
+  if ($("exportTarget").value === "text") {
+    const t = font.view.test;
+    drawText(svg, font, t.text, {
+      size: t.size, metrics,
+      ink: t.inverted ? font.view.paper : font.view.ink,
+      paper: t.inverted ? font.view.ink : font.view.paper,
+    });
+    svg.querySelectorAll(".t-hit").forEach((n) => n.remove());
+    return { svg, name: `${baseName()}-prueba` };
+  }
+  drawGlyph(svg, font, glyph(), { guides: $("exportGrid").checked, metrics, labels: metrics });
   const [, , w, h] = svg.getAttribute("viewBox").split(" ").map(Number);
   svg.setAttribute("width", w);
   svg.setAttribute("height", h);
-  return new XMLSerializer().serializeToString(svg);
+  return { svg, name: fileName(font.active) };
 }
 
 function download(url, name) {
@@ -1052,24 +1141,26 @@ function download(url, name) {
 }
 
 $("svg").addEventListener("click", () => {
-  const url = URL.createObjectURL(new Blob([exportSvgString()], { type: "image/svg+xml" }));
-  download(url, `${fileName(font.active)}.svg`);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const { svg, name } = exportSvg();
+  downloadBlob(new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" }), `${name}.svg`);
 });
 
 $("png").addEventListener("click", () => {
-  const svgText = exportSvgString();
+  const { svg, name } = exportSvg();
   const img = new Image();
   img.onload = () => {
-    const scale = 2000 / img.height;
+    // About 2000 px tall for a glyph; text keeps its width up to 8000 px.
+    const scale = Math.min(2000 / img.height, 8000 / img.width, 6);
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(img.width * scale);
-    canvas.height = 2000;
+    canvas.height = Math.round(img.height * scale);
     canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-    download(canvas.toDataURL("image/png"), `${fileName(font.active)}.png`);
+    download(canvas.toDataURL("image/png"), `${name}.png`);
   };
-  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgText);
+  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(new XMLSerializer().serializeToString(svg));
 });
+
+$("exportTarget").addEventListener("change", (e) => { $("exportGrid").disabled = e.target.value === "text"; });
 
 buildMetricInputs();
 buildToolbar();

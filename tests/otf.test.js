@@ -1,0 +1,75 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import * as opentype from "../js/vendor/opentype.min.js";
+import { buildOtf, addTable, gposKerning } from "../js/otf.js";
+import { normalizeFont, setKerning, advanceWidth } from "../js/model.js";
+
+function sampleFont() {
+  const font = normalizeFont(null);
+  font.meta = { family: "Prueba Grilla", style: "Bold", designer: "Dani", version: "1.200" };
+  font.glyphs.A.cells = ["0,0", "0,1", "1,2", "2,1", "2,0", "1,1"];
+  font.glyphs.V.cells = ["0,2", "1,1", "1,0", "2,2"];
+  font.glyphs.o.cells = ["0,0", "1,0", "2,0", "0,1", "2,1", "0,2", "1,2", "2,2"];
+  setKerning(font, "A", "V", -60);
+  setKerning(font, "V", "A", -40);
+  setKerning(font, "T", "o", -30);
+  return font;
+}
+
+test("the .otf has every glyph, names, metrics and advance widths", async () => {
+  const font = sampleFont();
+  const otf = opentype.parse(await buildOtf(font));
+  const names = otf.names.windows;
+  assert.equal(names.fontFamily.en, "Prueba Grilla");
+  assert.equal(names.fontSubfamily.en, "Bold");
+  assert.equal(names.designer.en, "Dani");
+  assert.equal(names.version.en, "Version 1.200");
+  assert.equal(otf.unitsPerEm, 1000);
+  assert.equal(otf.ascender, 750);
+  assert.equal(otf.descender, -250);
+  assert.equal(otf.glyphs.length, 84); // .notdef + 83 characters
+  const A = otf.charToGlyph("A");
+  assert.equal(A.name, "A");
+  assert.equal(A.advanceWidth, advanceWidth(font, font.glyphs.A));
+  assert.equal(otf.charToGlyph("ñ").name, "ntilde");
+  assert.ok(A.path.commands.length > 10);
+  assert.equal(otf.charToGlyph(" ").path.commands.length, 0);
+});
+
+test("kerning pairs end up in GPOS", async () => {
+  const otf = opentype.parse(await buildOtf(sampleFont()));
+  assert.ok(otf.tables.gpos, "falta la tabla GPOS");
+  const k = (a, b) => otf.getKerningValue(otf.charToGlyph(a), otf.charToGlyph(b));
+  assert.equal(k("A", "V"), -60);
+  assert.equal(k("V", "A"), -40);
+  assert.equal(k("T", "o"), -30);
+  assert.equal(k("A", "A"), 0);
+});
+
+test("checksums are valid after adding GPOS", async () => {
+  const buffer = await buildOtf(sampleFont());
+  const dv = new DataView(buffer);
+  let sum = 0;
+  for (let i = 0; i < buffer.byteLength; i += 4) sum = (sum + dv.getUint32(i)) >>> 0;
+  assert.equal(sum, 0xb1b0afba);
+  // Every table record points inside the file, 4-byte aligned.
+  const n = dv.getUint16(4);
+  for (let i = 0; i < n; i++) {
+    const offset = dv.getUint32(12 + i * 16 + 8), length = dv.getUint32(12 + i * 16 + 12);
+    assert.equal(offset % 4, 0);
+    assert.ok(offset + length <= buffer.byteLength);
+  }
+  // Replacing a table keeps a single copy.
+  const again = new DataView(addTable(buffer, "GPOS", gposKerning([[1, 2, -10]])));
+  assert.equal(again.getUint16(4), n);
+});
+
+test("raw export keeps tangent tips; the minimum join thickens them", async () => {
+  const font = sampleFont();
+  const join = opentype.parse(await buildOtf(font, { mode: "join" }));
+  const raw = opentype.parse(await buildOtf(font, { mode: "raw" }));
+  // Tip where the first two stars of the "o" touch: x = lsb + 1 cell, y = half a cell.
+  const tip = (otf) => otf.charToGlyph("o").path.commands.filter((c) => c.x === 100 && c.y === 25).length;
+  assert.equal(tip(raw), 2, "as is, the outline touches itself at the tip");
+  assert.equal(tip(join), 0, "with the minimum join the tip is a 15-unit neck");
+});
