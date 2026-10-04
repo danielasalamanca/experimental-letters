@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
   <header class="topbar">
@@ -114,6 +114,17 @@
     </form>
   </dialog>
 
-  <script type="module" src="js/main.js"></script>
+  <!-- Bump ?v= on every release so browsers don't mix cached and new modules. -->
+  <script type="importmap">
+    {
+      "imports": {
+        "./js/charset.js": "./js/charset.js?v=3",
+        "./js/geometry.js": "./js/geometry.js?v=3",
+        "./js/model.js": "./js/model.js?v=3",
+        "./js/render.js": "./js/render.js?v=3"
+      }
+    }
+  </script>
+  <script type="module" src="js/main.js?v=3"></script>
 </body>
 </html>
