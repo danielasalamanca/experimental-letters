@@ -1,0 +1,107 @@
+* { box-sizing: border-box; }
+
+:root {
+  --bg: #f4f3ef;
+  --fg: #1d1d1b;
+  --muted: #7a7a75;
+  --line: #d8d6d0;
+}
+
+body {
+  margin: 0;
+  padding: 24px 16px 48px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", sans-serif;
+}
+
+header, main, .gallery-wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+header h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: -0.02em; }
+header p, .hint { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
+
+main {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 24px;
+  align-items: start;
+}
+
+.canvas-wrap {
+  background: #fff;
+  border: 1px solid var(--line);
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+#board {
+  width: 100%;
+  max-height: 75vh;
+  touch-action: none;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.panel fieldset {
+  border: 1px solid var(--line);
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  background: #fff;
+}
+
+.panel legend {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding: 0 4px;
+}
+
+.panel label {
+  display: block;
+  font-size: 14px;
+  margin: 6px 0 10px;
+}
+
+.panel label output { float: right; color: var(--muted); }
+.panel input[type="range"] { width: 100%; margin-top: 4px; accent-color: var(--fg); }
+.panel label.check, .panel label.color {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.panel label.check { justify-content: flex-start; gap: 8px; }
+.panel input[type="color"] { width: 40px; height: 26px; border: 1px solid var(--line); padding: 0; background: none; }
+
+.buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+button {
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 6px;
+  border: 1px solid var(--fg);
+  background: #fff;
+  color: var(--fg);
+  cursor: pointer;
+}
+button:hover { background: var(--fg); color: #fff; }
+
+.gallery-wrap { margin-top: 32px; }
+.gallery-wrap h2 { font-size: 18px; margin: 0 0 4px; }
+
+#gallery { display: flex; flex-wrap: wrap; gap: 12px; }
+#gallery svg {
+  width: 90px;
+  height: auto;
+  border: 1px solid var(--line);
+  background: #fff;
+  cursor: pointer;
+}
+#gallery svg:hover { outline: 2px solid var(--fg); }
+
+@media (max-width: 760px) {
+  main { grid-template-columns: 1fr; }
+  .canvas-wrap { padding: 12px; }
+}

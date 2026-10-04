@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Letras Experimentales</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Letras experimentales</h1>
+    <p>Haz clic o arrastra sobre las intersecciones de la grilla para dibujar.</p>
+  </header>
+
+  <main>
+    <section class="canvas-wrap">
+      <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+    </section>
+
+    <aside class="panel">
+      <fieldset>
+        <legend>Grilla</legend>
+        <label>Columnas <output id="colsOut"></output>
+          <input type="range" id="cols" min="3" max="24" value="9">
+        </label>
+        <label>Filas <output id="rowsOut"></output>
+          <input type="range" id="rows" min="3" max="24" value="10">
+        </label>
+        <label class="check">
+          <input type="checkbox" id="guides" checked> Mostrar guías
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Forma</legend>
+        <label>Curvatura <output id="curveOut"></output>
+          <input type="range" id="curve" min="20" max="100" value="100">
+        </label>
+        <label class="color">Tinta <input type="color" id="ink" value="#1d1d1b"></label>
+        <label class="color">Fondo <input type="color" id="paper" value="#ffffff"></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Acciones</legend>
+        <div class="buttons">
+          <button id="undo">Deshacer</button>
+          <button id="invert">Invertir</button>
+          <button id="clear">Limpiar</button>
+          <button id="save">Guardar letra</button>
+          <button id="svg">Exportar SVG</button>
+          <button id="png">Exportar PNG</button>
+        </div>
+      </fieldset>
+    </aside>
+  </main>
+
+  <section class="gallery-wrap">
+    <h2>Mis letras</h2>
+    <p class="hint">Clic para cargar · doble clic para borrar</p>
+    <div id="gallery"></div>
+  </section>
+
+  <script src="script.js"></script>
+</body>
+</html>
