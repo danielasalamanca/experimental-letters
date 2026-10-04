@@ -7,59 +7,90 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
+  <header class="topbar">
     <h1>Letras experimentales</h1>
-    <p>Haz clic o arrastra sobre las intersecciones de la grilla para dibujar.</p>
+    <p>Clic o arrastre sobre la grilla para dibujar · arrastra las etiquetas de color para mover las métricas</p>
   </header>
 
-  <main>
-    <section class="canvas-wrap">
-      <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
-    </section>
+  <div class="app">
+    <aside class="zone zone-left">
+      <h2>Mis letras</h2>
+      <p class="hint">Clic para cargar · doble clic para borrar</p>
+      <div id="gallery"></div>
+    </aside>
 
-    <aside class="panel">
+    <main class="zone zone-center">
+      <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+    </main>
+
+    <aside class="zone zone-right">
       <fieldset>
         <legend>Grilla</legend>
         <label>Columnas <output id="colsOut"></output>
-          <input type="range" id="cols" min="3" max="24" value="9">
+          <input type="range" id="cols" min="1" max="24">
         </label>
-        <label>Filas <output id="rowsOut"></output>
-          <input type="range" id="rows" min="3" max="24" value="10">
-        </label>
-        <label class="check">
-          <input type="checkbox" id="guides" checked> Mostrar guías
-        </label>
+        <label class="row">Unidades por celda <input type="number" id="cell" min="5" max="250" step="5"></label>
+        <label class="row">UPM (unidades por em) <input type="number" id="upm" min="16" max="16384" step="1"></label>
+        <p class="info" id="gridInfo"></p>
+        <label class="check"><input type="checkbox" id="guides"> Mostrar círculos</label>
       </fieldset>
 
       <fieldset>
         <legend>Forma</legend>
-        <label>Curvatura <output id="curveOut"></output>
-          <input type="range" id="curve" min="20" max="100" value="100">
+        <label>Curvatura global <output id="curveOut"></output>
+          <input type="range" id="curve" min="20" max="100">
         </label>
-        <label class="color">Tinta <input type="color" id="ink" value="#1d1d1b"></label>
-        <label class="color">Fondo <input type="color" id="paper" value="#ffffff"></label>
+        <div id="glyphCurveGlobal" class="glyph-curve">
+          <span>Este glifo usa la curvatura global.</span>
+          <button id="ownCurve" type="button">Curvatura propia</button>
+        </div>
+        <div id="glyphCurveOwn" class="glyph-curve own" hidden>
+          <label>Curvatura propia <span class="badge">propia</span> <output id="glyphCurveOut"></output>
+            <input type="range" id="glyphCurve" min="20" max="100">
+          </label>
+          <button id="useGlobal" type="button">Usar curvatura global</button>
+        </div>
+        <label class="check"><input type="checkbox" id="join"> Unión mínima</label>
+        <label class="row">Grosor de unión (u) <input type="number" id="joinWidth" min="1" max="250" step="1"></label>
+        <label class="row color">Tinta <input type="color" id="ink"></label>
+        <label class="row color">Fondo <input type="color" id="paper"></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Métricas</legend>
+        <label class="check"><input type="checkbox" id="showMetrics"> Mostrar métricas</label>
+        <div id="metricInputs"></div>
+        <label class="row">Overshoot (u) <input type="number" id="overshoot" min="0" max="200" step="1"></label>
+        <p class="info" id="fitInfo"></p>
+        <button id="fit" type="button" class="wide">Ajustar glifos a métricas</button>
       </fieldset>
 
       <fieldset>
         <legend>Acciones</legend>
         <div class="buttons">
-          <button id="undo">Deshacer</button>
-          <button id="invert">Invertir</button>
-          <button id="clear">Limpiar</button>
-          <button id="save">Guardar letra</button>
-          <button id="svg">Exportar SVG</button>
-          <button id="png">Exportar PNG</button>
+          <button id="undo" type="button" title="Cmd/Ctrl + Z">Deshacer</button>
+          <button id="redo" type="button" title="Cmd/Ctrl + Shift + Z">Rehacer</button>
+          <button id="invert" type="button">Invertir</button>
+          <button id="clear" type="button">Limpiar</button>
+          <button id="save" type="button" class="wide">Guardar letra</button>
+          <button id="svg" type="button">Exportar SVG</button>
+          <button id="png" type="button">Exportar PNG</button>
         </div>
       </fieldset>
     </aside>
-  </main>
+  </div>
 
-  <section class="gallery-wrap">
-    <h2>Mis letras</h2>
-    <p class="hint">Clic para cargar · doble clic para borrar</p>
-    <div id="gallery"></div>
-  </section>
+  <dialog id="fitDialog">
+    <form method="dialog">
+      <h3>Ajustar glifos a métricas</h3>
+      <p id="fitMessage"></p>
+      <div class="buttons">
+        <button value="cancel">Cancelar</button>
+        <button value="apply" class="primary">Aplicar</button>
+      </div>
+    </form>
+  </dialog>
 
-  <script src="script.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

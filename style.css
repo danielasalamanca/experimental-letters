@@ -2,106 +2,160 @@
 
 :root {
   --bg: #f4f3ef;
+  --surface: #ffffff;
   --fg: #1d1d1b;
   --muted: #7a7a75;
   --line: #d8d6d0;
+  --accent: #2f80ed;
 }
+
+html, body { height: 100%; }
 
 body {
   margin: 0;
-  padding: 24px 16px 48px;
   background: var(--bg);
   color: var(--fg);
   font-family: ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", sans-serif;
-}
-
-header, main, .gallery-wrap {
-  max-width: 1100px;
-  margin: 0 auto;
-}
-
-header h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: -0.02em; }
-header p, .hint { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
-
-main {
-  display: grid;
-  grid-template-columns: 1fr 260px;
-  gap: 24px;
-  align-items: start;
-}
-
-.canvas-wrap {
-  background: #fff;
-  border: 1px solid var(--line);
-  padding: 24px;
+  font-size: 14px;
   display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.topbar h1 { margin: 0; font-size: 18px; letter-spacing: -0.01em; }
+.topbar p { margin: 0; color: var(--muted); font-size: 13px; }
+
+/* Three zones: character map / canvas / properties */
+.app {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 290px;
+}
+
+.zone { min-height: 0; overflow: auto; }
+.zone-left { border-right: 1px solid var(--line); padding: 16px; }
+.zone-right { border-left: 1px solid var(--line); padding: 16px; }
+.zone-center {
+  display: flex;
+  align-items: center;
   justify-content: center;
+  padding: 16px;
+  overflow: hidden;
 }
 
 #board {
   width: 100%;
-  max-height: 75vh;
+  height: 100%;
+  max-height: calc(100vh - 90px);
   touch-action: none;
   cursor: crosshair;
   user-select: none;
-}
-
-.panel fieldset {
+  background: var(--surface);
   border: 1px solid var(--line);
-  margin: 0 0 16px;
-  padding: 12px 14px;
-  background: #fff;
+}
+#board .metric-label.draggable { cursor: ns-resize; }
+
+.zone-left h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 4px; font-weight: 600; }
+.hint { margin: 0 0 12px; color: var(--muted); font-size: 12px; }
+
+#gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; }
+.thumb { position: relative; cursor: pointer; }
+.thumb svg { display: block; width: 100%; height: auto; border: 1px solid var(--line); }
+.thumb:hover svg { outline: 2px solid var(--fg); }
+.own-dot {
+  position: absolute; top: 4px; right: 4px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent);
 }
 
-.panel legend {
-  font-size: 12px;
+/* Property panels */
+fieldset {
+  border: 1px solid var(--line);
+  margin: 0 0 14px;
+  padding: 10px 12px 12px;
+  background: var(--surface);
+}
+legend {
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
   padding: 0 4px;
 }
 
-.panel label {
-  display: block;
-  font-size: 14px;
-  margin: 6px 0 10px;
-}
+fieldset label { display: block; margin: 6px 0 10px; }
+fieldset label output { float: right; color: var(--muted); }
+input[type="range"] { width: 100%; margin-top: 4px; accent-color: var(--fg); }
 
-.panel label output { float: right; color: var(--muted); }
-.panel input[type="range"] { width: 100%; margin-top: 4px; accent-color: var(--fg); }
-.panel label.check, .panel label.color {
-  display: flex; align-items: center; justify-content: space-between;
+label.row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0; }
+label.check { display: flex; align-items: center; gap: 8px; }
+input[type="number"] {
+  width: 76px;
+  font: inherit;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  text-align: right;
 }
-.panel label.check { justify-content: flex-start; gap: 8px; }
-.panel input[type="color"] { width: 40px; height: 26px; border: 1px solid var(--line); padding: 0; background: none; }
+input[type="number"]:disabled { color: var(--muted); background: var(--bg); }
+input[type="color"] { width: 40px; height: 26px; border: 1px solid var(--line); padding: 0; background: none; }
+
+.metric span { display: flex; align-items: center; gap: 8px; }
+.metric i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+.info { margin: 6px 0 8px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+
+.glyph-curve { margin: 0 0 10px; padding: 8px; background: var(--bg); font-size: 12px; }
+.glyph-curve > span { display: block; color: var(--muted); margin-bottom: 6px; }
+.glyph-curve label { margin-top: 0; }
+.glyph-curve button { width: 100%; }
+.badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  vertical-align: 1px;
+}
 
 .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.wide { grid-column: 1 / -1; width: 100%; }
 
 button {
   font: inherit;
   font-size: 13px;
-  padding: 8px 6px;
+  padding: 7px 6px;
   border: 1px solid var(--fg);
-  background: #fff;
+  background: var(--surface);
   color: var(--fg);
   cursor: pointer;
 }
-button:hover { background: var(--fg); color: #fff; }
+button:hover:not(:disabled) { background: var(--fg); color: #fff; }
+button:disabled { opacity: 0.35; cursor: default; }
+button.primary { background: var(--fg); color: #fff; }
 
-.gallery-wrap { margin-top: 32px; }
-.gallery-wrap h2 { font-size: 18px; margin: 0 0 4px; }
-
-#gallery { display: flex; flex-wrap: wrap; gap: 12px; }
-#gallery svg {
-  width: 90px;
-  height: auto;
+dialog {
   border: 1px solid var(--line);
-  background: #fff;
-  cursor: pointer;
+  padding: 20px;
+  max-width: 380px;
 }
-#gallery svg:hover { outline: 2px solid var(--fg); }
+dialog h3 { margin: 0 0 8px; font-size: 16px; }
+dialog p { margin: 0 0 16px; line-height: 1.45; }
+dialog::backdrop { background: rgba(0, 0, 0, 0.25); }
 
-@media (max-width: 760px) {
-  main { grid-template-columns: 1fr; }
-  .canvas-wrap { padding: 12px; }
+@media (max-width: 900px) {
+  body { display: block; }
+  .app { grid-template-columns: 1fr; }
+  .zone-center { order: -1; height: 70vh; padding: 12px; }
+  .zone-left, .zone-right { border: 0; border-top: 1px solid var(--line); }
+  #board { max-height: none; }
 }
