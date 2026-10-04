@@ -26,12 +26,32 @@ curvatura de esos círculos define el carácter de la letra.
   En el lienzo, lo que viene de componentes se ve en gris. **Descomponer**
   copia todo al dibujo propio del glifo.
 
-### Dibujo
-- Clic o arrastre sobre la grilla para rellenar celdas; si empiezas sobre una
-  celda rellena, el arrastre borra.
+### Dibujo y herramientas
+- **Dibujar (B):** clic o arrastre sobre la grilla para rellenar celdas; si
+  empiezas sobre una celda rellena, el arrastre borra.
+- **Espejo ↔ y ↕:** al dibujar o borrar se repite la celda reflejada
+  izquierda–derecha y/o arriba–abajo (útil para A, H, O, V). El eje se ve como
+  una línea magenta. El eje arriba–abajo puede ser automático (altura de x
+  para minúsculas, mayúsculas para mayúsculas y números) o elegirse a mano.
+- **Seleccionar (V):** arrastra un rectángulo o haz clic en una celda
+  (Shift suma o quita). **Doble clic** selecciona el trazo completo (todas las
+  celdas unidas por sus lados). Arrastra la selección para moverla, usa las
+  **flechas** para moverla de a una celda y **Supr/Retroceso** para borrarla.
+  **Esc** quita la selección y **Cmd/Ctrl + A** selecciona todo.
+- **Copiar y pegar:** Cmd/Ctrl + C, X y V, también entre glifos (sin
+  selección se copia el dibujo completo).
+- **Copiar dibujo desde otro glifo** (panel Glifo): por ejemplo, de la "n" a
+  la "h" como punto de partida.
+- **Fondo:** muestra otro glifo en azul transparente detrás del que dibujas
+  (por ejemplo, la "n" detrás de la "m").
+- **Zoom y desplazamiento:** Cmd/Ctrl + rueda (o pellizco en el trackpad)
+  hace zoom hacia el cursor; con zoom, la rueda desplaza; espacio + arrastre
+  o el botón central del mouse también desplazan. Botones −, +, **Ajustar** y
+  atajos +, − y 0.
 - **Columnas:** ancho del dibujo del glifo, en celdas.
 - **Invertir**, **Limpiar**, **Deshacer** y **Rehacer**
-  (Cmd/Ctrl + Z y Cmd/Ctrl + Shift + Z).
+  (Cmd/Ctrl + Z y Cmd/Ctrl + Shift + Z). El historial es de toda la fuente:
+  deshacer te lleva al glifo donde ocurrió el cambio.
 - **Guardar como borrador:** guarda una copia del glifo en "Borradores", al
   final del mapa de caracteres. Clic para copiarla al glifo abierto, doble
   clic para borrarla.
@@ -97,7 +117,9 @@ tu letra pasa a la "a" y tus letras guardadas aparecen en "Borradores".
 ## Desarrollo
 
 Es un sitio estático sin paso de compilación: HTML, CSS y módulos de
-JavaScript nativos en `js/`.
+JavaScript nativos en `js/`. En cada publicación hay que subir el número
+`?v=` de `index.html` (import map, script y hoja de estilos) para que los
+navegadores no mezclen archivos nuevos con otros guardados en caché.
 
 ```bash
 python3 -m http.server 8123
@@ -108,5 +130,5 @@ npm test
 ```
 
 Los tests (`node --test`, sin dependencias) cubren la geometría, la migración
-de datos, el ajuste de glifos a métricas, el set de caracteres y los
-componentes.
+de datos, el ajuste de glifos a métricas, el set de caracteres, los
+componentes y las herramientas de dibujo (espejo, selección y trazos).

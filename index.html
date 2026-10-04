@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
   <header class="topbar">
     <h1>Letras experimentales</h1>
-    <p>Elige un carácter · clic o arrastre sobre la grilla para dibujar · arrastra las etiquetas de color para mover métricas y márgenes</p>
+    <p>B dibujar · V seleccionar · espacio + arrastre para desplazar · Cmd/Ctrl + rueda para zoom · Supr borra la selección · flechas la mueven</p>
   </header>
 
   <div class="app">
@@ -23,7 +23,30 @@
     </aside>
 
     <main class="zone zone-center">
-      <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="toolbar" role="toolbar" aria-label="Herramientas">
+        <div class="tool-group">
+          <button id="toolDraw" type="button" class="tool" title="Dibujar (B)">Dibujar</button>
+          <button id="toolSelect" type="button" class="tool" title="Seleccionar (V) · doble clic: trazo completo">Seleccionar</button>
+        </div>
+        <div class="tool-group">
+          <button id="mirrorH" type="button" class="tool" title="Espejo izquierda–derecha">↔ Espejo</button>
+          <button id="mirrorV" type="button" class="tool" title="Espejo arriba–abajo">↕ Espejo</button>
+          <select id="mirrorAxis" title="Eje del espejo arriba–abajo" aria-label="Eje del espejo arriba–abajo"></select>
+        </div>
+        <div class="tool-group">
+          <label class="inline">Fondo <select id="background" aria-label="Glifo de fondo"></select></label>
+        </div>
+        <div class="tool-group">
+          <button id="zoomOut" type="button" class="tool icon" title="Alejar (−)">−</button>
+          <output id="zoomLevel" title="Zoom">100%</output>
+          <button id="zoomIn" type="button" class="tool icon" title="Acercar (+)">+</button>
+          <button id="zoomFit" type="button" class="tool" title="Ajustar a la ventana (0)">Ajustar</button>
+        </div>
+      </div>
+      <div class="board-wrap">
+        <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <div id="toast" class="toast" role="status" hidden></div>
     </main>
 
     <aside class="zone zone-right">
@@ -47,6 +70,14 @@
             <button id="addComponent" type="button">Agregar</button>
           </div>
           <button id="decompose" type="button" class="wide">Descomponer (copiar al dibujo propio)</button>
+        </div>
+        <div class="components">
+          <h4>Copiar dibujo desde otro glifo</h4>
+          <div class="add-component">
+            <select id="copySource" aria-label="Glifo de origen"></select>
+            <button id="copyFrom" type="button">Copiar</button>
+          </div>
+          <p class="info">Reemplaza el dibujo, columnas y márgenes de este glifo (se puede deshacer).</p>
         </div>
       </fieldset>
 
@@ -118,13 +149,14 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=3",
-        "./js/geometry.js": "./js/geometry.js?v=3",
-        "./js/model.js": "./js/model.js?v=3",
-        "./js/render.js": "./js/render.js?v=3"
+        "./js/charset.js": "./js/charset.js?v=4",
+        "./js/geometry.js": "./js/geometry.js?v=4",
+        "./js/model.js": "./js/model.js?v=4",
+        "./js/render.js": "./js/render.js?v=4",
+        "./js/tools.js": "./js/tools.js?v=4"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=3"></script>
+  <script type="module" src="js/main.js?v=4"></script>
 </body>
 </html>

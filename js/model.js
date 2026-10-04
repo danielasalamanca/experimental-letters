@@ -89,7 +89,10 @@ export function createFont() {
     overshoot: 12,
     curve: 1,
     join: { enabled: true, width: 15 },
-    view: { ink: "#1d1d1b", paper: "#ffffff", guides: true, metrics: true },
+    view: {
+      ink: "#1d1d1b", paper: "#ffffff", guides: true, metrics: true,
+      mirrorH: false, mirrorV: false, mirrorAxis: "auto", background: "",
+    },
     active: "a",
     glyphs: { a: createGlyph({ cells: SAMPLE_A }) },
     drafts: [],

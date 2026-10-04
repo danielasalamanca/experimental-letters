@@ -7,6 +7,7 @@ import { METRICS, glyphCurve, resolvedCells, advanceWidth } from "./model.js";
 export const SVG_NS = "http://www.w3.org/2000/svg";
 
 export const SIDEBEARING_COLOR = "#0f766e";
+export const BACKGROUND_COLOR = "#2f80ed";
 
 const FONT_FAMILY = "ui-sans-serif, system-ui, Helvetica, Arial, sans-serif";
 
@@ -42,6 +43,7 @@ const metricRows = (m) => ({ ...m, baseline: 0 });
 //   labels  – metric and sidebearing labels (the drag handles in the editor)
 //   components – tint the cells that come from components
 //   bounds  – fixed bounds, used to freeze the view while dragging
+//   background – another glyph drawn faintly behind (the background layer)
 //   frame: "advance" – crop to the advance width and metric range (thumbnails)
 export function drawGlyph(svg, font, glyph, opts = {}) {
   const { guides = false, metrics = false, labels = false, components = false } = opts;
@@ -95,6 +97,14 @@ export function drawGlyph(svg, font, glyph, opts = {}) {
       }
     }
     svg.appendChild(g);
+  }
+
+  if (opts.background) {
+    const bg = opts.background;
+    const layer = drawShapes(font, resolvedCells(font, bg), glyphCurve(font, bg), BACKGROUND_COLOR,
+      { lo, hi, cols: Math.max(cols, bg.cols) });
+    layer.setAttribute("opacity", 0.25);
+    svg.appendChild(layer);
   }
 
   const curve = glyphCurve(font, glyph);
