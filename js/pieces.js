@@ -25,14 +25,89 @@ const K = 0.5522847498;     // cubic approximation of a quarter circle/ellipse
 const corners = ({ x0, y0, x1, y1 }) => ({ bl: [x0, y0], br: [x1, y0], tl: [x0, y1], tr: [x1, y1] });
 const OPPOSITE = { bl: "tr", br: "tl", tl: "br", tr: "bl" };
 
+// A triangle whose nodes were moved by hand keeps them in `points`
+// ([[x, y] × 3]); its box then just wraps them.
+const validPoints = (pts) => Array.isArray(pts) && pts.length === 3 && pts.every((q) => Array.isArray(q) && q.every(Number.isFinite));
+
 export function normalizePiece(p) {
-  return {
+  const shape = PIECE_SHAPES[p.shape] ? p.shape : "tri";
+  const out = {
     x0: Math.min(p.x0, p.x1), y0: Math.min(p.y0, p.y1),
     x1: Math.max(p.x0, p.x1), y1: Math.max(p.y0, p.y1),
     corner: OPPOSITE[p.corner] ? p.corner : "bl",
-    shape: PIECE_SHAPES[p.shape] ? p.shape : "tri",
+    shape,
     mode: p.mode === "cut" ? "cut" : "add",
   };
+  if (shape === "tri" && validPoints(p.points)) {
+    out.points = p.points.map(([x, y]) => [x, y]);
+    const xs = out.points.map((q) => q[0]), ys = out.points.map((q) => q[1]);
+    Object.assign(out, { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) });
+  }
+  return out;
+}
+
+// Nodes that can be dragged: the three corners of a triangle; for curved
+// pieces the corner C and both ends of the arc (A moves sideways, B up and
+// down).
+export function pieceHandles(piece) {
+  const p = normalizePiece(piece);
+  if (p.shape === "tri") return trianglePoints(p).map(([x, y], i) => ({ id: i, x, y }));
+  const box = corners(p);
+  const C = box[p.corner], O = box[OPPOSITE[p.corner]];
+  return [{ id: "C", x: C[0], y: C[1] }, { id: "A", x: O[0], y: C[1] }, { id: "B", x: C[0], y: O[1] }];
+}
+
+function trianglePoints(p) {
+  if (p.points) return p.points;
+  const box = corners(p);
+  const C = box[p.corner], O = box[OPPOSITE[p.corner]];
+  return [C, [O[0], C[1]], [C[0], O[1]]];
+}
+
+// A diagonal piece covers its box (around its three nodes) on the corner
+// C's side of the diagonal A–B. Untouched, that is the right triangle C A B;
+// with a node moved it still reaches the box edges, so moving an end of a
+// diagonal never leaves a sliver of the edge behind.
+export function diagonalPolygon([C, A, B]) {
+  const xs = [C[0], A[0], B[0]], ys = [C[1], A[1], B[1]];
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const side = (P) => (B[0] - A[0]) * (P[1] - A[1]) - (B[1] - A[1]) * (P[0] - A[0]);
+  const sign = Math.sign(side(C));
+  const rect = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+  const out = [];
+  rect.forEach((P, i) => {
+    const Q = rect[(i + 1) % 4];
+    const sp = side(P) * sign, sq = side(Q) * sign;
+    if (sp >= -1e-12) out.push(P);
+    if ((sp > 1e-12 && sq < -1e-12) || (sp < -1e-12 && sq > 1e-12)) {
+      const t = sp / (sp - sq);
+      out.push([P[0] + (Q[0] - P[0]) * t, P[1] + (Q[1] - P[1]) * t]);
+    }
+  });
+  return out;
+}
+
+// The piece with node `id` moved to (x, y). Returns null if the move would
+// flatten it.
+export function movePieceHandle(piece, id, [x, y]) {
+  const p = normalizePiece(piece);
+  if (p.shape === "tri") {
+    const points = trianglePoints(p).map((q) => [...q]);
+    points[id] = [x, y];
+    const [[cx, cy], [ax, ay], [bx, by]] = points;
+    if (Math.abs((bx - ax) * (cy - ay) - (by - ay) * (cx - ax)) < 1e-9) return null;
+    return normalizePiece({ ...p, points });
+  }
+  const box = corners(p);
+  let C = box[p.corner], O = box[OPPOSITE[p.corner]];
+  if (id === "C") C = [x, y];
+  if (id === "A") O = [x, O[1]];
+  if (id === "B") O = [O[0], y];
+  if (C[0] === O[0] || C[1] === O[1]) return null;
+  return normalizePiece({
+    ...p, x0: C[0], y0: C[1], x1: O[0], y1: O[1],
+    corner: (C[1] < O[1] ? "b" : "t") + (C[0] < O[0] ? "l" : "r"),
+  });
 }
 
 // The piece outline as commands, in cells (y up).
@@ -51,7 +126,10 @@ export function pieceContour(piece) {
     x2: P3[0] + K * (P0[0] - center[0]), y2: P3[1] + K * (P0[1] - center[1]),
     x: P3[0], y: P3[1],
   });
-  if (p.shape === "tri") return [M(C), L(A), L(B), { type: "Z" }];
+  if (p.shape === "tri") {
+    const poly = diagonalPolygon(trianglePoints(p));
+    return [M(poly[0]), ...poly.slice(1).map(L), { type: "Z" }];
+  }
   if (p.shape === "quarter") return [M(C), L(A), arc(C, A, B), { type: "Z" }];
   return [M(C), L(A), arc(O, A, B), { type: "Z" }]; // spandrel
 }
@@ -89,7 +167,8 @@ function buildShape(cells, pieces) {
   const book = new CurveBook();
   let shape = book.paths(squareContours(cells, { rounding: 0 }));
   for (const piece of pieces) {
-    const clip = orient(book.paths([pieceContour(piece)]));
+    const clip = orient(book.paths([pieceContour(piece)])).filter((q) => Math.abs(ClipperLib.Clipper.Area(q)) > 1);
+    if (!clip.length) continue;
     shape = clipperOp(piece.mode === "cut" ? ClipperLib.ClipType.ctDifference : ClipperLib.ClipType.ctUnion, shape, clip);
   }
   return { book, shape };
@@ -401,9 +480,11 @@ export function mirrorPiece(p, { h = null, v = null } = {}) {
   let q = { ...p };
   if (h !== null) {
     q = { ...q, x0: h - q.x1, x1: h - q.x0, corner: q.corner[0] + (q.corner[1] === "l" ? "r" : "l") };
+    if (q.points) q.points = q.points.map(([x, y]) => [h - x, y]);
   }
   if (v !== null) {
     q = { ...q, y0: v - q.y1, y1: v - q.y0, corner: (q.corner[0] === "b" ? "t" : "b") + q.corner[1] };
+    if (q.points) q.points = q.points.map(([x, y]) => [x, v - y]);
   }
   return q;
 }

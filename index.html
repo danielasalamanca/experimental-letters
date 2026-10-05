@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
-  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
   <header class="topbar">
@@ -28,7 +28,7 @@
           <button id="toolDraw" type="button" class="tool" title="Dibujar (B)">Dibujar</button>
           <button id="toolSelect" type="button" class="tool" title="Seleccionar (V) · doble clic: trazo completo">Seleccionar</button>
           <button id="toolCorner" type="button" class="tool" title="Esquinas (E) · solo en la grilla de puntos · clic en una esquina para redondearla con el radio elegido, o arrástrala hacia adentro para elegir el radio; otro clic la devuelve al redondeo global y Shift + clic la deja en punta">Esquinas</button>
-          <button id="toolPiece" type="button" class="tool" title="Piezas (P) · solo en la grilla de puntos · arrastra de un punto a otro para poner una pieza: nace en la esquina donde empiezas · clic en una pieza para elegirla, Supr para borrarla">Piezas</button>
+          <button id="toolPiece" type="button" class="tool" title="Piezas (P) · solo en la grilla de puntos · arrastra de un punto a otro para poner una pieza: nace en la esquina donde empiezas · arrastra sus nodos (cuadrados) para cambiar diagonales y arcos, con Shift en medias celdas · clic en una pieza para elegirla, Supr para borrarla">Piezas</button>
         </div>
         <div class="tool-group" id="cornerGroup">
           <label id="cornerRadiusBox" class="inline corner-radius" title="Radio al hacer clic en una esquina, en celdas. Al máximo, cada esquina se redondea todo lo que la forma permite.">
@@ -285,20 +285,20 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=12",
-        "./js/geometry.js": "./js/geometry.js?v=12",
-        "./js/model.js": "./js/model.js?v=12",
-        "./js/render.js": "./js/render.js?v=12",
-        "./js/tools.js": "./js/tools.js?v=12",
-        "./js/library.js": "./js/library.js?v=12",
-        "./js/pieces.js": "./js/pieces.js?v=12",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=12",
-        "./js/outline.js": "./js/outline.js?v=12",
-        "./js/otf.js": "./js/otf.js?v=12",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=12"
+        "./js/charset.js": "./js/charset.js?v=13",
+        "./js/geometry.js": "./js/geometry.js?v=13",
+        "./js/model.js": "./js/model.js?v=13",
+        "./js/render.js": "./js/render.js?v=13",
+        "./js/tools.js": "./js/tools.js?v=13",
+        "./js/library.js": "./js/library.js?v=13",
+        "./js/pieces.js": "./js/pieces.js?v=13",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=13",
+        "./js/outline.js": "./js/outline.js?v=13",
+        "./js/otf.js": "./js/otf.js?v=13",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=13"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=12"></script>
+  <script type="module" src="js/main.js?v=13"></script>
 </body>
 </html>

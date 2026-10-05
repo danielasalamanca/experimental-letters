@@ -12,7 +12,10 @@ import { drawGlyph, drawText, el, SVG_NS, contoursToPath } from "./render.js";
 import { openLibrary, saveFont, loadFont, deleteFont, newId, fontName } from "./library.js";
 import { AXES, axisRows, mirrorKeys, translate, cellsInRect, connectedCells } from "./tools.js";
 import { squareCorners, effectiveRadii, MAX_RADIUS } from "./outline.js";
-import { pieceContour, normalizePiece, mirrorPiece, PIECE_SHAPES, pieceGlyphCorners, cornerKey } from "./pieces.js";
+import {
+  pieceContour, normalizePiece, mirrorPiece, PIECE_SHAPES, pieceGlyphCorners, cornerKey,
+  pieceHandles, movePieceHandle,
+} from "./pieces.js";
 
 
 const $ = (id) => document.getElementById(id);
@@ -340,6 +343,14 @@ board.addEventListener("pointerdown", (evt) => {
   }
 
   if (tool === "piece") {
+    const node = nodeAt(evt);
+    if (node) {
+      checkpoint();
+      selectedPiece = node.index;
+      action = { type: "node", ...node, shift: evt.shiftKey };
+      syncPieceList();
+      return;
+    }
     const { x, y } = toCells(evt);
     action = { type: "piece", x0: Math.round(x), y0: Math.round(y), x1: Math.round(x), y1: Math.round(y), moved: false, at: { x, y } };
     return;
@@ -408,6 +419,10 @@ window.addEventListener("pointermove", (evt) => {
       dragCorner(evt);
       break;
     }
+    case "node": {
+      dragNode(evt);
+      break;
+    }
     case "piece": {
       const { x, y } = toCells(evt);
       const x1 = Math.round(x), y1 = Math.round(y);
@@ -466,6 +481,7 @@ window.addEventListener("pointerup", () => {
   if (done.type === "pan") return;
   if (done.type === "corner") { endCorner(done); return; }
   if (done.type === "piece") { endPiece(done); return; }
+  if (done.type === "node") { render(); syncPieceList(); return; }
   render(done.type === "metric" ? "font" : "glyph");
 });
 
@@ -506,6 +522,59 @@ function endPiece(done) {
   syncPieceList();
 }
 
+// --- Moving piece nodes ---
+// The node under the pointer: the piece, which node, and the nodes of its
+// mirror images (pieces placed with the mirror), which move along with it.
+function nodeAt(evt) {
+  const { x, y } = toCells(evt);
+  const pieces = glyph().pieces;
+  let best = null, bestDist = 0.35;
+  // The selected piece wins when nodes overlap.
+  const order = [...pieces.keys()].sort((a, b) => (b === selectedPiece) - (a === selectedPiece));
+  for (const index of order) {
+    for (const h of pieceHandles(pieces[index])) {
+      const dist = Math.hypot(x - h.x, y - h.y);
+      if (dist < bestDist) { best = { index, id: h.id }; bestDist = dist; }
+    }
+  }
+  if (!best) return null;
+  return { ...best, partners: mirrorPartners(best.index) };
+}
+
+function mirrorPartners(index) {
+  const g = glyph();
+  const p = g.pieces[index];
+  const [lo, hi] = axisRows(font.view.mirrorAxis, font.metrics, font.active);
+  const same = (a, b) => JSON.stringify(normalizePiece(a)) === JSON.stringify(normalizePiece(b));
+  const out = [];
+  const options = [];
+  if (font.view.mirrorH) options.push({ h: g.cols, map: ([x, y]) => [g.cols - x, y] });
+  if (font.view.mirrorV) options.push({ v: lo + hi, map: ([x, y]) => [x, lo + hi - y] });
+  if (font.view.mirrorH && font.view.mirrorV) options.push({ h: g.cols, v: lo + hi, map: ([x, y]) => [g.cols - x, lo + hi - y] });
+  for (const opt of options) {
+    const image = mirrorPiece(p, opt);
+    const j = g.pieces.findIndex((q, k) => k !== index && same(q, image));
+    if (j >= 0) out.push({ index: j, map: opt.map });
+  }
+  return out;
+}
+
+function dragNode(evt) {
+  const { x, y } = toCells(evt);
+  // Nodes snap to grid points; with Shift, to half cells.
+  const step = evt.shiftKey ? 0.5 : 1;
+  const at = [Math.round(x / step) * step, Math.round(y / step) * step];
+  const g = glyph();
+  const moved = movePieceHandle(g.pieces[action.index], action.id, at);
+  if (!moved) return;
+  const before = JSON.stringify(g.pieces[action.index]);
+  const partners = action.partners.map((p) => [p.index, movePieceHandle(g.pieces[p.index], action.id, p.map(at))]);
+  if (JSON.stringify(moved) === before || partners.some(([, q]) => !q)) return;
+  g.pieces[action.index] = moved;
+  for (const [j, q] of partners) g.pieces[j] = q;
+  render();
+}
+
 function removePiece(index) {
   checkpoint();
   glyph().pieces.splice(index, 1);
@@ -529,6 +598,17 @@ function drawPieceMarkers(layer) {
       layer.appendChild(el("path", {
         d: contoursToPath([pieceContour(n)], cu), fill: PIECE_COLOR, "fill-opacity": 0.18,
         stroke: PIECE_COLOR, "stroke-width": 1.5, "vector-effect": "non-scaling-stroke",
+      }));
+    }
+  });
+  // Draggable nodes, on top.
+  glyph().pieces.forEach((p, i) => {
+    const selected = i === selectedPiece;
+    for (const h of pieceHandles(p)) {
+      const size = cu * (selected ? 0.26 : 0.2);
+      layer.appendChild(el("rect", {
+        x: h.x * cu - size / 2, y: -h.y * cu - size / 2, width: size, height: size,
+        fill: selected ? PIECE_COLOR : "#fff", stroke: PIECE_COLOR, "stroke-width": 1.5, "vector-effect": "non-scaling-stroke",
       }));
     }
   });

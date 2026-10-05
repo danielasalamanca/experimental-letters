@@ -50,6 +50,12 @@ const block = (x0, y0, x1, y1) => {
 // A piece, straight from its definition.
 function inPiece(piece, [x, y]) {
   const p = normalizePiece(piece);
+  if (p.points) {
+    // Inside the box around the nodes, on C's side of the diagonal A–B.
+    const [C, A, B] = p.points;
+    const side = (P) => (B[0] - A[0]) * (P[1] - A[1]) - (B[1] - A[1]) * (P[0] - A[0]);
+    return side([x, y]) * side(C) >= 0;
+  }
   if (x < p.x0 || x > p.x1 || y < p.y0 || y > p.y1) return false;
   const w = p.x1 - p.x0, h = p.y1 - p.y0;
   const C = { bl: [p.x0, p.y0], br: [p.x1, p.y0], tl: [p.x0, p.y1], tr: [p.x1, p.y1] }[p.corner];
@@ -251,4 +257,53 @@ test("random drawings with pieces and rounded corners never overlap", () => {
 test("corner keys match lattice keys and keep three decimals elsewhere", () => {
   assert.equal(cornerKey(3, 14), "3,14");
   assert.equal(cornerKey(2.33333, 7.5), "2.333,7.5");
+});
+
+// --- Moving nodes by hand ---
+import { pieceHandles, movePieceHandle } from "../js/pieces.js";
+
+test("dragging a triangle node changes the diagonal", () => {
+  const cut = { x0: 0, y0: 0, x1: 1, y1: 14, corner: "tl", shape: "tri", mode: "cut" };
+  const handles = pieceHandles(cut);
+  assert.deepEqual(handles.map((h) => [h.x, h.y]), [[0, 14], [1, 14], [0, 0]]);
+  // Move the top node one cell to the right: a steeper slope.
+  const moved = movePieceHandle(cut, 1, [2, 14]);
+  assert.deepEqual(moved.points, [[0, 14], [2, 14], [0, 0]]);
+  assert.deepEqual([moved.x0, moved.x1, moved.y0, moved.y1], [0, 2, 0, 14]);
+  check(block(0, 0, 8, 14), [moved]);
+  // A node can go anywhere, even off the box (a free triangle).
+  const free = movePieceHandle(moved, 2, [1, -1]);
+  check(block(0, 0, 8, 14), [free]);
+  // …but not where the triangle would collapse.
+  assert.equal(movePieceHandle(cut, 1, [0, 7]), null);
+});
+
+test("curved pieces get wider or taller from the ends of the arc", () => {
+  const p = { x0: 2, y0: 7, x1: 5, y1: 14, corner: "tl", shape: "spandrel", mode: "cut" };
+  assert.deepEqual(pieceHandles(p).map((h) => [h.id, h.x, h.y]), [["C", 2, 14], ["A", 5, 14], ["B", 2, 7]]);
+  const wider = movePieceHandle(p, "A", [6, 99]); // A only moves sideways
+  assert.deepEqual([wider.x0, wider.x1, wider.y0, wider.y1, wider.corner], [2, 6, 7, 14, "tl"]);
+  const taller = movePieceHandle(p, "B", [99, 5]);
+  assert.deepEqual([taller.y0, taller.y1], [5, 14]);
+  const flipped = movePieceHandle(p, "C", [7, 14]); // the corner jumps to the other side
+  assert.equal(flipped.corner, "tr");
+  check(K_CELLS, [wider]);
+});
+
+test("moved nodes survive mirroring and saving", () => {
+  const p = movePieceHandle({ x0: 0, y0: 0, x1: 1, y1: 14, corner: "tl", shape: "tri", mode: "cut" }, 1, [2, 14]);
+  assert.deepEqual(mirrorPiece(p, { h: 8 }).points, [[8, 14], [6, 14], [8, 0]]);
+  assert.deepEqual(normalizePiece(JSON.parse(JSON.stringify(p))).points, p.points);
+});
+
+test("moving an end of a diagonal keeps the cut reaching the edge", () => {
+  const cut = { x0: 0, y0: 0, x1: 2, y1: 14, corner: "tl", shape: "tri", mode: "cut" };
+  // Bottom end moved half a cell inward: the cut becomes a quadrilateral.
+  const moved = movePieceHandle(cut, 2, [0.5, 0]);
+  const contour = pieceContour(moved);
+  assert.equal(contour.filter((c) => c.type === "L").length, 3);
+  const polys = flatten(squareGlyphContours(block(0, 0, 8, 14), { pieces: [moved] }));
+  assert.equal(winding(polys, [0.1, 0.5]), 0, "no sliver left along the edge");
+  assert.equal(winding(polys, [0.6, 0.5]), 1);
+  check(block(0, 0, 8, 14), [moved]);
 });

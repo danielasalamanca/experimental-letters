@@ -79,6 +79,14 @@ grilla:
     esquinas que crean las diagonales también se pueden redondear, y los
     puntos de la herramienta Esquinas aparecen donde la letra realmente
     tiene esquinas.
+  - **Nodos:** con la herramienta Piezas, cada pieza muestra sus nodos como
+    cuadraditos. Arrástralos para cambiar una diagonal o el tamaño de un arco;
+    se ajustan a los puntos de la grilla (con **Shift**, a medias celdas). Con
+    el espejo activado, la pieza reflejada se mueve igual. En un triángulo
+    puedes mover sus tres nodos: la pieza cubre todo lo que queda del lado de
+    su esquina hasta el borde de su rectángulo, así mover el extremo de una
+    diagonal nunca deja una astilla en el borde. En un cuarto de elipse o una
+    esquina curva, los extremos del arco lo hacen más ancho o más alto.
   - Las piezas se aplican en orden y respetan el espejo. Clic en una pieza
     para elegirla y **Supr** para borrarla; también aparecen en el panel
     Glifo, con su botón para quitarlas.

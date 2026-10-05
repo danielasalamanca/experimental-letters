@@ -46,7 +46,7 @@ export function createGlyph({
     // Square grid: radius (cells or "max") of single corners, by lattice point.
     corners: { ...corners },
     // Square grid: pieces (triangles, quarter ellipses…) added or cut on top.
-    pieces: pieces.map((p) => ({ ...p })),
+    pieces: pieces.map((p) => ({ ...p, ...(p.points ? { points: p.points.map((q) => [...q]) } : {}) })),
     components: components.map((c) => ({ glyph: c.glyph, dx: c.dx ?? 0, dy: c.dy ?? 0 })),
   };
 }
@@ -206,7 +206,10 @@ export function resolvedPieces(font, glyph, seen = new Set()) {
     const base = font.glyphs[comp.glyph];
     if (!base || seen.has(comp.glyph)) continue;
     for (const p of resolvedPieces(font, base, new Set([...seen, comp.glyph]))) {
-      out.push({ ...p, x0: p.x0 + comp.dx, x1: p.x1 + comp.dx, y0: p.y0 + comp.dy, y1: p.y1 + comp.dy });
+      out.push({
+        ...p, x0: p.x0 + comp.dx, x1: p.x1 + comp.dx, y0: p.y0 + comp.dy, y1: p.y1 + comp.dy,
+        ...(p.points ? { points: p.points.map(([x, y]) => [x + comp.dx, y + comp.dy]) } : {}),
+      });
     }
   }
   return [...out, ...glyph.pieces];
