@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
-  <link rel="stylesheet" href="style.css?v=13">
+  <link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
   <header class="topbar">
     <h1>Letras experimentales</h1>
-    <p>B dibujar · V seleccionar · E esquinas · P piezas · espacio + arrastre para desplazar · Cmd/Ctrl + rueda para zoom · Supr borra la selección · flechas la mueven</p>
+    <p>A nodos · B dibujar · V seleccionar · E esquinas · P piezas · espacio + arrastre para desplazar · Cmd/Ctrl + rueda para zoom · Supr borra la selección · flechas la mueven</p>
   </header>
 
   <div class="app">
@@ -25,6 +25,7 @@
     <main class="zone zone-center">
       <div class="toolbar" role="toolbar" aria-label="Herramientas">
         <div class="tool-group">
+          <button id="toolNodes" type="button" class="tool" title="Nodos (A) · como la selección directa de Illustrator: arrastra los puntos de la letra (se ajustan a la grilla; Alt: libre, Shift: recto o a 45°), clic o rectángulo para elegir varios, doble clic en un tramo agrega un nodo, doble clic en un nodo lo cambia entre esquina y curva, Supr lo borra, flechas lo mueven">Nodos</button>
           <button id="toolDraw" type="button" class="tool" title="Dibujar (B)">Dibujar</button>
           <button id="toolSelect" type="button" class="tool" title="Seleccionar (V) · doble clic: trazo completo">Seleccionar</button>
           <button id="toolCorner" type="button" class="tool" title="Esquinas (E) · solo en la grilla de puntos · clic en una esquina para redondearla con el radio elegido, o arrástrala hacia adentro para elegir el radio; otro clic la devuelve al redondeo global y Shift + clic la deja en punta">Esquinas</button>
@@ -132,6 +133,12 @@
             <button id="copyFrom" type="button">Copiar</button>
           </div>
           <p class="info">Reemplaza el dibujo, columnas y márgenes de este glifo (se puede deshacer).</p>
+        </div>
+        <div class="components">
+          <h4>Nodos</h4>
+          <p class="info" id="nodeInfo"></p>
+          <button id="editNodes" type="button" class="wide">Editar con nodos</button>
+          <button id="backToGrid" type="button" class="wide" hidden>Volver a la grilla</button>
         </div>
         <div class="components" id="pieceListBox" hidden>
           <h4>Piezas</h4>
@@ -285,20 +292,22 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=13",
-        "./js/geometry.js": "./js/geometry.js?v=13",
-        "./js/model.js": "./js/model.js?v=13",
-        "./js/render.js": "./js/render.js?v=13",
-        "./js/tools.js": "./js/tools.js?v=13",
-        "./js/library.js": "./js/library.js?v=13",
-        "./js/pieces.js": "./js/pieces.js?v=13",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=13",
-        "./js/outline.js": "./js/outline.js?v=13",
-        "./js/otf.js": "./js/otf.js?v=13",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=13"
+        "./js/charset.js": "./js/charset.js?v=14",
+        "./js/geometry.js": "./js/geometry.js?v=14",
+        "./js/model.js": "./js/model.js?v=14",
+        "./js/render.js": "./js/render.js?v=14",
+        "./js/tools.js": "./js/tools.js?v=14",
+        "./js/library.js": "./js/library.js?v=14",
+        "./js/pieces.js": "./js/pieces.js?v=14",
+        "./js/nodes.js": "./js/nodes.js?v=14",
+        "./js/shapes.js": "./js/shapes.js?v=14",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=14",
+        "./js/outline.js": "./js/outline.js?v=14",
+        "./js/otf.js": "./js/otf.js?v=14",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=14"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=13"></script>
+  <script type="module" src="js/main.js?v=14"></script>
 </body>
 </html>

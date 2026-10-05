@@ -36,6 +36,26 @@ grilla:
   copia todo al dibujo propio del glifo.
 
 ### Dibujo y herramientas
+- **Nodos (A)**, como la selección directa de Illustrator: muestra los puntos
+  del contorno real de la letra (con sus piezas y esquinas).
+  - **Arrastra un punto** para moverlo; se ajusta a los puntos y medios puntos
+    de la grilla al acercarse (**Alt**: sin ajuste; **Shift**: horizontal,
+    vertical o a 45°).
+  - **Clic** elige un punto, **Shift + clic** suma o quita, y arrastrar en un
+    lugar vacío elige varios con un rectángulo. **Cmd/Ctrl + A** los elige
+    todos; las **flechas** los mueven ¼ de celda (Shift: 1 celda); **Supr**
+    los borra; **Esc** quita la selección.
+  - Un punto elegido muestra sus **manijas** (curvas Bézier) para
+    arrastrarlas; en un punto suave las dos se mueven juntas (Alt las separa).
+  - **Doble clic en un tramo** agrega un punto; **doble clic en un punto** lo
+    cambia entre esquina y curva.
+  - Con el **espejo** activado, el punto simétrico se mueve igual.
+  - La primera vez que cambias un punto, la letra pasa a ser un contorno de
+    nodos (como expandir en Illustrator) y se marca con un cuadradito azul en
+    el mapa. **Volver a la grilla** (panel Glifo) la devuelve a su dibujo en
+    la grilla; **Editar con nodos** la convierte sin mover nada. Las letras
+    compuestas (á, ñ…) siguen a la letra editada, y al exportar el .otf los
+    contornos que se superponen se unen.
 - **Dibujar (B):** clic o arrastre sobre la grilla para rellenar celdas; si
   empiezas sobre una celda rellena, el arrastre borra.
 - **Espejo ↔ y ↕:** al dibujar o borrar se repite la celda reflejada
@@ -240,7 +260,8 @@ La exportación usa [opentype.js](https://github.com/opentypejs/opentype.js)
 escribe `js/otf.js`, porque opentype.js no la genera.
 
 Los tests (`node --test`, sin dependencias) cubren la geometría, la migración
-de datos, la biblioteca de tipografías, el ajuste de glifos a métricas, el
+de datos, la biblioteca de tipografías, la edición con nodos, el ajuste de
+glifos a métricas, el
 set de caracteres, los
 componentes, las herramientas de dibujo (espejo, selección y trazos) y la
 composición de texto con kerning, y la exportación: comparan los contornos

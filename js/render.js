@@ -3,7 +3,8 @@
 
 import { starPath, joinBridges, parseKey } from "./geometry.js";
 import { squareGlyphContours } from "./pieces.js";
-import { METRICS, glyphShape, glyphGrid, resolvedCells, advanceWidth, layoutText } from "./model.js";
+import { METRICS, glyphShape, glyphGrid, resolvedCells, resolvedOutline, advanceWidth, layoutText } from "./model.js";
+import { outlineToCommands } from "./nodes.js";
 
 export const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -28,6 +29,12 @@ export function glyphBounds(font, glyph) {
     const [, r] = parseKey(k);
     lo = Math.min(lo, r);
     hi = Math.max(hi, r + 1);
+  }
+  for (const contour of resolvedOutline(font, glyph)) {
+    for (const n of contour.nodes) {
+      lo = Math.min(lo, Math.floor(n.y));
+      hi = Math.max(hi, Math.ceil(n.y));
+    }
   }
   const right = glyph.cols * cu + glyph.rsb;
   return {
@@ -191,16 +198,18 @@ function label(x, y, text, cu) {
 // The ink. Circle grid: one path per star plus the "unión mínima" bridges.
 // Square grid: a single path with the outline of the rounded squares
 // (the same contours the .otf uses).
-export function drawShapes(font, cellList, { grid, curve, rounding, corners = {}, pieces = [] }, ink, { lo, hi, cols }) {
+export function drawShapes(font, cellList, { grid, curve, rounding, corners = {}, pieces = [], outline = [] }, ink, { lo, hi, cols }) {
   const cu = font.cell;
   const cells = cellList.filter((k) => {
     const [c, r] = parseKey(k);
     return c >= 0 && c < cols && r >= lo && r < hi;
   });
   const g = el("g", { fill: ink });
+  // Outlines edited node by node.
+  if (outline.length) g.appendChild(el("path", { d: contoursToPath(outlineToCommands(outline), cu), "fill-rule": "nonzero" }));
   if (grid === "squares") {
     const stroke = font.style === "outline" ? font.stroke / cu : 0;
-    g.appendChild(el("path", { d: contoursToPath(squareGlyphContours(cells, { rounding, stroke, corners, pieces }), cu) }));
+    if (cells.length) g.appendChild(el("path", { d: contoursToPath(squareGlyphContours(cells, { rounding, stroke, corners, pieces }), cu) }));
     return g;
   }
   for (const k of cells) {

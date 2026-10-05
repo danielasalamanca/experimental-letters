@@ -1,0 +1,92 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import * as opentype from "../js/vendor/opentype.min.js";
+import {
+  commandsToOutline, outlineToCommands, splitSegment, toggleSmooth, deleteNodes, nearestSegment, snapToGrid, isSmooth,
+} from "../js/nodes.js";
+import { ownContours, glyphFinalContours } from "../js/shapes.js";
+import { normalizeFont, createGlyph } from "../js/model.js";
+import { buildOtf } from "../js/otf.js";
+
+function flatten(contours) {
+  return contours.map((cmds) => {
+    const pts = [];
+    let cur = null;
+    for (const c of cmds) {
+      if (c.type === "M" || c.type === "L") { cur = [c.x, c.y]; pts.push(cur); }
+      else if (c.type === "C") {
+        const [x0, y0] = cur;
+        for (let i = 1; i <= 32; i++) {
+          const t = i / 32, u = 1 - t;
+          pts.push([
+            u * u * u * x0 + 3 * u * u * t * c.x1 + 3 * u * t * t * c.x2 + t * t * t * c.x,
+            u * u * u * y0 + 3 * u * u * t * c.y1 + 3 * u * t * t * c.y2 + t * t * t * c.y,
+          ]);
+        }
+        cur = [c.x, c.y];
+      }
+    }
+    return pts;
+  });
+}
+const area = (contours) => flatten(contours).reduce((sum, pts) => sum + pts.reduce((s, [x0, y0], i) => {
+  const [x1, y1] = pts[(i + 1) % pts.length];
+  return s + (x0 * y1 - x1 * y0) / 2;
+}, 0), 0);
+
+const square = [{ type: "M", x: 0, y: 0 }, { type: "L", x: 2, y: 0 }, { type: "L", x: 2, y: 2 }, { type: "L", x: 0, y: 2 }, { type: "Z" }];
+
+test("contours turn into nodes and back without changing", () => {
+  const outline = commandsToOutline([square]);
+  assert.equal(outline[0].nodes.length, 4);
+  assert.ok(Math.abs(area(outlineToCommands(outline)) - 4) < 1e-9);
+  // A letter from the grid (the sample "a", stars): same area as nodes.
+  const font = normalizeFont(null);
+  const a = ownContours(font, font.glyphs.a);
+  const again = outlineToCommands(commandsToOutline(a));
+  assert.ok(Math.abs(area(again) - area(a)) < 1e-9);
+});
+
+test("adding a node keeps the curve; corner and smooth toggle", () => {
+  const curve = [{ type: "M", x: 0, y: 0 }, { type: "C", x1: 0, y1: 1, x2: 1, y2: 2, x: 2, y: 2 }, { type: "L", x: 2, y: 0 }, { type: "Z" }];
+  const outline = commandsToOutline([curve]);
+  const before = area(outlineToCommands(outline));
+  const hit = nearestSegment(outline, [0.4, 1.3]);
+  assert.equal(hit.index, 0);
+  splitSegment(outline, hit.contour, hit.index, hit.t);
+  assert.equal(outline[0].nodes.length, 4);
+  assert.ok(Math.abs(area(outlineToCommands(outline)) - before) < 5e-3);
+  assert.ok(isSmooth(outline[0].nodes[1]));
+  toggleSmooth(outline, 0, 1);
+  assert.equal(outline[0].nodes[1].in, null);
+  toggleSmooth(outline, 0, 1);
+  assert.ok(isSmooth(outline[0].nodes[1]));
+});
+
+test("deleting nodes and snapping", () => {
+  const outline = commandsToOutline([square]);
+  assert.equal(deleteNodes(outline, ["0:1"])[0].nodes.length, 3);
+  assert.equal(deleteNodes(outline, ["0:1", "0:2"]).length, 0);
+  assert.deepEqual(snapToGrid([2.1, 3.05]), [2, 3]);
+  assert.deepEqual(snapToGrid([2.48, 3.52]), [2.5, 3.5]);
+  assert.deepEqual(snapToGrid([2.3, 3.3]), [2.3, 3.3]);
+});
+
+test("a glyph edited with nodes is drawn, composed and exported", async () => {
+  const font = normalizeFont(null);
+  // The "a" becomes a moved square; "á" (a + accent) follows it.
+  const outline = commandsToOutline([square]);
+  outline[0].nodes[2].x = 3; // drag a node
+  font.glyphs.a = createGlyph({ ...font.glyphs.a, outline });
+  font.glyphs.a.cells = ["0,0"]; // hidden while the outline is used
+  const own = glyphFinalContours(font, font.glyphs.a);
+  assert.ok(Math.abs(area(own) - 5) < 1e-6);
+  const composite = glyphFinalContours(font, font.glyphs["á"]);
+  assert.ok(Math.abs(area(composite) - 5) < 1e-6, "la á usa el contorno de la a");
+  // Overlapping hand-drawn contours are merged in the font.
+  font.glyphs.b = createGlyph({ outline: commandsToOutline([square, square.map((c) => (c.type === "Z" ? c : { ...c, x: c.x + 1 }))]) });
+  const otf = opentype.parse(await buildOtf(font));
+  const moves = otf.charToGlyph("b").path.commands.filter((c) => c.type === "M").length;
+  assert.equal(moves, 1);
+  assert.equal(otf.charToGlyph("a").path.commands.filter((c) => c.type === "M").length, 1);
+});

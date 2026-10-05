@@ -3,7 +3,7 @@
 import { key, parseKey } from "./geometry.js";
 import {
   METRICS, createGlyph, normalizeFont, createBlankFont, setMetric, sameMetrics,
-  GRIDS, glyphGrid, shapeKey, hasOwnShape, resolvedCorners, resolvedPieces, glyphShape,
+  GRIDS, glyphGrid, shapeKey, hasOwnShape, resolvedCorners, resolvedPieces, resolvedOutline, glyphShape,
   planFit, applyFit, advanceWidth, resolvedCells, canUseComponent, dependents,
   kerningValue, setKerning, layoutText,
 } from "./model.js";
@@ -12,6 +12,11 @@ import { drawGlyph, drawText, el, SVG_NS, contoursToPath } from "./render.js";
 import { openLibrary, saveFont, loadFont, deleteFont, newId, fontName } from "./library.js";
 import { AXES, axisRows, mirrorKeys, translate, cellsInRect, connectedCells } from "./tools.js";
 import { squareCorners, effectiveRadii, MAX_RADIUS } from "./outline.js";
+import {
+  commandsToOutline, outlineToCommands, cloneOutline, splitSegment, toggleSmooth, deleteNodes,
+  nearestSegment, snapToGrid, isSmooth,
+} from "./nodes.js";
+import { ownContours } from "./shapes.js";
 import {
   pieceContour, normalizePiece, mirrorPiece, PIECE_SHAPES, pieceGlyphCorners, cornerKey,
   pieceHandles, movePieceHandle,
@@ -108,6 +113,7 @@ function render(scope = "glyph") {
 
 function refreshAll() {
   selection.clear();
+  nodeSel.clear();
   syncControls();
   render("font");
   renderGallery();
@@ -141,6 +147,7 @@ function decorate() {
   }
   if (tool === "corner") drawCornerMarkers(layer);
   if (tool === "piece") drawPieceMarkers(layer);
+  if (tool === "nodes") drawNodeMarkers(layer);
   if (action?.type === "marquee" && action.moved) {
     const { x0, y0, x1, y1 } = action;
     layer.appendChild(el("rect", {
@@ -161,6 +168,9 @@ function toast(message) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { t.hidden = true; }, 2500);
 }
+
+// A glyph with nothing drawn: no cells and no node outline (own or from components).
+const isEmptyGlyph = (g) => resolvedCells(font, g).length === 0 && resolvedOutline(font, g).length === 0;
 
 // --- Character map ---
 const thumbs = new Map(); // char -> cell element
@@ -192,7 +202,7 @@ function updateThumb(char) {
   const cell = thumbs.get(char);
   const g = font.glyphs[char];
   if (!cell || !g) return;
-  const empty = resolvedCells(font, g).length === 0;
+  const empty = isEmptyGlyph(g);
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
   drawGlyph(svg, font, g, { frame: "advance" });
@@ -202,6 +212,7 @@ function updateThumb(char) {
   cell.replaceChildren(svg, label);
   if (hasOwnShape(font, g)) cell.appendChild(marker("own-dot", "Usa curvatura o redondeo propio"));
   if (g.grid != null) cell.appendChild(marker("grid-mark", `Grilla propia: ${GRIDS[g.grid]}`));
+  if (g.outline) cell.appendChild(marker("node-mark", "Editada con nodos"));
   if (g.components.length) cell.appendChild(marker("comp-mark", "Compuesto con componentes"));
   cell.classList.toggle("empty", empty);
   cell.classList.toggle("active", char === font.active);
@@ -218,6 +229,7 @@ function marker(className, title) {
 function selectGlyph(char) {
   const prev = font.active;
   selection.clear();
+  nodeSel.clear();
   font.active = char;
   updateThumb(prev);
   updateThumb(char);
@@ -264,6 +276,11 @@ let action = null;           // the drag in progress
 let spaceDown = false;
 
 function setTool(next) {
+  // A glyph edited with nodes has no grid drawing to work on.
+  if (glyph().outline && ["draw", "select", "corner", "piece"].includes(next)) {
+    if (tool === "nodes") toast("Esta letra se edita con nodos. Para dibujar en la grilla, usa «Volver a la grilla» en el panel Glifo.");
+    next = "nodes";
+  }
   // Corners and pieces only exist on the square grid.
   if ((next === "corner" || next === "piece") && glyphGrid(font, glyph()) !== "squares") {
     toast(`La herramienta ${next === "corner" ? "Esquinas" : "Piezas"} funciona con la grilla de puntos (cuadrados).`);
@@ -272,6 +289,8 @@ function setTool(next) {
   tool = next;
   if (tool !== "select") selection.clear();
   if (tool !== "piece") selectedPiece = null;
+  if (tool !== "nodes") nodeSel.clear();
+  $("toolNodes").classList.toggle("active", tool === "nodes");
   $("toolPiece").classList.toggle("active", tool === "piece");
   $("pieceGroup").hidden = tool !== "piece";
   $("toolDraw").classList.toggle("active", tool === "draw");
@@ -339,6 +358,12 @@ board.addEventListener("pointerdown", (evt) => {
   if (tool === "corner") {
     frozenBounds = null;
     startCorner(evt);
+    return;
+  }
+
+  if (tool === "nodes") {
+    frozenBounds = null;
+    startNodeAction(evt);
     return;
   }
 
@@ -423,6 +448,12 @@ window.addEventListener("pointermove", (evt) => {
       dragNode(evt);
       break;
     }
+    case "nodes":
+    case "handle":
+    case "nodeMarquee": {
+      moveNodeAction(evt);
+      break;
+    }
     case "piece": {
       const { x, y } = toCells(evt);
       const x1 = Math.round(x), y1 = Math.round(y);
@@ -482,8 +513,278 @@ window.addEventListener("pointerup", () => {
   if (done.type === "corner") { endCorner(done); return; }
   if (done.type === "piece") { endPiece(done); return; }
   if (done.type === "node") { render(); syncPieceList(); return; }
+  if (["nodes", "handle", "nodeMarquee"].includes(done.type)) { endNodeAction(done); return; }
   render(done.type === "metric" ? "font" : "glyph");
 });
+
+// --- Node tool (like Illustrator's direct selection) ---
+// Shows the anchor points of the glyph's real outline. The first time a
+// node is moved (or added, deleted, converted), the glyph's own drawing is
+// turned into an editable outline; "Volver a la grilla" undoes that.
+const NODE_COLOR = "#1473e6";
+const nodeSel = new Set(); // "contour:node"
+
+// The outline being edited: the glyph's own, or a preview of what its
+// drawing would become.
+function editableOutline() {
+  const g = glyph();
+  return g.outline ?? commandsToOutline(ownContours(font, g));
+}
+
+function ensureOutline() {
+  const g = glyph();
+  if (g.outline) return g.outline;
+  g.outline = commandsToOutline(ownContours(font, g));
+  toast("La letra ahora se edita con nodos. «Volver a la grilla» (panel Glifo) la devuelve a la grilla.");
+  syncGlyphPanel();
+  return g.outline;
+}
+
+// Pointer tolerance: a few screen pixels, in cells.
+const pxToCells = (px) => px / (board.getScreenCTM().a * font.cell);
+
+function nodeHit(outline, p, tol) {
+  let best = null, bestDist = tol;
+  outline.forEach((c, ci) => c.nodes.forEach((n, ni) => {
+    const d = Math.hypot(n.x - p.x, n.y - p.y);
+    if (d < bestDist) { best = `${ci}:${ni}`; bestDist = d; }
+  }));
+  return best;
+}
+
+function handleHit(outline, p, tol) {
+  for (const k of nodeSel) {
+    const [ci, ni] = k.split(":").map(Number);
+    const n = outline[ci]?.nodes[ni];
+    if (!n) continue;
+    for (const which of ["in", "out"]) {
+      if (n[which] && Math.hypot(n.x + n[which][0] - p.x, n.y + n[which][1] - p.y) < tol) return { ci, ni, which };
+    }
+  }
+  return null;
+}
+
+const nodeAtKey = (outline, k) => {
+  const [ci, ni] = k.split(":").map(Number);
+  return outline[ci]?.nodes[ni];
+};
+
+// Nodes mirroring the given ones (with the mirror tools on), and how a
+// movement maps onto them.
+function nodePartners(outline, keys) {
+  const g = glyph();
+  const [lo, hi] = axisRows(font.view.mirrorAxis, font.metrics, font.active);
+  const maps = [];
+  if (font.view.mirrorH) maps.push({ pos: (x, y) => [g.cols - x, y], vec: ([dx, dy]) => [-dx, dy] });
+  if (font.view.mirrorV) maps.push({ pos: (x, y) => [x, lo + hi - y], vec: ([dx, dy]) => [dx, -dy] });
+  if (font.view.mirrorH && font.view.mirrorV) maps.push({ pos: (x, y) => [g.cols - x, lo + hi - y], vec: ([dx, dy]) => [-dx, -dy] });
+  const taken = new Set(keys);
+  const out = [];
+  for (const k of keys) {
+    const n = nodeAtKey(outline, k);
+    for (const m of maps) {
+      const [mx, my] = m.pos(n.x, n.y);
+      const hit = nodeHit(outline, { x: mx, y: my }, 1e-6);
+      if (hit && !taken.has(hit)) { taken.add(hit); out.push({ key: hit, of: k, vec: m.vec }); }
+    }
+  }
+  return out;
+}
+
+function startNodeAction(evt) {
+  const p = toCells(evt);
+  const outline = editableOutline();
+  const tol = pxToCells(8);
+  const h = handleHit(outline, p, tol);
+  if (h) {
+    checkpoint();
+    const n = outline[h.ci].nodes[h.ni];
+    const partners = nodePartners(outline, [`${h.ci}:${h.ni}`]).map((pt) => {
+      // Which handle of the mirrored node mirrors this one.
+      const pn = nodeAtKey(outline, pt.key);
+      const target = pt.vec(n[h.which]);
+      const dist = (v) => (v ? Math.hypot(v[0] - target[0], v[1] - target[1]) : Infinity);
+      return { ...pt, which: dist(pn.in) <= dist(pn.out) ? "in" : "out" };
+    });
+    action = { type: "handle", ...h, smooth: isSmooth(n), partners };
+    return;
+  }
+  const k = nodeHit(outline, p, tol);
+  if (k) {
+    if (evt.shiftKey) {
+      if (nodeSel.has(k)) nodeSel.delete(k); else nodeSel.add(k);
+    } else if (!nodeSel.has(k)) {
+      nodeSel.clear();
+      nodeSel.add(k);
+    }
+    checkpoint();
+    const keys = [...nodeSel];
+    action = {
+      type: "nodes", key: k, start: p, keys, moved: false,
+      partners: nodePartners(outline, keys),
+      orig: cloneOutline(outline),
+    };
+    render(null);
+    return;
+  }
+  action = { type: "nodeMarquee", x0: p.x, y0: p.y, x1: p.x, y1: p.y, moved: false, additive: evt.shiftKey };
+}
+
+function moveNodeAction(evt) {
+  const p = toCells(evt);
+  if (action.type === "nodeMarquee") {
+    action.x1 = p.x; action.y1 = p.y;
+    action.moved ||= Math.hypot(p.x - action.x0, p.y - action.y0) > pxToCells(4);
+    render(null);
+    return;
+  }
+  if (action.type === "handle") {
+    const outline = ensureOutline();
+    const n = outline[action.ci].nodes[action.ni];
+    let v = [p.x - n.x, p.y - n.y];
+    if (evt.shiftKey) v = constrain(v);
+    n[action.which] = v;
+    // A smooth node keeps both handles in line (Alt breaks them apart).
+    const other = action.which === "in" ? "out" : "in";
+    if (action.smooth && !evt.altKey && n[other]) {
+      const len = Math.hypot(...n[other]), lv = Math.hypot(...v) || 1;
+      n[other] = [-v[0] / lv * len, -v[1] / lv * len];
+    }
+    for (const pt of action.partners) {
+      const pn = nodeAtKey(outline, pt.key);
+      pn[pt.which] = pt.vec(n[action.which]);
+      const po = pt.which === "in" ? "out" : "in";
+      if (n[other] && pn[po]) pn[po] = pt.vec(n[other]);
+    }
+    render();
+    return;
+  }
+  // Moving nodes: the grabbed node snaps to the grid (Alt: no snapping),
+  // Shift keeps the move horizontal, vertical or diagonal.
+  let d = [p.x - action.start.x, p.y - action.start.y];
+  if (!action.moved && Math.hypot(...d) < pxToCells(3)) return;
+  if (evt.shiftKey) d = constrain(d);
+  const grabbed = nodeAtKey(action.orig, action.key);
+  if (!evt.altKey) {
+    const target = snapToGrid([grabbed.x + d[0], grabbed.y + d[1]]);
+    d = [target[0] - grabbed.x, target[1] - grabbed.y];
+  }
+  action.moved = true;
+  const outline = ensureOutline();
+  const place = (k, [dx, dy]) => {
+    const o = nodeAtKey(action.orig, k), n = nodeAtKey(outline, k);
+    n.x = o.x + dx;
+    n.y = o.y + dy;
+  };
+  for (const k of action.keys) place(k, d);
+  for (const pt of action.partners) place(pt.key, pt.vec(d));
+  render();
+}
+
+function endNodeAction(done) {
+  if (done.type === "nodeMarquee") {
+    if (!done.additive) nodeSel.clear();
+    if (done.moved) {
+      const [ax, bx] = [Math.min(done.x0, done.x1), Math.max(done.x0, done.x1)];
+      const [ay, by] = [Math.min(done.y0, done.y1), Math.max(done.y0, done.y1)];
+      editableOutline().forEach((c, ci) => c.nodes.forEach((n, ni) => {
+        if (n.x >= ax && n.x <= bx && n.y >= ay && n.y <= by) nodeSel.add(`${ci}:${ni}`);
+      }));
+    }
+    render(null);
+    return;
+  }
+  render("glyph");
+}
+
+// Shift: snap a vector to multiples of 45°.
+function constrain([dx, dy]) {
+  const len = Math.hypot(dx, dy);
+  const a = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
+  return [Math.cos(a) * len, Math.sin(a) * len];
+}
+
+// Double-click: on a node, corner ↔ smooth; on a segment, a new node.
+function nodeDoubleClick(evt) {
+  const p = toCells(evt);
+  const tol = pxToCells(8);
+  const preview = editableOutline();
+  const k = nodeHit(preview, p, tol);
+  if (k) {
+    checkpoint();
+    const outline = ensureOutline();
+    const [ci, ni] = k.split(":").map(Number);
+    toggleSmooth(outline, ci, ni);
+    render();
+    return;
+  }
+  const seg = nearestSegment(preview, [p.x, p.y]);
+  if (seg && seg.dist < tol) {
+    checkpoint();
+    const outline = ensureOutline();
+    const ni = splitSegment(outline, seg.contour, seg.index, seg.t);
+    nodeSel.clear();
+    nodeSel.add(`${seg.contour}:${ni}`);
+    render();
+  }
+}
+
+function deleteSelectedNodes() {
+  if (!nodeSel.size) return;
+  checkpoint();
+  const g = glyph();
+  ensureOutline();
+  g.outline = deleteNodes(g.outline, [...nodeSel]);
+  nodeSel.clear();
+  render();
+}
+
+function nudgeNodes(dx, dy) {
+  if (!nodeSel.size) return;
+  checkpoint("nudgeNodes");
+  const outline = ensureOutline();
+  const keys = [...nodeSel];
+  for (const k of keys) { const n = nodeAtKey(outline, k); n.x += dx; n.y += dy; }
+  for (const pt of nodePartners(outline, keys)) {
+    const n = nodeAtKey(outline, pt.key);
+    const [mx, my] = pt.vec([dx, dy]);
+    n.x += mx; n.y += my;
+  }
+  render();
+}
+
+function drawNodeMarkers(layer) {
+  const cu = font.cell;
+  const outline = editableOutline();
+  const px = 1 / board.getScreenCTM().a; // one screen pixel, in units
+  layer.appendChild(el("path", {
+    d: contoursToPath(outlineToCommands(outline), cu), fill: "none", stroke: NODE_COLOR,
+    "stroke-width": 1.5, "vector-effect": "non-scaling-stroke",
+  }));
+  outline.forEach((c, ci) => c.nodes.forEach((n, ni) => {
+    const selected = nodeSel.has(`${ci}:${ni}`);
+    if (selected) {
+      for (const which of ["in", "out"]) {
+        if (!n[which]) continue;
+        const hx = (n.x + n[which][0]) * cu, hy = -(n.y + n[which][1]) * cu;
+        layer.appendChild(el("line", { x1: n.x * cu, y1: -n.y * cu, x2: hx, y2: hy, stroke: NODE_COLOR, "stroke-width": 1, "vector-effect": "non-scaling-stroke" }));
+        layer.appendChild(el("circle", { cx: hx, cy: hy, r: 4 * px, fill: NODE_COLOR }));
+      }
+    }
+    const size = 7 * px;
+    layer.appendChild(el("rect", {
+      x: n.x * cu - size / 2, y: -n.y * cu - size / 2, width: size, height: size,
+      fill: selected ? NODE_COLOR : "#fff", stroke: NODE_COLOR, "stroke-width": 1.2, "vector-effect": "non-scaling-stroke",
+    }));
+  }));
+  if (action?.type === "nodeMarquee" && action.moved) {
+    const { x0, y0, x1, y1 } = action;
+    layer.appendChild(el("rect", {
+      x: Math.min(x0, x1) * cu, y: -Math.max(y0, y1) * cu, width: Math.abs(x1 - x0) * cu, height: Math.abs(y1 - y0) * cu,
+      fill: NODE_COLOR, "fill-opacity": 0.06, stroke: NODE_COLOR, "stroke-dasharray": "4 3", "vector-effect": "non-scaling-stroke",
+    }));
+  }
+}
 
 // --- Piece tool (square grid) ---
 let pieceMode = "cut";
@@ -768,6 +1069,7 @@ function drawCornerMarkers(layer) {
 
 // Double-click with the select tool picks the whole stroke.
 board.addEventListener("dblclick", (evt) => {
+  if (tool === "nodes") { nodeDoubleClick(evt); return; }
   if (tool !== "select") return;
   const k = cellAt(evt);
   if (!k) return;
@@ -818,6 +1120,7 @@ $("toolDraw").addEventListener("click", () => setTool("draw"));
 $("toolSelect").addEventListener("click", () => setTool("select"));
 $("toolCorner").addEventListener("click", () => setTool("corner"));
 $("toolPiece").addEventListener("click", () => setTool("piece"));
+$("toolNodes").addEventListener("click", () => setTool("nodes"));
 $("pieceAdd").addEventListener("click", () => { pieceMode = "add"; syncToolbar(); });
 $("pieceCut").addEventListener("click", () => { pieceMode = "cut"; syncToolbar(); });
 $("cornerRadius").addEventListener("input", (e) => {
@@ -854,8 +1157,11 @@ function buildToolbar() {
 
 function syncToolbar() {
   const squares = glyphGrid(font, glyph()) === "squares";
-  $("toolCorner").disabled = !squares;
-  $("toolPiece").disabled = !squares;
+  const nodesOnly = !!glyph().outline;
+  for (const id of ["toolDraw", "toolSelect"]) $(id).disabled = nodesOnly;
+  if (nodesOnly && tool !== "nodes") setTool("nodes");
+  $("toolCorner").disabled = !squares || nodesOnly;
+  $("toolPiece").disabled = !squares || nodesOnly;
   if (!squares && (tool === "corner" || tool === "piece")) setTool("draw");
   $("pieceAdd").classList.toggle("active", pieceMode === "add");
   $("pieceCut").classList.toggle("active", pieceMode === "cut");
@@ -918,6 +1224,11 @@ window.addEventListener("keydown", (e) => {
     else if (k === "c") { e.preventDefault(); copySelection(); }
     else if (k === "x") { e.preventDefault(); copySelection(); deleteSelection(); }
     else if (k === "v") { e.preventDefault(); paste(); }
+    else if (k === "a" && tool === "nodes") {
+      e.preventDefault();
+      editableOutline().forEach((c, ci) => c.nodes.forEach((_, ni) => nodeSel.add(`${ci}:${ni}`)));
+      render(null);
+    }
     else if (k === "a") {
       e.preventDefault();
       setTool("select");
@@ -927,7 +1238,15 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   const arrows = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, 1], arrowdown: [0, -1] };
-  if (arrows[k] && selection.size) { e.preventDefault(); nudge(...arrows[k]); }
+  if (tool === "nodes" && arrows[k] && nodeSel.size) {
+    // Nodes move a quarter of a cell (Shift: a whole cell).
+    e.preventDefault();
+    const step = e.shiftKey ? 1 : 0.25;
+    nudgeNodes(arrows[k][0] * step, arrows[k][1] * step);
+  }
+  else if (tool === "nodes" && (k === "delete" || k === "backspace")) { e.preventDefault(); deleteSelectedNodes(); }
+  else if (tool === "nodes" && k === "escape") { nodeSel.clear(); render(null); }
+  else if (arrows[k] && selection.size) { e.preventDefault(); nudge(...arrows[k]); }
   else if ((k === "delete" || k === "backspace") && tool === "piece" && selectedPiece !== null) { e.preventDefault(); removePiece(selectedPiece); }
   else if (k === "delete" || k === "backspace") { if (selection.size) { e.preventDefault(); deleteSelection(); } }
   else if (k === "escape") { selection.clear(); render(null); }
@@ -935,6 +1254,7 @@ window.addEventListener("keydown", (e) => {
   else if (k === "v") setTool("select");
   else if (k === "e") setTool("corner");
   else if (k === "p") setTool("piece");
+  else if (k === "a") setTool("nodes");
   else if (k === "+" || k === "=") zoomAt(1.25);
   else if (k === "-") zoomAt(0.8);
   else if (k === "0") zoomFit();
@@ -971,7 +1291,31 @@ function syncGlyphPanel() {
     `Ancho de avance: ${advanceWidth(font, g)} u = ${g.lsb} + ${g.cols} × ${font.cell} + ${g.rsb}`;
   renderComponents();
   syncPieceList();
+  const edited = !!g.outline;
+  $("editNodes").hidden = edited;
+  $("backToGrid").hidden = !edited;
+  $("nodeInfo").textContent = edited
+    ? "Esta letra se edita con nodos, como en Illustrator (herramienta Nodos, A)."
+    : "Convierte la letra en un contorno de nodos para moverlos a mano. También pasa al mover un nodo con la herramienta Nodos.";
 }
+
+$("editNodes").addEventListener("click", () => {
+  checkpoint();
+  ensureOutline();
+  setTool("nodes");
+  syncControls();
+  render();
+});
+
+$("backToGrid").addEventListener("click", () => {
+  checkpoint();
+  glyph().outline = null;
+  nodeSel.clear();
+  setTool("draw");
+  syncControls();
+  render();
+  toast("La letra volvió a la grilla (los cambios de nodos se pueden recuperar con Cmd/Ctrl + Z).");
+});
 
 function renderComponents() {
   const g = glyph();
@@ -1039,7 +1383,7 @@ function renderComponents() {
   copy.replaceChildren();
   for (const char of CHARSET) {
     if (char === font.active) continue;
-    const empty = resolvedCells(font, font.glyphs[char]).length === 0;
+    const empty = isEmptyGlyph(font.glyphs[char]);
     copy.appendChild(new Option(charLabel(char) + (empty ? " (vacío)" : ""), char));
   }
 }
@@ -1223,6 +1567,7 @@ $("redo").addEventListener("click", redo);
 $("clear").addEventListener("click", () => {
   checkpoint();
   selection.clear();
+  if (glyph().outline) { glyph().outline = null; nodeSel.clear(); syncControls(); }
   glyph().cells = [];
   glyph().metrics = { ...font.metrics };
   render();

@@ -3,6 +3,7 @@
 
 import { key, parseKey } from "./geometry.js";
 import { CHARSET, COMPOSITES, defaultCols } from "./charset.js";
+import { cloneOutline, shiftOutline } from "./nodes.js";
 
 export const FORMAT = "experimental-letters";
 export const VERSION = 2;
@@ -40,6 +41,7 @@ const SAMPLE_A = [
 export function createGlyph({
   cols = 8, cells = [], curve = null, metrics = DEFAULT_METRICS,
   lsb = 50, rsb = 50, components = [], grid = null, rounding = null, corners = {}, pieces = [],
+  outline = null,
 } = {}) {
   return {
     cols, cells: [...cells], curve, metrics: { ...metrics }, lsb, rsb, grid, rounding,
@@ -47,6 +49,8 @@ export function createGlyph({
     corners: { ...corners },
     // Square grid: pieces (triangles, quarter ellipses…) added or cut on top.
     pieces: pieces.map((p) => ({ ...p, ...(p.points ? { points: p.points.map((q) => [...q]) } : {}) })),
+    // Edited node by node ("Nodos"): replaces the glyph's own grid drawing.
+    outline: Array.isArray(outline) ? cloneOutline(outline) : null,
     components: components.map((c) => ({ glyph: c.glyph, dx: c.dx ?? 0, dy: c.dy ?? 0 })),
   };
 }
@@ -197,6 +201,7 @@ export const glyphShape = (font, glyph) => ({
   rounding: glyphRounding(font, glyph),
   corners: resolvedCorners(font, glyph),
   pieces: resolvedPieces(font, glyph),
+  outline: resolvedOutline(font, glyph),
 });
 
 // Components' pieces (shifted like their cells), then the glyph's own.
@@ -212,7 +217,7 @@ export function resolvedPieces(font, glyph, seen = new Set()) {
       });
     }
   }
-  return [...out, ...glyph.pieces];
+  return [...out, ...(glyph.outline ? [] : glyph.pieces)];
 }
 
 // Own corner radii plus those of the components, shifted like their cells.
@@ -227,7 +232,7 @@ export function resolvedCorners(font, glyph, seen = new Set()) {
       out[key(x + comp.dx, y + comp.dy)] = r;
     }
   }
-  return Object.assign(out, glyph.corners);
+  return glyph.outline ? out : Object.assign(out, glyph.corners);
 }
 
 export const advanceWidth = (font, glyph) => glyph.lsb + glyph.cols * font.cell + glyph.rsb;
@@ -239,7 +244,9 @@ export function componentCells(font, glyph, seen = new Set()) {
     const base = font.glyphs[comp.glyph];
     if (!base || seen.has(comp.glyph)) continue;
     const inner = new Set([...seen, comp.glyph]);
-    const cells = [...base.cells.filter((k) => parseKey(k)[0] < base.cols), ...componentCells(font, base, inner)];
+    // A component edited with nodes brings its outline instead of cells.
+    const own = base.outline ? [] : base.cells.filter((k) => parseKey(k)[0] < base.cols);
+    const cells = [...own, ...componentCells(font, base, inner)];
     for (const k of cells) {
       const [c, r] = parseKey(k);
       out.add(key(c + comp.dx, r + comp.dy));
@@ -249,7 +256,19 @@ export function componentCells(font, glyph, seen = new Set()) {
 }
 
 // Own drawing plus components: what is rendered and exported.
-export const resolvedCells = (font, glyph) => [...new Set([...glyph.cells, ...componentCells(font, glyph)])];
+export const resolvedCells = (font, glyph) =>
+  [...new Set([...(glyph.outline ? [] : glyph.cells), ...componentCells(font, glyph)])];
+
+// Node-edited outlines of the glyph and its components (shifted), if any.
+export function resolvedOutline(font, glyph, seen = new Set()) {
+  const out = glyph.outline ? cloneOutline(glyph.outline) : [];
+  for (const comp of glyph.components) {
+    const base = font.glyphs[comp.glyph];
+    if (!base || seen.has(comp.glyph)) continue;
+    out.push(...shiftOutline(resolvedOutline(font, base, new Set([...seen, comp.glyph])), comp.dx, comp.dy));
+  }
+  return out;
+}
 
 // True if `char`'s glyph uses `target` anywhere in its component tree.
 export function dependsOn(font, char, target, seen = new Set()) {

@@ -488,3 +488,15 @@ export function mirrorPiece(p, { h = null, v = null } = {}) {
   }
   return q;
 }
+
+// Merges contours that may overlap (hand-edited outlines, components) into
+// clean ones: no overlaps, outer contours counter-clockwise, curves kept.
+export function unionContours(contours) {
+  const book = new CurveBook();
+  const paths = book.paths(contours);
+  const c = new ClipperLib.Clipper();
+  c.AddPaths(paths, ClipperLib.PolyType.ptSubject, true);
+  const out = new ClipperLib.Paths();
+  c.Execute(ClipperLib.ClipType.ctUnion, out, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+  return out.map((path) => book.refit(path));
+}

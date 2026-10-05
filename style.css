@@ -127,6 +127,11 @@ body {
   position: absolute; bottom: 14px; right: 3px;
   width: 6px; height: 6px; background: #d97706;
 }
+.node-mark {
+  position: absolute; bottom: 14px; left: 3px;
+  width: 6px; height: 6px; border: 1.5px solid #1473e6; background: #fff;
+}
+#board[data-tool="nodes"] { cursor: default; }
 .comp-mark {
   position: absolute; top: 3px; left: 3px;
   width: 7px; height: 7px; border: 1.5px solid var(--sb); border-radius: 1px;
