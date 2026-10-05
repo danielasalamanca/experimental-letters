@@ -1,7 +1,8 @@
 // Font export: builds an OpenType (CFF) font with opentype.js, then adds a
 // GPOS table with the kerning pairs, which opentype.js cannot write.
 
-import { glyphContours, squareContours } from "./outline.js";
+import { glyphContours } from "./outline.js";
+import { squareGlyphContours } from "./pieces.js";
 import { parseKey } from "./geometry.js";
 import { CHARSET, glyphName } from "./charset.js";
 import { advanceWidth, resolvedCells, glyphShape } from "./model.js";
@@ -60,7 +61,10 @@ export function glyphPath(opentype, font, glyph, mode) {
   const shape = glyphShape(font, glyph);
   const joinWidth = mode === "join" && font.join.enabled ? font.join.width / cu : 0;
   const contours = shape.grid === "squares"
-    ? squareContours(cells, { rounding: shape.rounding, corners: shape.corners, stroke: font.style === "outline" ? font.stroke / cu : 0 })
+    ? squareGlyphContours(cells, {
+      rounding: shape.rounding, corners: shape.corners, pieces: shape.pieces,
+      stroke: font.style === "outline" ? font.stroke / cu : 0,
+    })
     : glyphContours(cells, { curve: shape.curve, joinWidth });
   const path = new opentype.Path();
   const X = (x) => Math.round(glyph.lsb + x * cu);

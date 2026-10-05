@@ -3,15 +3,16 @@
 import { key, parseKey } from "./geometry.js";
 import {
   METRICS, createGlyph, normalizeFont, createBlankFont, setMetric, sameMetrics,
-  GRIDS, glyphGrid, shapeKey, hasOwnShape, resolvedCorners, glyphShape,
+  GRIDS, glyphGrid, shapeKey, hasOwnShape, resolvedCorners, resolvedPieces, glyphShape,
   planFit, applyFit, advanceWidth, resolvedCells, canUseComponent, dependents,
   kerningValue, setKerning, layoutText,
 } from "./model.js";
 import { GROUPS, CHARSET, glyphName, fileName, codepoint } from "./charset.js";
-import { drawGlyph, drawText, el, SVG_NS } from "./render.js";
+import { drawGlyph, drawText, el, SVG_NS, contoursToPath } from "./render.js";
 import { openLibrary, saveFont, loadFont, deleteFont, newId, fontName } from "./library.js";
 import { AXES, axisRows, mirrorKeys, translate, cellsInRect, connectedCells } from "./tools.js";
 import { squareCorners, effectiveRadii, MAX_RADIUS } from "./outline.js";
+import { pieceContour, normalizePiece, mirrorPiece, PIECE_SHAPES } from "./pieces.js";
 
 
 const $ = (id) => document.getElementById(id);
@@ -136,6 +137,7 @@ function decorate() {
     }));
   }
   if (tool === "corner") drawCornerMarkers(layer);
+  if (tool === "piece") drawPieceMarkers(layer);
   if (action?.type === "marquee" && action.moved) {
     const { x0, y0, x1, y1 } = action;
     layer.appendChild(el("rect", {
@@ -259,17 +261,20 @@ let action = null;           // the drag in progress
 let spaceDown = false;
 
 function setTool(next) {
-  // Corners only exist on the square grid.
-  if (next === "corner" && glyphGrid(font, glyph()) !== "squares") {
-    toast("La herramienta Esquinas funciona con la grilla de puntos (cuadrados).");
-    next = tool === "corner" ? "draw" : tool;
+  // Corners and pieces only exist on the square grid.
+  if ((next === "corner" || next === "piece") && glyphGrid(font, glyph()) !== "squares") {
+    toast(`La herramienta ${next === "corner" ? "Esquinas" : "Piezas"} funciona con la grilla de puntos (cuadrados).`);
+    next = tool === "corner" || tool === "piece" ? "draw" : tool;
   }
   tool = next;
   if (tool !== "select") selection.clear();
+  if (tool !== "piece") selectedPiece = null;
+  $("toolPiece").classList.toggle("active", tool === "piece");
+  $("pieceGroup").hidden = tool !== "piece";
   $("toolDraw").classList.toggle("active", tool === "draw");
   $("toolSelect").classList.toggle("active", tool === "select");
   $("toolCorner").classList.toggle("active", tool === "corner");
-  $("cornerRadiusBox").hidden = tool !== "corner";
+  $("cornerGroup").hidden = tool !== "corner";
   board.dataset.tool = tool;
   render(null);
 }
@@ -331,6 +336,12 @@ board.addEventListener("pointerdown", (evt) => {
   if (tool === "corner") {
     frozenBounds = null;
     startCorner(evt);
+    return;
+  }
+
+  if (tool === "piece") {
+    const { x, y } = toCells(evt);
+    action = { type: "piece", x0: Math.round(x), y0: Math.round(y), x1: Math.round(x), y1: Math.round(y), moved: false, at: { x, y } };
     return;
   }
 
@@ -397,6 +408,16 @@ window.addEventListener("pointermove", (evt) => {
       dragCorner(evt);
       break;
     }
+    case "piece": {
+      const { x, y } = toCells(evt);
+      const x1 = Math.round(x), y1 = Math.round(y);
+      if (x1 !== action.x1 || y1 !== action.y1) {
+        action.x1 = x1; action.y1 = y1;
+        action.moved = x1 !== action.x0 || y1 !== action.y0;
+        render(null);
+      }
+      break;
+    }
     case "paint": {
       const k = cellAt(evt);
       if (k) paint(k, action.adding);
@@ -444,8 +465,118 @@ window.addEventListener("pointerup", () => {
   }
   if (done.type === "pan") return;
   if (done.type === "corner") { endCorner(done); return; }
+  if (done.type === "piece") { endPiece(done); return; }
   render(done.type === "metric" ? "font" : "glyph");
 });
+
+// --- Piece tool (square grid) ---
+let pieceMode = "cut";
+let selectedPiece = null; // index in the glyph's own pieces
+
+const PIECE_COLOR = "#0f766e";
+
+// A drag from one lattice point to another places a piece; the corner where
+// the drag starts is the piece's corner (right angle, or centre of the
+// quarter ellipse). A click on a piece selects it.
+function endPiece(done) {
+  const g = glyph();
+  if (!done.moved || done.x0 === done.x1 || done.y0 === done.y1) {
+    const { x, y } = done.at;
+    const hit = g.pieces.map((p, i) => [normalizePiece(p), i])
+      .filter(([p]) => x >= p.x0 && x <= p.x1 && y >= p.y0 && y <= p.y1)
+      .map(([, i]) => i).pop();
+    selectedPiece = hit ?? null;
+    render(null);
+    syncPieceList();
+    return;
+  }
+  checkpoint();
+  const piece = normalizePiece({
+    x0: done.x0, y0: done.y0, x1: done.x1, y1: done.y1,
+    corner: (done.y0 <= done.y1 ? "b" : "t") + (done.x0 <= done.x1 ? "l" : "r"),
+    shape: $("pieceShape").value, mode: pieceMode,
+  });
+  const [lo, hi] = axisRows(font.view.mirrorAxis, font.metrics, font.active);
+  const placed = [piece];
+  if (font.view.mirrorH) placed.push(...placed.map((p) => mirrorPiece(p, { h: g.cols })));
+  if (font.view.mirrorV) placed.push(...placed.map((p) => mirrorPiece(p, { v: lo + hi })));
+  g.pieces.push(...placed);
+  selectedPiece = g.pieces.length - placed.length;
+  render();
+  syncPieceList();
+}
+
+function removePiece(index) {
+  checkpoint();
+  glyph().pieces.splice(index, 1);
+  selectedPiece = null;
+  render();
+  syncPieceList();
+}
+
+function drawPieceMarkers(layer) {
+  const cu = font.cell;
+  if (selectedPiece !== null && selectedPiece >= glyph().pieces.length) selectedPiece = null;
+  glyph().pieces.forEach((p, i) => {
+    const n = normalizePiece(p);
+    const selected = i === selectedPiece;
+    layer.appendChild(el("rect", {
+      x: n.x0 * cu, y: -n.y1 * cu, width: (n.x1 - n.x0) * cu, height: (n.y1 - n.y0) * cu,
+      fill: "none", stroke: PIECE_COLOR, "stroke-width": selected ? 2.5 : 1, "stroke-dasharray": selected ? "" : "5 4",
+      "vector-effect": "non-scaling-stroke",
+    }));
+    if (selected) {
+      layer.appendChild(el("path", {
+        d: contoursToPath([pieceContour(n)], cu), fill: PIECE_COLOR, "fill-opacity": 0.18,
+        stroke: PIECE_COLOR, "stroke-width": 1.5, "vector-effect": "non-scaling-stroke",
+      }));
+    }
+  });
+  // Preview while dragging.
+  if (action?.type === "piece" && action.moved && action.x0 !== action.x1 && action.y0 !== action.y1) {
+    const p = normalizePiece({
+      x0: action.x0, y0: action.y0, x1: action.x1, y1: action.y1,
+      corner: (action.y0 <= action.y1 ? "b" : "t") + (action.x0 <= action.x1 ? "l" : "r"),
+      shape: $("pieceShape").value, mode: pieceMode,
+    });
+    const color = pieceMode === "cut" ? "#d6249f" : PIECE_COLOR;
+    layer.appendChild(el("path", {
+      d: contoursToPath([pieceContour(p)], cu), fill: color, "fill-opacity": 0.3,
+      stroke: color, "stroke-width": 2, "vector-effect": "non-scaling-stroke",
+    }));
+  }
+}
+
+function syncPieceList() {
+  const pieces = glyph().pieces;
+  if (selectedPiece !== null && selectedPiece >= pieces.length) selectedPiece = null;
+  $("pieceListBox").hidden = pieces.length === 0;
+  const list = $("pieceList");
+  list.replaceChildren();
+  pieces.forEach((p, i) => {
+    const n = normalizePiece(p);
+    const row = document.createElement("div");
+    row.className = "piece-row" + (i === selectedPiece ? " active" : "");
+    const label = document.createElement("button");
+    label.type = "button";
+    label.className = "piece-label";
+    label.textContent = `${PIECE_SHAPES[n.shape]} · ${n.mode === "cut" ? "recorta" : "agrega"} · ${n.x1 - n.x0}×${n.y1 - n.y0}`;
+    label.addEventListener("click", () => {
+      setTool("piece");
+      selectedPiece = i;
+      render(null);
+      syncPieceList();
+    });
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "comp-remove";
+    remove.textContent = "×";
+    remove.title = "Quitar pieza";
+    remove.addEventListener("click", () => removePiece(i));
+    row.append(label, remove);
+    list.appendChild(row);
+  });
+}
 
 // --- Corner tool (square grid) ---
 // Corners of the glyph's outline, keyed by lattice point.
@@ -596,6 +727,9 @@ $("zoomFit").addEventListener("click", zoomFit);
 $("toolDraw").addEventListener("click", () => setTool("draw"));
 $("toolSelect").addEventListener("click", () => setTool("select"));
 $("toolCorner").addEventListener("click", () => setTool("corner"));
+$("toolPiece").addEventListener("click", () => setTool("piece"));
+$("pieceAdd").addEventListener("click", () => { pieceMode = "add"; syncToolbar(); });
+$("pieceCut").addEventListener("click", () => { pieceMode = "cut"; syncToolbar(); });
 $("cornerRadius").addEventListener("input", (e) => {
   $("cornerRadiusOut").textContent = +e.target.value >= MAX_RADIUS ? "máx" : String(+e.target.value).replace(".5", "½").replace(/^0½/, "½");
 });
@@ -631,7 +765,10 @@ function buildToolbar() {
 function syncToolbar() {
   const squares = glyphGrid(font, glyph()) === "squares";
   $("toolCorner").disabled = !squares;
-  if (!squares && tool === "corner") setTool("draw");
+  $("toolPiece").disabled = !squares;
+  if (!squares && (tool === "corner" || tool === "piece")) setTool("draw");
+  $("pieceAdd").classList.toggle("active", pieceMode === "add");
+  $("pieceCut").classList.toggle("active", pieceMode === "cut");
   $("mirrorH").classList.toggle("active", font.view.mirrorH);
   $("mirrorV").classList.toggle("active", font.view.mirrorV);
   $("mirrorH").setAttribute("aria-pressed", font.view.mirrorH);
@@ -701,11 +838,13 @@ window.addEventListener("keydown", (e) => {
   }
   const arrows = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, 1], arrowdown: [0, -1] };
   if (arrows[k] && selection.size) { e.preventDefault(); nudge(...arrows[k]); }
+  else if ((k === "delete" || k === "backspace") && tool === "piece" && selectedPiece !== null) { e.preventDefault(); removePiece(selectedPiece); }
   else if (k === "delete" || k === "backspace") { if (selection.size) { e.preventDefault(); deleteSelection(); } }
   else if (k === "escape") { selection.clear(); render(null); }
   else if (k === "b") setTool("draw");
   else if (k === "v") setTool("select");
   else if (k === "e") setTool("corner");
+  else if (k === "p") setTool("piece");
   else if (k === "+" || k === "=") zoomAt(1.25);
   else if (k === "-") zoomAt(0.8);
   else if (k === "0") zoomFit();
@@ -741,6 +880,7 @@ function syncGlyphPanel() {
   $("advanceInfo").textContent =
     `Ancho de avance: ${advanceWidth(font, g)} u = ${g.lsb} + ${g.cols} × ${font.cell} + ${g.rsb}`;
   renderComponents();
+  syncPieceList();
 }
 
 function renderComponents() {
@@ -824,6 +964,7 @@ $("copyFrom").addEventListener("click", () => {
   Object.assign(g, {
     cells: [...src.cells], cols: src.cols, lsb: src.lsb, rsb: src.rsb, curve: src.curve,
     grid: src.grid, rounding: src.rounding, corners: { ...src.corners },
+    pieces: src.pieces.map((p) => ({ ...p })),
     metrics: { ...src.metrics },
     components: src.components.filter((c) => canUseComponent(font, font.active, c.glyph)).map((c) => ({ ...c })),
   });
@@ -1015,7 +1156,9 @@ $("invert").addEventListener("click", () => {
 $("save").addEventListener("click", () => {
   checkpoint();
   const g = glyph();
-  font.drafts.push(createGlyph({ ...g, cells: resolvedCells(font, g), corners: resolvedCorners(font, g), components: [] }));
+  font.drafts.push(createGlyph({
+    ...g, cells: resolvedCells(font, g), corners: resolvedCorners(font, g), pieces: resolvedPieces(font, g), components: [],
+  }));
   renderGallery();
   persist();
 });

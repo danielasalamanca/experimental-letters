@@ -39,12 +39,14 @@ const SAMPLE_A = [
 // `metrics` remembers the metrics it was drawn with (see planFit).
 export function createGlyph({
   cols = 8, cells = [], curve = null, metrics = DEFAULT_METRICS,
-  lsb = 50, rsb = 50, components = [], grid = null, rounding = null, corners = {},
+  lsb = 50, rsb = 50, components = [], grid = null, rounding = null, corners = {}, pieces = [],
 } = {}) {
   return {
     cols, cells: [...cells], curve, metrics: { ...metrics }, lsb, rsb, grid, rounding,
     // Square grid: radius (cells or "max") of single corners, by lattice point.
     corners: { ...corners },
+    // Square grid: pieces (triangles, quarter ellipses…) added or cut on top.
+    pieces: pieces.map((p) => ({ ...p })),
     components: components.map((c) => ({ glyph: c.glyph, dx: c.dx ?? 0, dy: c.dy ?? 0 })),
   };
 }
@@ -194,7 +196,21 @@ export const glyphShape = (font, glyph) => ({
   curve: glyphCurve(font, glyph),
   rounding: glyphRounding(font, glyph),
   corners: resolvedCorners(font, glyph),
+  pieces: resolvedPieces(font, glyph),
 });
+
+// Components' pieces (shifted like their cells), then the glyph's own.
+export function resolvedPieces(font, glyph, seen = new Set()) {
+  const out = [];
+  for (const comp of glyph.components) {
+    const base = font.glyphs[comp.glyph];
+    if (!base || seen.has(comp.glyph)) continue;
+    for (const p of resolvedPieces(font, base, new Set([...seen, comp.glyph]))) {
+      out.push({ ...p, x0: p.x0 + comp.dx, x1: p.x1 + comp.dx, y0: p.y0 + comp.dy, y1: p.y1 + comp.dy });
+    }
+  }
+  return [...out, ...glyph.pieces];
+}
 
 // Own corner radii plus those of the components, shifted like their cells.
 export function resolvedCorners(font, glyph, seen = new Set()) {

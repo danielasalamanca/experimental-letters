@@ -63,6 +63,20 @@ grilla:
   esquina vecina, y en estilo contorno para que el trazo quepa. Respeta el
   espejo, y las letras compuestas (á, ñ…) heredan las esquinas de sus
   componentes.
+- **Piezas (P)** (grilla de puntos): piezas geométricas que **agregan** o
+  **recortan** tinta encima de las celdas, para diagonales y curvas que la
+  grilla sola no permite. Arrastra de un punto de la grilla a otro: la pieza
+  ocupa ese rectángulo y nace en la esquina donde empezaste.
+  - **Triángulo:** ángulo recto en esa esquina; recortado a los lados de un
+    bloque da diagonales de cualquier inclinación (una "A" trapezoidal).
+  - **Cuarto de elipse:** centrado en esa esquina (panzas, brazos redondos,
+    muescas con fondo redondo).
+  - **Esquina curva:** lo que queda entre esa esquina y un cuarto de elipse;
+    recortado redondea una esquina con radios distintos en alto y ancho, por
+    ejemplo el brazo de una "K" que baja curvo hasta tocar el asta.
+  - Las piezas se aplican en orden y respetan el espejo. Clic en una pieza
+    para elegirla y **Supr** para borrarla; también aparecen en el panel
+    Glifo, con su botón para quitarlas.
 - **Fondo:** muestra otro glifo en azul transparente detrás del que dibujas
   (por ejemplo, la "n" detrás de la "m").
 - **Zoom y desplazamiento:** Cmd/Ctrl + rueda (o pellizco en el trackpad)
@@ -200,6 +214,13 @@ python3 -m http.server 8123
 ```bash
 npm test
 ```
+
+Las piezas se combinan con [Clipper](https://www.angusj.com/delphi/clipper.php)
+(6.4.2, licencia Boost, en `js/vendor/clipper.js`) sobre contornos
+aplanados finamente; después `js/pieces.js` vuelve a convertir cada tramo
+que venía de una curva en esa misma curva Bézier, así la fuente conserva
+curvas reales. (En estilo contorno, la curva interior del trazo de un glifo
+con piezas queda como muchos tramos rectos muy cortos.)
 
 La exportación usa [opentype.js](https://github.com/opentypejs/opentype.js)
 2.0.0 (licencia MIT), incluido en `js/vendor/`; la tabla de kerning GPOS la

@@ -102,3 +102,21 @@ test("corner radii of the square grid reach the .otf, also through components", 
   assert.equal(curves(round, "n"), 2);
   assert.equal(curves(round, "ñ"), 2, "la ñ hereda las esquinas de la n");
 });
+
+test("pieces reach the .otf as exact curves and diagonals", async () => {
+  const font = sampleFont();
+  font.grid = "squares";
+  font.rounding = 0;
+  const block = (x0, y0, x1, y1) => { const out = []; for (let c = x0; c < x1; c++) for (let r = y0; r < y1; r++) out.push(`${c},${r}`); return out; };
+  Object.assign(font.glyphs.A, { cols: 8, cells: block(0, 0, 8, 14), pieces: [
+    { x0: 0, y0: 0, x1: 3, y1: 14, corner: "tl", shape: "tri", mode: "cut" },
+    { x0: 5, y0: 0, x1: 8, y1: 14, corner: "tr", shape: "tri", mode: "cut" },
+  ] });
+  Object.assign(font.glyphs.K, { cols: 8, cells: [...block(0, 0, 2, 14), ...block(2, 7, 8, 14)], pieces: [
+    { x0: 2, y0: 7, x1: 5, y1: 14, corner: "tl", shape: "spandrel", mode: "cut" },
+  ] });
+  const otf = opentype.parse(await buildOtf(font));
+  const types = (ch) => otf.charToGlyph(ch).path.commands.map((c) => c.type).join("");
+  assert.equal(types("A").replace(/Z$/, ""), "MLLL"); // a trapezoid
+  assert.equal((types("K").match(/C/g) ?? []).length, 1);
+});

@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
   <header class="topbar">
     <h1>Letras experimentales</h1>
-    <p>B dibujar · V seleccionar · E esquinas · espacio + arrastre para desplazar · Cmd/Ctrl + rueda para zoom · Supr borra la selección · flechas la mueven</p>
+    <p>B dibujar · V seleccionar · E esquinas · P piezas · espacio + arrastre para desplazar · Cmd/Ctrl + rueda para zoom · Supr borra la selección · flechas la mueven</p>
   </header>
 
   <div class="app">
@@ -28,10 +28,26 @@
           <button id="toolDraw" type="button" class="tool" title="Dibujar (B)">Dibujar</button>
           <button id="toolSelect" type="button" class="tool" title="Seleccionar (V) · doble clic: trazo completo">Seleccionar</button>
           <button id="toolCorner" type="button" class="tool" title="Esquinas (E) · solo en la grilla de puntos · clic en una esquina para redondearla con el radio elegido, o arrástrala hacia adentro para elegir el radio; otro clic la devuelve al redondeo global y Shift + clic la deja en punta">Esquinas</button>
-          <label id="cornerRadiusBox" class="inline corner-radius" hidden title="Radio al hacer clic en una esquina, en celdas. Al máximo, cada esquina se redondea todo lo que la forma permite.">
+          <button id="toolPiece" type="button" class="tool" title="Piezas (P) · solo en la grilla de puntos · arrastra de un punto a otro para poner una pieza: nace en la esquina donde empiezas · clic en una pieza para elegirla, Supr para borrarla">Piezas</button>
+        </div>
+        <div class="tool-group" id="cornerGroup">
+          <label id="cornerRadiusBox" class="inline corner-radius" title="Radio al hacer clic en una esquina, en celdas. Al máximo, cada esquina se redondea todo lo que la forma permite.">
             Radio <input type="range" id="cornerRadius" min="0.5" max="12" step="0.5" value="12">
             <output id="cornerRadiusOut">máx</output>
           </label>
+        </div>
+        <div class="tool-group" id="pieceGroup">
+          <span id="pieceBox" class="piece-box">
+            <select id="pieceShape" aria-label="Forma de la pieza">
+              <option value="tri">◣ Triángulo</option>
+              <option value="quarter">◔ Cuarto de elipse</option>
+              <option value="spandrel">◜ Esquina curva</option>
+            </select>
+            <span class="segmented" role="group" aria-label="Agregar o quitar">
+              <button id="pieceAdd" type="button" class="tool" title="La pieza agrega tinta">Agregar</button>
+              <button id="pieceCut" type="button" class="tool" title="La pieza recorta tinta">Recortar</button>
+            </span>
+          </span>
         </div>
         <div class="tool-group">
           <button id="mirrorH" type="button" class="tool" title="Espejo izquierda–derecha">↔ Espejo</button>
@@ -116,6 +132,10 @@
             <button id="copyFrom" type="button">Copiar</button>
           </div>
           <p class="info">Reemplaza el dibujo, columnas y márgenes de este glifo (se puede deshacer).</p>
+        </div>
+        <div class="components" id="pieceListBox" hidden>
+          <h4>Piezas</h4>
+          <div id="pieceList"></div>
         </div>
       </fieldset>
 
@@ -265,18 +285,20 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=10",
-        "./js/geometry.js": "./js/geometry.js?v=10",
-        "./js/model.js": "./js/model.js?v=10",
-        "./js/render.js": "./js/render.js?v=10",
-        "./js/tools.js": "./js/tools.js?v=10",
-        "./js/library.js": "./js/library.js?v=10",
-        "./js/outline.js": "./js/outline.js?v=10",
-        "./js/otf.js": "./js/otf.js?v=10",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=10"
+        "./js/charset.js": "./js/charset.js?v=11",
+        "./js/geometry.js": "./js/geometry.js?v=11",
+        "./js/model.js": "./js/model.js?v=11",
+        "./js/render.js": "./js/render.js?v=11",
+        "./js/tools.js": "./js/tools.js?v=11",
+        "./js/library.js": "./js/library.js?v=11",
+        "./js/pieces.js": "./js/pieces.js?v=11",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=11",
+        "./js/outline.js": "./js/outline.js?v=11",
+        "./js/otf.js": "./js/otf.js?v=11",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=11"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=10"></script>
+  <script type="module" src="js/main.js?v=11"></script>
 </body>
 </html>
