@@ -14,7 +14,7 @@
 // curve, so the result keeps real Bézier curves.
 
 import ClipperLib from "./vendor/clipper.js";
-import { squareContours } from "./outline.js";
+import { squareContours, MAX_RADIUS } from "./outline.js";
 
 export const PIECE_SHAPES = { tri: "Triángulo", quarter: "Cuarto de elipse", spandrel: "Esquina curva" };
 
@@ -56,16 +56,14 @@ export function pieceContour(piece) {
   return [M(C), L(A), arc(O, A, B), { type: "Z" }]; // spandrel
 }
 
-// Square-grid glyph: drawn cells (with their rounded corners) plus pieces,
-// as a filled shape or, with `stroke`, as an outline.
+// Square-grid glyph: drawn cells plus pieces, as a filled shape or, with
+// `stroke`, as an outline. With pieces, corners are rounded at the end, on
+// the final shape, so diagonal corners can be rounded too and a rounding
+// never sits where a piece has moved the outline.
 export function squareGlyphContours(cells, { rounding = 0, corners: cornerRadii = {}, stroke = 0, pieces = [] }) {
   if (!pieces.length) return squareContours(cells, { rounding, corners: cornerRadii, stroke });
-  const book = new CurveBook();
-  let shape = book.paths(squareContours(cells, { rounding, corners: cornerRadii }));
-  for (const piece of pieces) {
-    const clip = orient(book.paths([pieceContour(piece)]));
-    shape = clipperOp(piece.mode === "cut" ? ClipperLib.ClipType.ctDifference : ClipperLib.ClipType.ctUnion, shape, clip);
-  }
+  const { book, shape: raw } = buildShape(cells, pieces);
+  let shape = roundCorners(book, raw, findCorners(book, raw), rounding / 2, cornerRadii).shape;
   if (stroke > 0) {
     // As an outline: the shape minus a copy inset by the stroke.
     const off = new ClipperLib.ClipperOffset(2, 0.001 * SCALE);
@@ -75,6 +73,154 @@ export function squareGlyphContours(cells, { rounding = 0, corners: cornerRadii 
     shape = clipperOp(ClipperLib.ClipType.ctDifference, shape, inset);
   }
   return shape.map((path) => book.refit(path));
+}
+
+// Corners of a glyph with pieces (where two straight edges meet), for the
+// corner tool: { key, x, y, turn } with turn 1 outer, 3 inner. `radii`
+// holds the radius each one really gets.
+export function pieceGlyphCorners(cells, { rounding = 0, corners: cornerRadii = {}, pieces = [] }) {
+  const { book, shape } = buildShape(cells, pieces);
+  const found = findCorners(book, shape);
+  const { radii } = roundCorners(book, shape, found, rounding / 2, cornerRadii);
+  return found.map((c, i) => ({ key: c.key, x: c.x, y: c.y, turn: c.turn, din: c.a, dout: c.b, radius: radii[i] }));
+}
+
+function buildShape(cells, pieces) {
+  const book = new CurveBook();
+  let shape = book.paths(squareContours(cells, { rounding: 0 }));
+  for (const piece of pieces) {
+    const clip = orient(book.paths([pieceContour(piece)]));
+    shape = clipperOp(piece.mode === "cut" ? ClipperLib.ClipType.ctDifference : ClipperLib.ClipType.ctUnion, shape, clip);
+  }
+  return { book, shape };
+}
+
+// Corner positions are keyed like lattice points ("3,14"), with up to three
+// decimals for corners that pieces put between grid points.
+export const cornerKey = (x, y) => {
+  const f = (v) => String(Math.round(v * 1000) / 1000);
+  return `${f(x)},${f(y)}`;
+};
+
+// Vertices of the shape where two straight edges meet at an angle.
+function findCorners(book, shape) {
+  const found = [];
+  shape.forEach((path, pi) => {
+    const n = path.length;
+    for (let i = 0; i < n; i++) {
+      const P = path[(i - 1 + n) % n], V = path[i], Q = path[(i + 1) % n];
+      if (book.edgeCurve(P, V) || book.edgeCurve(V, Q)) continue;
+      const ax = V.X - P.X, ay = V.Y - P.Y, bx = Q.X - V.X, by = Q.Y - V.Y;
+      const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+      if (!la || !lb) continue;
+      const cross = (ax * by - ay * bx) / (la * lb), dot = (ax * bx + ay * by) / (la * lb);
+      if (Math.abs(cross) < 1e-3 && dot > 0) continue; // straight on
+      const x = V.X / SCALE, y = V.Y / SCALE;
+      found.push({
+        path: pi, index: i, x, y, key: cornerKey(x, y),
+        // Ink is on the left of every path, so a left turn is an outer corner.
+        turn: cross > 0 ? 1 : 3,
+        a: [ax / la, ay / la], b: [bx / lb, by / lb], la: la / SCALE, lb: lb / SCALE,
+        // Neighbouring corners on the same edges share their length.
+        prevCorner: !book.edgeCurve(path[(i - 2 + n) % n], P), nextCorner: !book.edgeCurve(Q, path[(i + 2) % n]),
+      });
+    }
+  });
+  return found;
+}
+
+// Rounds corners with fillets: an outer corner loses the bit between the
+// corner and the arc, an inner one gains it. A radius is shrunk until that
+// bit is all ink (outer) or all empty (inner), so it never eats a counter or
+// fills another part of the letter.
+function roundCorners(book, shape, found, base, wanted) {
+  const want = found.map((c) => {
+    const w = wanted[c.key];
+    const r = w === undefined ? base : w === "max" ? MAX_RADIUS : +w || 0;
+    return Math.min(Math.max(r, 0), MAX_RADIUS);
+  });
+  // Distance from the corner to where the arc starts, per unit of radius.
+  const per = found.map((c) => {
+    const cos = Math.min(1, Math.max(-1, c.a[0] * c.b[0] + c.a[1] * c.b[1]));
+    return Math.tan(Math.acos(cos) / 2);
+  });
+  let d = want.map((r, i) => r * per[i]);
+  // Never past the edges; corners on the same edge share it.
+  found.forEach((c, i) => {
+    d[i] = Math.min(d[i], c.prevCorner ? Infinity : c.la, c.nextCorner ? Infinity : c.lb);
+  });
+  const byPos = new Map(found.map((c, i) => [`${c.path}:${c.index}`, i]));
+  for (let pass = 0; pass < 2; pass++) {
+    found.forEach((c, i) => {
+      const n = shape[c.path].length;
+      const j = byPos.get(`${c.path}:${(c.index + 1) % n}`);
+      if (j === undefined) return;
+      const L = c.lb;
+      if (d[i] + d[j] <= L + 1e-9) return;
+      if (d[i] >= L / 2 && d[j] >= L / 2) d[i] = d[j] = L / 2;
+      else if (d[i] > d[j]) d[i] = L - d[j];
+      else d[j] = L - d[i];
+    });
+  }
+  const radii = d.map((dist, i) => (per[i] > 1e-9 ? dist / per[i] : 0));
+
+  const outer = [], inner = [];
+  found.forEach((c, i) => {
+    if (radii[i] < 1e-6) return;
+    const fits = (r) => {
+      const region = orient(book.paths([fillet(c, r, per[i])]));
+      const test = c.turn === 1
+        ? clipperOp(ClipperLib.ClipType.ctDifference, region, shape)
+        : clipperOp(ClipperLib.ClipType.ctIntersection, region, shape);
+      return test.reduce((sum, p) => sum + Math.abs(ClipperLib.Clipper.Area(p)), 0) < 1e-9 * SCALE * SCALE;
+    };
+    if (!fits(radii[i])) {
+      let lo = 0, hi = radii[i];
+      for (let k = 0; k < 16; k++) {
+        const mid = (lo + hi) / 2;
+        if (fits(mid)) lo = mid; else hi = mid;
+      }
+      // A hair short of touching, so a wall never ends at zero thickness.
+      radii[i] = Math.max(0, lo - 0.01);
+    }
+    if (radii[i] < 1e-6) return;
+    (c.turn === 1 ? outer : inner).push(...orient(book.paths([fillet(c, radii[i], per[i])])));
+  });
+  let rounded = shape;
+  if (outer.length) rounded = clipperOp(ClipperLib.ClipType.ctDifference, rounded, outer);
+  if (inner.length) rounded = clipperOp(ClipperLib.ClipType.ctUnion, rounded, inner);
+  return { shape: rounded, radii };
+}
+
+// The bit between a corner and its fillet arc of radius r, as a contour.
+function fillet(c, r, per) {
+  const d = r * per;
+  const V = [c.x, c.y];
+  const T1 = [V[0] - d * c.a[0], V[1] - d * c.a[1]];
+  const T2 = [V[0] + d * c.b[0], V[1] + d * c.b[1]];
+  const turn = Math.acos(Math.min(1, Math.max(-1, c.a[0] * c.b[0] + c.a[1] * c.b[1])));
+  // One cubic per half of the arc keeps it accurate for sharp corners.
+  const side = c.turn === 1 ? 1 : -1;
+  const center = [T1[0] - side * c.a[1] * r, T1[1] + side * c.a[0] * r];
+  const angle = (p) => Math.atan2(p[1] - center[1], p[0] - center[0]);
+  const a0 = angle(T1);
+  const sweep = side * turn;
+  const cmds = [{ type: "M", x: V[0], y: V[1] }, { type: "L", x: T1[0], y: T1[1] }];
+  const parts = turn > Math.PI / 2 ? 2 : 1;
+  for (let k = 0; k < parts; k++) {
+    const s0 = a0 + (sweep * k) / parts, s1 = a0 + (sweep * (k + 1)) / parts;
+    const kk = (4 / 3) * Math.tan((s1 - s0) / 4) * r;
+    const p0 = [center[0] + r * Math.cos(s0), center[1] + r * Math.sin(s0)];
+    const p3 = [center[0] + r * Math.cos(s1), center[1] + r * Math.sin(s1)];
+    cmds.push({
+      type: "C",
+      x1: p0[0] - kk * Math.sin(s0), y1: p0[1] + kk * Math.cos(s0),
+      x2: p3[0] + kk * Math.sin(s1), y2: p3[1] - kk * Math.cos(s1),
+      x: k === parts - 1 ? T2[0] : p3[0], y: k === parts - 1 ? T2[1] : p3[1],
+    });
+  }
+  cmds.push({ type: "Z" });
+  return cmds;
 }
 
 function clipperOp(type, subject, clip) {

@@ -74,6 +74,11 @@ grilla:
   - **Esquina curva:** lo que queda entre esa esquina y un cuarto de elipse;
     recortado redondea una esquina con radios distintos en alto y ancho, por
     ejemplo el brazo de una "K" que baja curvo hasta tocar el asta.
+  - En una letra con piezas, el redondeo (global y de la herramienta
+    **Esquinas**) se aplica al final, sobre la forma ya recortada: las
+    esquinas que crean las diagonales también se pueden redondear, y los
+    puntos de la herramienta Esquinas aparecen donde la letra realmente
+    tiene esquinas.
   - Las piezas se aplican en orden y respetan el espejo. Clic en una pieza
     para elegirla y **Supr** para borrarla; también aparecen en el panel
     Glifo, con su botón para quitarlas.

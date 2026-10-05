@@ -12,7 +12,7 @@ import { drawGlyph, drawText, el, SVG_NS, contoursToPath } from "./render.js";
 import { openLibrary, saveFont, loadFont, deleteFont, newId, fontName } from "./library.js";
 import { AXES, axisRows, mirrorKeys, translate, cellsInRect, connectedCells } from "./tools.js";
 import { squareCorners, effectiveRadii, MAX_RADIUS } from "./outline.js";
-import { pieceContour, normalizePiece, mirrorPiece, PIECE_SHAPES } from "./pieces.js";
+import { pieceContour, normalizePiece, mirrorPiece, PIECE_SHAPES, pieceGlyphCorners, cornerKey } from "./pieces.js";
 
 
 const $ = (id) => document.getElementById(id);
@@ -579,10 +579,25 @@ function syncPieceList() {
 }
 
 // --- Corner tool (square grid) ---
-// Corners of the glyph's outline, keyed by lattice point.
+// Corners of the glyph's final outline (after its pieces), keyed by position,
+// each with the directions of its two edges and the radius it really gets.
 function outlineCorners() {
+  const g = glyph();
+  const shape = glyphShape(font, g);
+  const cells = resolvedCells(font, g);
+  const stroke = font.style === "outline" ? font.stroke / font.cell : 0;
   const out = new Map();
-  for (const v of squareCorners(resolvedCells(font, glyph()))) out.set(key(v.x, v.y), v);
+  if (shape.pieces.length) {
+    for (const c of pieceGlyphCorners(cells, { rounding: shape.rounding, corners: shape.corners, pieces: shape.pieces })) {
+      out.set(c.key, { x: c.x, y: c.y, back: [-c.din[0], -c.din[1]], fwd: c.dout, radius: c.radius });
+    }
+    return out;
+  }
+  const real = effectiveRadii(cells, { rounding: shape.rounding, corners: shape.corners, stroke });
+  for (const v of squareCorners(cells)) {
+    const k = key(v.x, v.y);
+    out.set(k, { x: v.x, y: v.y, back: DIRS4[(v.din + 2) % 4], fwd: DIRS4[v.dout], radius: real[k] ?? 0 });
+  }
   return out;
 }
 
@@ -594,16 +609,19 @@ const sliderRadius = () => (+$("cornerRadius").value >= MAX_RADIUS ? "max" : +$(
 // The corner under the pointer and its mirror images.
 function cornerTargets(evt) {
   const { x, y } = toCells(evt);
-  const px = Math.round(x), py = Math.round(y);
-  if (Math.hypot(x - px, y - py) > 0.4) return null;
-  const k = key(px, py);
-  if (!outlineCorners().has(k)) return null;
+  let best = null, bestDist = 0.4;
+  for (const [k, c] of outlineCorners()) {
+    const dist = Math.hypot(x - c.x, y - c.y);
+    if (dist < bestDist) { best = { k, ...c }; bestDist = dist; }
+  }
+  if (!best) return null;
   const g = glyph();
   const [lo, hi] = axisRows(font.view.mirrorAxis, font.metrics, font.active);
-  const targets = new Set([k]);
-  if (font.view.mirrorH) for (const t of [...targets]) { const [cx, cy] = parseKey(t); targets.add(key(g.cols - cx, cy)); }
-  if (font.view.mirrorV) for (const t of [...targets]) { const [cx, cy] = parseKey(t); targets.add(key(cx, lo + hi - cy)); }
-  return { k, px, py, targets: [...targets] };
+  let points = [[best.x, best.y]];
+  if (font.view.mirrorH) points = [...points, ...points.map(([px, py]) => [g.cols - px, py])];
+  if (font.view.mirrorV) points = [...points, ...points.map(([px, py]) => [px, lo + hi - py])];
+  const targets = [...new Set(points.map(([px, py]) => cornerKey(px, py)))];
+  return { k: best.k, px: best.x, py: best.y, targets };
 }
 
 function setCorners(targets, value) {
@@ -643,36 +661,28 @@ function endCorner(done) {
   setCorners(done.targets, done.before === wanted ? null : wanted);
 }
 
+const radiusText = (r) => (Number.isInteger(r * 2) ? String(r).replace(".5", "½").replace(/^0½/, "½") : r.toFixed(1));
+
 function drawCornerMarkers(layer) {
   const cu = font.cell;
-  const g = glyph();
-  const own = g.corners;
-  const shape = glyphShape(font, g);
-  const real = effectiveRadii(resolvedCells(font, g), {
-    rounding: shape.rounding, corners: shape.corners,
-    stroke: font.style === "outline" ? font.stroke / cu : 0,
-  });
-  for (const [k, v] of outlineCorners()) {
+  const own = glyph().corners;
+  for (const [k, c] of outlineCorners()) {
     // The radius it really got, next to every corner with its own radius.
     if (own[k] !== undefined && own[k] !== 0) {
-      const [ix, iy] = DIRS4[(v.din + 2) % 4], [ox, oy] = DIRS4[v.dout];
-      const [x, y] = parseKey(k);
-      const lx = x + 0.45 * (ix + ox), ly = y + 0.45 * (iy + oy);
+      const lx = c.x + 0.45 * (c.back[0] + c.fwd[0]), ly = c.y + 0.45 * (c.back[1] + c.fwd[1]);
       const t = el("text", {
         x: lx * cu, y: -ly * cu, "font-size": cu * 0.36, "text-anchor": "middle", "dominant-baseline": "central",
         fill: "#d6249f", stroke: "#fff", "stroke-width": 3, "paint-order": "stroke", "font-weight": 600,
         "font-family": "ui-sans-serif, system-ui, sans-serif",
       });
-      const r = real[k] ?? 0;
-      t.textContent = Number.isInteger(r * 2) ? String(r).replace(".5", "½").replace(/^0½/, "½") : r.toFixed(1);
+      t.textContent = radiusText(c.radius);
       layer.appendChild(t);
     }
-    const [x, y] = parseKey(k);
     const set = own[k];
     const sharp = set === 0;
     layer.appendChild(el(sharp ? "rect" : "circle", sharp
-      ? { x: x * cu - cu * 0.11, y: -y * cu - cu * 0.11, width: cu * 0.22, height: cu * 0.22, fill: "#1d1d1b", stroke: "#fff", "stroke-width": 1.5, "vector-effect": "non-scaling-stroke" }
-      : { cx: x * cu, cy: -y * cu, r: cu * 0.13, fill: set === undefined ? "#fff" : "#d6249f", stroke: "#d6249f", "stroke-width": 1.5, "vector-effect": "non-scaling-stroke" }));
+      ? { x: c.x * cu - cu * 0.11, y: -c.y * cu - cu * 0.11, width: cu * 0.22, height: cu * 0.22, fill: "#1d1d1b", stroke: "#fff", "stroke-width": 1.5, "vector-effect": "non-scaling-stroke" }
+      : { cx: c.x * cu, cy: -c.y * cu, r: cu * 0.13, fill: set === undefined ? "#fff" : "#d6249f", stroke: "#d6249f", "stroke-width": 1.5, "vector-effect": "non-scaling-stroke" }));
   }
 }
 
