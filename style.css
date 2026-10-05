@@ -62,6 +62,8 @@ body {
 .toolbar select { font: inherit; font-size: 12px; padding: 4px; border: 1px solid var(--line); background: var(--surface); }
 .toolbar select:disabled { opacity: 0.4; }
 .toolbar label.inline { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.corner-radius input[type="range"] { width: 110px; margin: 0; }
+.corner-radius output { min-width: 30px; color: #d6249f; font-weight: 600; }
 #zoomLevel { min-width: 44px; text-align: center; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
 .board-wrap { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }

@@ -3,7 +3,7 @@
 import { key, parseKey } from "./geometry.js";
 import {
   METRICS, createGlyph, normalizeFont, createBlankFont, setMetric, sameMetrics,
-  GRIDS, glyphGrid, shapeKey, hasOwnShape, resolvedCorners,
+  GRIDS, glyphGrid, shapeKey, hasOwnShape, resolvedCorners, glyphShape,
   planFit, applyFit, advanceWidth, resolvedCells, canUseComponent, dependents,
   kerningValue, setKerning, layoutText,
 } from "./model.js";
@@ -11,7 +11,7 @@ import { GROUPS, CHARSET, glyphName, fileName, codepoint } from "./charset.js";
 import { drawGlyph, drawText, el, SVG_NS } from "./render.js";
 import { openLibrary, saveFont, loadFont, deleteFont, newId, fontName } from "./library.js";
 import { AXES, axisRows, mirrorKeys, translate, cellsInRect, connectedCells } from "./tools.js";
-import { squareCorners } from "./outline.js";
+import { squareCorners, effectiveRadii, MAX_RADIUS } from "./outline.js";
 
 
 const $ = (id) => document.getElementById(id);
@@ -269,7 +269,7 @@ function setTool(next) {
   $("toolDraw").classList.toggle("active", tool === "draw");
   $("toolSelect").classList.toggle("active", tool === "select");
   $("toolCorner").classList.toggle("active", tool === "corner");
-  $("cornerRadius").hidden = tool !== "corner";
+  $("cornerRadiusBox").hidden = tool !== "corner";
   board.dataset.tool = tool;
   render(null);
 }
@@ -330,7 +330,7 @@ board.addEventListener("pointerdown", (evt) => {
 
   if (tool === "corner") {
     frozenBounds = null;
-    toggleCorner(evt);
+    startCorner(evt);
     return;
   }
 
@@ -393,6 +393,10 @@ window.addEventListener("pointermove", (evt) => {
       }
       break;
     }
+    case "corner": {
+      dragCorner(evt);
+      break;
+    }
     case "paint": {
       const k = cellAt(evt);
       if (k) paint(k, action.adding);
@@ -439,6 +443,7 @@ window.addEventListener("pointerup", () => {
     return;
   }
   if (done.type === "pan") return;
+  if (done.type === "corner") { endCorner(done); return; }
   render(done.type === "metric" ? "font" : "glyph");
 });
 
@@ -450,41 +455,87 @@ function outlineCorners() {
   return out;
 }
 
-function toggleCorner(evt) {
+const DIRS4 = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+
+// Radius chosen in the toolbar ("max" at the end of the slider).
+const sliderRadius = () => (+$("cornerRadius").value >= MAX_RADIUS ? "max" : +$("cornerRadius").value);
+
+// The corner under the pointer and its mirror images.
+function cornerTargets(evt) {
   const { x, y } = toCells(evt);
   const px = Math.round(x), py = Math.round(y);
-  if (Math.hypot(x - px, y - py) > 0.4) return;
+  if (Math.hypot(x - px, y - py) > 0.4) return null;
   const k = key(px, py);
-  if (!outlineCorners().has(k)) {
-    toast("Ese punto no es una esquina de la letra.");
-    return;
-  }
-  checkpoint();
+  if (!outlineCorners().has(k)) return null;
   const g = glyph();
-  const wanted = evt.shiftKey ? 0 : $("cornerRadius").value === "max" ? "max" : +$("cornerRadius").value;
-  // Clicking a corner with the radius it already has returns it to the global rounding.
-  const remove = g.corners[k] === wanted;
   const [lo, hi] = axisRows(font.view.mirrorAxis, font.metrics, font.active);
   const targets = new Set([k]);
-  for (const t of [...targets]) {
-    const [cx, cy] = parseKey(t);
-    if (font.view.mirrorH) targets.add(key(g.cols - cx, cy));
-  }
-  for (const t of [...targets]) {
-    const [cx, cy] = parseKey(t);
-    if (font.view.mirrorV) targets.add(key(cx, lo + hi - cy));
-  }
+  if (font.view.mirrorH) for (const t of [...targets]) { const [cx, cy] = parseKey(t); targets.add(key(g.cols - cx, cy)); }
+  if (font.view.mirrorV) for (const t of [...targets]) { const [cx, cy] = parseKey(t); targets.add(key(cx, lo + hi - cy)); }
+  return { k, px, py, targets: [...targets] };
+}
+
+function setCorners(targets, value) {
+  const g = glyph();
   for (const t of targets) {
-    if (remove) delete g.corners[t];
-    else g.corners[t] = wanted;
+    if (value === null) delete g.corners[t];
+    else g.corners[t] = value;
   }
   render();
 }
 
+// Press on a corner: a click applies the toolbar radius (or, if the corner
+// already has it, returns it to the global rounding; Shift leaves it sharp);
+// dragging inward sets the radius to the distance dragged.
+function startCorner(evt) {
+  const hit = cornerTargets(evt);
+  if (!hit) {
+    toast("Haz clic en un punto de esquina de la letra.");
+    return;
+  }
+  checkpoint();
+  action = { type: "corner", ...hit, shift: evt.shiftKey, dragged: false, before: glyph().corners[hit.k] };
+}
+
+function dragCorner(evt) {
+  const { x, y } = toCells(evt);
+  const reach = Math.max(Math.abs(x - action.px), Math.abs(y - action.py));
+  if (!action.dragged && reach < 0.3) return;
+  action.dragged = true;
+  const r = Math.min(MAX_RADIUS, Math.max(0.5, Math.round(reach * 2) / 2));
+  if (glyph().corners[action.k] !== r) setCorners(action.targets, r);
+}
+
+function endCorner(done) {
+  if (done.dragged) return;
+  const wanted = done.shift ? 0 : sliderRadius();
+  setCorners(done.targets, done.before === wanted ? null : wanted);
+}
+
 function drawCornerMarkers(layer) {
   const cu = font.cell;
-  const own = glyph().corners;
-  for (const [k] of outlineCorners()) {
+  const g = glyph();
+  const own = g.corners;
+  const shape = glyphShape(font, g);
+  const real = effectiveRadii(resolvedCells(font, g), {
+    rounding: shape.rounding, corners: shape.corners,
+    stroke: font.style === "outline" ? font.stroke / cu : 0,
+  });
+  for (const [k, v] of outlineCorners()) {
+    // The radius it really got, next to every corner with its own radius.
+    if (own[k] !== undefined && own[k] !== 0) {
+      const [ix, iy] = DIRS4[(v.din + 2) % 4], [ox, oy] = DIRS4[v.dout];
+      const [x, y] = parseKey(k);
+      const lx = x + 0.45 * (ix + ox), ly = y + 0.45 * (iy + oy);
+      const t = el("text", {
+        x: lx * cu, y: -ly * cu, "font-size": cu * 0.36, "text-anchor": "middle", "dominant-baseline": "central",
+        fill: "#d6249f", stroke: "#fff", "stroke-width": 3, "paint-order": "stroke", "font-weight": 600,
+        "font-family": "ui-sans-serif, system-ui, sans-serif",
+      });
+      const r = real[k] ?? 0;
+      t.textContent = Number.isInteger(r * 2) ? String(r).replace(".5", "½").replace(/^0½/, "½") : r.toFixed(1);
+      layer.appendChild(t);
+    }
     const [x, y] = parseKey(k);
     const set = own[k];
     const sharp = set === 0;
@@ -545,6 +596,9 @@ $("zoomFit").addEventListener("click", zoomFit);
 $("toolDraw").addEventListener("click", () => setTool("draw"));
 $("toolSelect").addEventListener("click", () => setTool("select"));
 $("toolCorner").addEventListener("click", () => setTool("corner"));
+$("cornerRadius").addEventListener("input", (e) => {
+  $("cornerRadiusOut").textContent = +e.target.value >= MAX_RADIUS ? "máx" : String(+e.target.value).replace(".5", "½").replace(/^0½/, "½");
+});
 
 for (const id of ["mirrorH", "mirrorV"]) {
   $(id).addEventListener("click", () => {

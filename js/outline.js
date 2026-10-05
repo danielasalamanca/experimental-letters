@@ -224,19 +224,10 @@ function holeContour(P, geo) {
 export const MAX_STROKE = 0.45;
 export const MAX_RADIUS = 12;
 
-export function squareContours(cells, { rounding = 0, stroke = 0, corners = {} }) {
-  const set = new Set(cells);
-  const has = (c, r) => set.has(key(c, r));
-  const base = Math.min(Math.max(rounding, 0), 1) / 2;
-  const t = Math.min(Math.max(stroke, 0), MAX_STROKE);
+export function squareContours(cells, options) {
+  const t = Math.min(Math.max(options.stroke ?? 0, 0), MAX_STROKE);
   const contours = [];
-  for (const loop of traceLoops(set, has)) {
-    const turns = cornerList(loop);
-    // As an outline, walls must stay at least two strokes wide.
-    const radii = cornerRadii(turns, has, 2 * t, (v) => {
-      const want = corners[key(v.x, v.y)];
-      return want === undefined ? base : want === "max" ? MAX_RADIUS : Math.min(Math.max(+want || 0, 0), MAX_RADIUS);
-    });
+  for (const { turns, radii } of resolveCorners(cells, options)) {
     contours.push(roundedLoop(turns.map((v, i) => ({ ...v, r: radii[i] }))));
     if (t > 0) {
       const inset = turns.map((v, i) => {
@@ -255,6 +246,34 @@ export function squareContours(cells, { rounding = 0, stroke = 0, corners = {} }
     }
   }
   return contours;
+}
+
+// The radius each corner really gets (after the limits), by lattice point.
+export function effectiveRadii(cells, options) {
+  const out = {};
+  for (const { turns, radii } of resolveCorners(cells, options)) {
+    turns.forEach((v, i) => {
+      const k = key(v.x, v.y);
+      out[k] = Math.max(out[k] ?? 0, radii[i]);
+    });
+  }
+  return out;
+}
+
+function resolveCorners(cells, { rounding = 0, stroke = 0, corners = {} }) {
+  const set = new Set(cells);
+  const has = (c, r) => set.has(key(c, r));
+  const base = Math.min(Math.max(rounding, 0), 1) / 2;
+  const t = Math.min(Math.max(stroke, 0), MAX_STROKE);
+  return traceLoops(set, has).map((loop) => {
+    const turns = cornerList(loop);
+    // As an outline, walls must stay at least two strokes wide.
+    const radii = cornerRadii(turns, has, 2 * t, (v) => {
+      const want = corners[key(v.x, v.y)];
+      return want === undefined ? base : want === "max" ? MAX_RADIUS : Math.min(Math.max(+want || 0, 0), MAX_RADIUS);
+    });
+    return { turns, radii };
+  });
 }
 
 // Corners of the outline (where it turns): { x, y, turn } with turn 1 for

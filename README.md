@@ -52,9 +52,12 @@ grilla:
 - **Copiar dibujo desde otro glifo** (panel Glifo): por ejemplo, de la "n" a
   la "h" como punto de partida.
 - **Esquinas (E)** (grilla de puntos): muestra las esquinas de la letra como
-  puntos; clic en una para redondearla con el radio elegido (½, 1, 1½, 2, 3
-  celdas o máximo), otro clic la devuelve al redondeo global y **Shift + clic**
-  la deja en punta. Un radio exterior de 2 alrededor de un interior de 1 da un
+  puntos. **Arrastra** una esquina hacia adentro para elegir su radio (en
+  medias celdas), o haz **clic** para aplicarle el radio del control **Radio**
+  (de ½ a 12 celdas; al máximo, que es el valor inicial, se redondea todo lo
+  que la forma permite). Otro clic con el mismo radio la devuelve al redondeo
+  global y **Shift + clic** la deja en punta. Junto a cada esquina redondeada
+  se ve el radio que realmente obtuvo. Un radio exterior de 2 alrededor de un interior de 1 da un
   arco concéntrico de una celda de grosor (como la "n" de un alfabeto
   modular). Cada radio se limita solo para no comerse una contraforma ni la
   esquina vecina, y en estilo contorno para que el trazo quepa. Respeta el

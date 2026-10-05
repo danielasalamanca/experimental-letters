@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
   <header class="topbar">
@@ -27,15 +27,11 @@
         <div class="tool-group">
           <button id="toolDraw" type="button" class="tool" title="Dibujar (B)">Dibujar</button>
           <button id="toolSelect" type="button" class="tool" title="Seleccionar (V) · doble clic: trazo completo">Seleccionar</button>
-          <button id="toolCorner" type="button" class="tool" title="Esquinas (E) · solo en la grilla de puntos · clic en una esquina para redondearla, otro clic la devuelve al redondeo global, Shift + clic la deja en punta">Esquinas</button>
-          <select id="cornerRadius" aria-label="Radio de la esquina" title="Radio, en celdas" hidden>
-            <option value="0.5">Radio ½</option>
-            <option value="1" selected>Radio 1</option>
-            <option value="1.5">Radio 1½</option>
-            <option value="2">Radio 2</option>
-            <option value="3">Radio 3</option>
-            <option value="max">Radio máximo</option>
-          </select>
+          <button id="toolCorner" type="button" class="tool" title="Esquinas (E) · solo en la grilla de puntos · clic en una esquina para redondearla con el radio elegido, o arrástrala hacia adentro para elegir el radio; otro clic la devuelve al redondeo global y Shift + clic la deja en punta">Esquinas</button>
+          <label id="cornerRadiusBox" class="inline corner-radius" hidden title="Radio al hacer clic en una esquina, en celdas. Al máximo, cada esquina se redondea todo lo que la forma permite.">
+            Radio <input type="range" id="cornerRadius" min="0.5" max="12" step="0.5" value="12">
+            <output id="cornerRadiusOut">máx</output>
+          </label>
         </div>
         <div class="tool-group">
           <button id="mirrorH" type="button" class="tool" title="Espejo izquierda–derecha">↔ Espejo</button>
@@ -269,18 +265,18 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=9",
-        "./js/geometry.js": "./js/geometry.js?v=9",
-        "./js/model.js": "./js/model.js?v=9",
-        "./js/render.js": "./js/render.js?v=9",
-        "./js/tools.js": "./js/tools.js?v=9",
-        "./js/library.js": "./js/library.js?v=9",
-        "./js/outline.js": "./js/outline.js?v=9",
-        "./js/otf.js": "./js/otf.js?v=9",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=9"
+        "./js/charset.js": "./js/charset.js?v=10",
+        "./js/geometry.js": "./js/geometry.js?v=10",
+        "./js/model.js": "./js/model.js?v=10",
+        "./js/render.js": "./js/render.js?v=10",
+        "./js/tools.js": "./js/tools.js?v=10",
+        "./js/library.js": "./js/library.js?v=10",
+        "./js/outline.js": "./js/outline.js?v=10",
+        "./js/otf.js": "./js/otf.js?v=10",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=10"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=9"></script>
+  <script type="module" src="js/main.js?v=10"></script>
 </body>
 </html>
