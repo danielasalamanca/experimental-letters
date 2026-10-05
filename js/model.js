@@ -102,6 +102,7 @@ export function createFont() {
     join: { enabled: true, width: 15 },
     // Square grid: corner rounding (0–1), fill or outline, outline width (u).
     rounding: 0.3,
+    roundAll: false,
     style: "fill",
     stroke: 12,
     view: {
@@ -187,7 +188,9 @@ export const glyphGrid = (font, glyph) => glyph.grid ?? font.grid;
 
 export const glyphCurve = (font, glyph) => glyph.curve ?? font.curve;
 
-export const glyphRounding = (font, glyph) => glyph.rounding ?? font.rounding;
+// The global rounding only applies once "Redondear todas las esquinas" is
+// on; a glyph's own rounding and single corners always apply.
+export const glyphRounding = (font, glyph) => glyph.rounding ?? (font.roundAll ? font.rounding : 0);
 
 // The shape setting that the "Curvatura" controls edit for this glyph's grid.
 export const shapeKey = (font, glyph) => (glyphGrid(font, glyph) === "squares" ? "rounding" : "curve");

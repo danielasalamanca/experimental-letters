@@ -168,6 +168,10 @@ grilla:
 - **Curvatura global** (grilla de círculos) o **redondeo global** de las
   esquinas (grilla de puntos), con la opción de darle a un glifo un valor
   propio (marcado con un punto azul en el mapa) y volver al global.
+- Grilla de puntos: las esquinas quedan **en punta** hasta que actives
+  **Redondear todas las esquinas**; recién entonces se aplica el redondeo
+  global, así puedes dejarlo para el final. Las esquinas redondeadas con la
+  herramienta Esquinas y el redondeo propio de un glifo se aplican siempre.
 - Grilla de puntos: **Estilo** relleno o contorno, y **grosor del contorno**
   en unidades (hasta casi media celda). El contorno se exporta como tal a la
   fuente.

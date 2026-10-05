@@ -1479,6 +1479,12 @@ function syncControls() {
   for (const id of ["curve", "glyphCurve"]) $(id).min = squares ? 0 : 20;
   $("curveLabel").textContent = `${word} global`;
   $("curve").value = Math.round(font[k] * 100);
+  // Square grid: the global rounding waits for "Redondear todas las esquinas".
+  $("roundAll").checked = font.roundAll;
+  $("curve").disabled = squares && !font.roundAll;
+  $("roundAllInfo").textContent = font.roundAll
+    ? "Todas las esquinas se redondean con el redondeo global."
+    : "Las esquinas quedan en punta. Actívalo cuando quieras redondearlas todas (por ejemplo, al final); las esquinas de la herramienta Esquinas se redondean igual.";
   $("curveOut").textContent = pct(font[k]);
   const own = g[k] != null;
   $("glyphCurveGlobal").hidden = own;
@@ -1548,6 +1554,7 @@ bind("useGlobal", "click", () => { glyph()[shapeKey(font, glyph())] = null; });
 bind("gridType", "change", (t) => { font.grid = t.value; }, "font");
 bind("glyphGrid", "change", (t) => { glyph().grid = t.value || null; });
 bind("style", "change", (t) => { font.style = t.value; }, "font");
+bind("roundAll", "change", (t) => { font.roundAll = t.checked; }, "font");
 bind("stroke", "change", (t) => { font.stroke = clampNum(Math.round(+t.value), 1, Math.floor(font.cell * 0.45), font.stroke); }, "font");
 bind("join", "change", (t) => { font.join.enabled = t.checked; }, "font");
 bind("joinWidth", "change", (t) => { font.join.width = clampNum(+t.value, 1, 250, font.join.width); }, "font");

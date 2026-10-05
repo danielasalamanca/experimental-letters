@@ -124,3 +124,17 @@ test("glyph names are safe for files and the .otf", async () => {
   assert.equal(fileName("A"), "A-mayus");
   assert.equal(fileName("a"), "a");
 });
+
+test("the global rounding only applies when 'Redondear todas las esquinas' is on", async () => {
+  const { glyphRounding } = await import("../js/model.js");
+  const font = normalizeFont(null);
+  font.rounding = 0.4;
+  assert.equal(font.roundAll, false);
+  assert.equal(glyphRounding(font, font.glyphs.a), 0);
+  font.roundAll = true;
+  assert.equal(glyphRounding(font, font.glyphs.a), 0.4);
+  // A glyph's own rounding applies either way.
+  font.roundAll = false;
+  font.glyphs.a.rounding = 0.2;
+  assert.equal(glyphRounding(font, font.glyphs.a), 0.2);
+});
