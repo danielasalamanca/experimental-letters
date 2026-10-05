@@ -2,38 +2,49 @@
 
 import { key, parseKey } from "./geometry.js";
 import {
-  METRICS, createGlyph, normalizeFont, setMetric, sameMetrics,
+  METRICS, createGlyph, normalizeFont, createBlankFont, setMetric, sameMetrics,
   GRIDS, glyphGrid, shapeKey, hasOwnShape,
   planFit, applyFit, advanceWidth, resolvedCells, canUseComponent, dependents,
   kerningValue, setKerning, layoutText,
 } from "./model.js";
 import { GROUPS, CHARSET, glyphName, fileName, codepoint } from "./charset.js";
 import { drawGlyph, drawText, el, SVG_NS } from "./render.js";
+import { openLibrary, saveFont, loadFont, deleteFont, newId, fontName } from "./library.js";
 import { AXES, axisRows, mirrorKeys, translate, cellsInRect, connectedCells } from "./tools.js";
 
-const STORAGE_KEY = "experimental-letters:v2";
-const LEGACY_KEY = "experimental-letters";
 
 const $ = (id) => document.getElementById(id);
 const board = $("board");
 
-let font = normalizeFont(load());
+// Falls back to an in-memory store if the browser blocks localStorage.
+const storage = (() => {
+  try {
+    const s = window.localStorage;
+    s.getItem("x");
+    return s;
+  } catch {
+    const mem = new Map();
+    return { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, v), removeItem: (k) => mem.delete(k) };
+  }
+})();
+
+const opened = openLibrary(storage);
+let library = opened.index;
+let font = normalizeFont(opened.data);
 const glyph = () => font.glyphs[font.active];
 
-// --- Storage ---
-function load() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
+// --- Storage: the open font is saved to the library on every change ---
+let lastSaved = null, saveFailed = false;
 
 function persist() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(font));
-  } catch {}
+  if (saveFont(storage, library, font)) {
+    lastSaved = new Date();
+    saveFailed = false;
+  } else if (!saveFailed) {
+    saveFailed = true;
+    toast("No se pudo guardar en el navegador (¿sin espacio?). Descarga el .json para no perder cambios.");
+  }
+  syncLibrary();
 }
 
 // --- Undo / redo: whole-font snapshots, coalesced per control ---
@@ -484,6 +495,7 @@ $("background").addEventListener("change", (e) => {
 });
 
 function buildToolbar() {
+  for (const [value, name] of Object.entries(GRIDS)) $("newFontGrid").appendChild(new Option(name, value));
   for (const [value, name] of Object.entries(GRIDS)) $("gridType").appendChild(new Option(name, value));
   for (const [value, name] of Object.entries(AXES)) {
     $("mirrorAxis").appendChild(new Option(name, value));
@@ -1117,12 +1129,8 @@ $("projectFile").addEventListener("change", async (e) => {
     toast("Ese archivo no es un proyecto de Letras experimentales.");
     return;
   }
-  checkpoint();
-  font = normalizeFont(data);
-  kernPair = null;
-  zoomBox = null;
-  refreshAll();
-  toast(`Proyecto «${font.meta.family}» abierto · Cmd/Ctrl + Z para volver al anterior`);
+  switchTo(newId(), normalizeFont(data));
+  toast(`«${fontName(font)}» se abrió como una tipografía nueva de tu biblioteca`);
 });
 
 $("exportOtf").addEventListener("click", async () => {
@@ -1141,6 +1149,108 @@ $("exportOtf").addEventListener("click", async () => {
     button.disabled = false;
     button.textContent = "Exportar fuente (.otf)";
   }
+});
+
+// --- Library: Nueva, Guardar, Duplicar, Eliminar and switching fonts ---
+let librarySignature = "";
+
+function syncLibrary() {
+  const select = $("fontSelect");
+  const signature = library.active + "|" + library.fonts.map((f) => f.id + f.name).join("|");
+  if (signature !== librarySignature) {
+    librarySignature = signature;
+    select.replaceChildren(...[...library.fonts]
+      .sort((a, b) => a.name.localeCompare(b.name, "es"))
+      .map((f) => new Option(f.name, f.id)));
+    select.value = library.active;
+  }
+  const time = lastSaved?.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+  $("saveStatus").textContent = saveFailed
+    ? "No se pudo guardar en el navegador. Descarga el .json."
+    : `${library.fonts.length} tipografía${library.fonts.length === 1 ? "" : "s"} en este navegador` +
+      (time ? ` · guardada a las ${time}` : "");
+}
+
+// Saves the open font, then opens `data` under `id` with a fresh history.
+function switchTo(id, data) {
+  persist();
+  library.active = id;
+  font = data;
+  undoStack.length = 0;
+  redoStack.length = 0;
+  lastTag = null;
+  kernPair = null;
+  zoomBox = null;
+  refreshAll();
+}
+
+function confirmAction({ title, message, ok }) {
+  $("confirmTitle").textContent = title;
+  $("confirmMessage").textContent = message;
+  $("confirmOk").textContent = ok;
+  const dialog = $("confirmDialog");
+  return new Promise((resolve) => {
+    dialog.onclose = () => resolve(dialog.returnValue === "ok");
+    dialog.returnValue = "";
+    dialog.showModal();
+  });
+}
+
+$("fontSelect").addEventListener("change", (e) => {
+  const id = e.target.value;
+  const data = loadFont(storage, id);
+  if (!data) {
+    toast("No se pudo abrir esa tipografía.");
+    e.target.value = library.active;
+    return;
+  }
+  switchTo(id, normalizeFont(data));
+  toast(`Abierta «${fontName(font)}»`);
+});
+
+$("newFont").addEventListener("click", () => {
+  $("newFontName").value = "Nueva tipografía";
+  $("newFontGrid").value = font.grid;
+  const dialog = $("newFontDialog");
+  dialog.returnValue = "";
+  dialog.onclose = () => {
+    if (dialog.returnValue !== "create") return;
+    const family = $("newFontName").value.trim() || "Nueva tipografía";
+    switchTo(newId(), createBlankFont({ family, grid: $("newFontGrid").value }));
+    toast(`Nueva tipografía «${family}». La anterior quedó guardada en la lista.`);
+  };
+  dialog.showModal();
+  $("newFontName").select();
+});
+
+$("saveFont").addEventListener("click", () => {
+  persist();
+  if (!saveFailed) toast(`«${fontName(font)}» guardada en este navegador`);
+});
+
+$("duplicateFont").addEventListener("click", () => {
+  const copy = normalizeFont(JSON.parse(JSON.stringify(font)));
+  copy.meta.family = `${copy.meta.family} copia`;
+  switchTo(newId(), copy);
+  toast(`Ahora trabajas en «${fontName(font)}»; el original quedó guardado`);
+});
+
+$("deleteFont").addEventListener("click", async () => {
+  const name = fontName(font);
+  const sure = await confirmAction({
+    title: "Eliminar tipografía",
+    message: `¿Eliminar «${name}» de este navegador? No se puede deshacer. Si quieres conservarla, descarga antes el .json.`,
+    ok: "Eliminar",
+  });
+  if (!sure) return;
+  deleteFont(storage, library, library.active);
+  const next = library.fonts[0];
+  const data = next && loadFont(storage, next.id);
+  // switchTo saves the open font first, so point it at the next one now.
+  library.active = next ? next.id : newId();
+  font = data ? normalizeFont(data) : createBlankFont();
+  switchTo(library.active, font);
+  toast(`Eliminada «${name}»`);
 });
 
 // --- Export images (glyph or test text) ---

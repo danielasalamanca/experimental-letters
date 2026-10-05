@@ -115,12 +115,23 @@ grilla:
   lienzo la muestra mientras dibujas, así lo que ves es lo que se exporta.
 - Colores de tinta y fondo.
 
-### Fuente, proyecto y exportación
+### Mis tipografías, proyecto y exportación
+- **Tipografía** (arriba del panel Fuente): lista de tus tipografías
+  guardadas en este navegador; elige una para abrirla.
+  - **Nueva:** empieza una tipografía en blanco con el nombre y la grilla que
+    elijas. La actual queda guardada en la lista.
+  - **Guardar:** guarda la tipografía abierta (además, cada cambio se guarda
+    solo; el panel muestra la hora del último guardado).
+  - **Duplicar:** crea una copia y sigues trabajando en ella; el original
+    queda intacto.
+  - **Eliminar:** la quita del navegador, después de confirmar.
+  - Cada tipografía tiene su propio historial de deshacer.
 - Panel **Fuente**: nombre de la familia, estilo (Regular, Bold…),
   diseñadora y versión.
-- **Guardar proyecto** descarga un `.json` con todo: glifos, métricas,
-  kerning, metadatos y preferencias. **Abrir proyecto** lo carga de nuevo (se
-  puede deshacer). Además, todo se guarda automáticamente en el navegador.
+- **Descargar .json** guarda un archivo con todo (glifos, métricas, kerning,
+  metadatos y preferencias), para respaldar o llevar la tipografía a otro
+  computador o navegador. **Abrir .json** la agrega como una tipografía nueva
+  de la lista, sin reemplazar la que tenías abierta.
 - **Exportar fuente (.otf)**: genera una fuente OpenType instalable (doble
   clic en el archivo) para usar en Illustrator, InDesign, etc.
   - Cada glifo se convierte en contornos cerrados, sin superposiciones y con
@@ -181,7 +192,8 @@ La exportación usa [opentype.js](https://github.com/opentypejs/opentype.js)
 escribe `js/otf.js`, porque opentype.js no la genera.
 
 Los tests (`node --test`, sin dependencias) cubren la geometría, la migración
-de datos, el ajuste de glifos a métricas, el set de caracteres, los
+de datos, la biblioteca de tipografías, el ajuste de glifos a métricas, el
+set de caracteres, los
 componentes, las herramientas de dibujo (espejo, selección y trazos) y la
 composición de texto con kerning, y la exportación: comparan los contornos
 con la forma dibujada en miles de puntos (sin superposiciones ni dirección

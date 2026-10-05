@@ -213,6 +213,11 @@ label.row > span { display: flex; align-items: center; gap: 8px; }
 
 .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .wide { grid-column: 1 / -1; width: 100%; }
+.library-buttons { grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 2px 0 6px; }
+.library-buttons button { padding: 6px 2px; font-size: 12px; }
+#fontSelect { max-width: 170px; font-weight: 600; }
+dialog label.row { margin: 10px 0; }
+dialog input[type="text"] { width: 200px; font: inherit; padding: 4px 6px; border: 1px solid var(--line); }
 
 button {
   font: inherit;

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
   <header class="topbar">
@@ -52,6 +52,14 @@
     <aside class="zone zone-right">
       <fieldset>
         <legend>Fuente</legend>
+        <label class="row">Tipografía <select id="fontSelect" aria-label="Tipografía abierta"></select></label>
+        <div class="buttons library-buttons">
+          <button id="newFont" type="button" title="Empieza una tipografía nueva; la actual queda guardada">Nueva</button>
+          <button id="saveFont" type="button" title="Guarda la tipografía en este navegador">Guardar</button>
+          <button id="duplicateFont" type="button" title="Guarda una copia y sigue trabajando en ella">Duplicar</button>
+          <button id="deleteFont" type="button" title="Elimina esta tipografía del navegador">Eliminar</button>
+        </div>
+        <p class="info" id="saveStatus"></p>
         <label class="row">Familia <input type="text" id="metaFamily" autocomplete="off"></label>
         <label class="row">Estilo <input type="text" id="metaStyle" list="styleNames" autocomplete="off"></label>
         <datalist id="styleNames">
@@ -61,11 +69,10 @@
         <label class="row">Diseñadora <input type="text" id="metaDesigner" autocomplete="off"></label>
         <label class="row">Versión <input type="text" id="metaVersion" autocomplete="off"></label>
         <div class="buttons">
-          <button id="saveProject" type="button" title="Descarga todo el proyecto como .json">Guardar proyecto</button>
-          <button id="openProject" type="button" title="Abre un proyecto .json">Abrir proyecto</button>
+          <button id="saveProject" type="button" title="Descarga la tipografía como archivo .json, para respaldarla o llevarla a otro computador">Descargar .json</button>
+          <button id="openProject" type="button" title="Abre un archivo .json como una tipografía nueva de tu biblioteca">Abrir .json</button>
         </div>
         <input type="file" id="projectFile" accept=".json,application/json" hidden>
-        <p class="info">También se guarda automáticamente en este navegador.</p>
         <label class="row">Contornos
           <select id="otfMode">
             <option value="join">Con unión mínima</option>
@@ -213,6 +220,30 @@
     <div id="kernList" class="kern-list"></div>
   </section>
 
+  <dialog id="newFontDialog">
+    <form method="dialog">
+      <h3>Nueva tipografía</h3>
+      <p>La tipografía actual queda guardada en este navegador; puedes volver a ella desde la lista.</p>
+      <label class="row">Nombre <input type="text" id="newFontName" autocomplete="off" required></label>
+      <label class="row">Grilla <select id="newFontGrid"></select></label>
+      <div class="buttons">
+        <button value="cancel" formnovalidate>Cancelar</button>
+        <button value="create" class="primary">Crear</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirmDialog">
+    <form method="dialog">
+      <h3 id="confirmTitle"></h3>
+      <p id="confirmMessage"></p>
+      <div class="buttons">
+        <button value="cancel">Cancelar</button>
+        <button value="ok" class="primary" id="confirmOk"></button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="fitDialog">
     <form method="dialog">
       <h3>Ajustar glifos a métricas</h3>
@@ -228,17 +259,18 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=7",
-        "./js/geometry.js": "./js/geometry.js?v=7",
-        "./js/model.js": "./js/model.js?v=7",
-        "./js/render.js": "./js/render.js?v=7",
-        "./js/tools.js": "./js/tools.js?v=7",
-        "./js/outline.js": "./js/outline.js?v=7",
-        "./js/otf.js": "./js/otf.js?v=7",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=7"
+        "./js/charset.js": "./js/charset.js?v=8",
+        "./js/geometry.js": "./js/geometry.js?v=8",
+        "./js/model.js": "./js/model.js?v=8",
+        "./js/render.js": "./js/render.js?v=8",
+        "./js/tools.js": "./js/tools.js?v=8",
+        "./js/library.js": "./js/library.js?v=8",
+        "./js/outline.js": "./js/outline.js?v=8",
+        "./js/otf.js": "./js/otf.js?v=8",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=8"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=7"></script>
+  <script type="module" src="js/main.js?v=8"></script>
 </body>
 </html>

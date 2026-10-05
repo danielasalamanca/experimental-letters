@@ -111,6 +111,15 @@ export function createFont() {
 
 export const createFullFont = () => ensureCharset(createFont());
 
+// A new, empty font (no sample letter) for "Nueva tipografía".
+export function createBlankFont({ family = "Nueva tipografía", grid = "circles" } = {}) {
+  const font = createFont();
+  font.glyphs = {};
+  font.meta.family = family;
+  font.grid = grid;
+  return ensureCharset(font);
+}
+
 // Converts the first version's data (single letter + "Mis letras") to a font.
 // v1 used vertex keys "x,y" counted from the top-left with stars on interior
 // vertices; v2 uses cells counted from the baseline.
