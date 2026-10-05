@@ -84,6 +84,7 @@ body {
 #board .metric-label.draggable { cursor: ns-resize; }
 #board .sb-label { cursor: ew-resize; }
 #board[data-tool="select"] { cursor: default; }
+#board[data-tool="corner"] { cursor: pointer; }
 #board.pan-ready, #board.pan-ready * { cursor: grab; }
 #board.panning, #board.panning * { cursor: grabbing; }
 

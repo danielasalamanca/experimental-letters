@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
   <header class="topbar">
     <h1>Letras experimentales</h1>
-    <p>B dibujar · V seleccionar · espacio + arrastre para desplazar · Cmd/Ctrl + rueda para zoom · Supr borra la selección · flechas la mueven</p>
+    <p>B dibujar · V seleccionar · E esquinas · espacio + arrastre para desplazar · Cmd/Ctrl + rueda para zoom · Supr borra la selección · flechas la mueven</p>
   </header>
 
   <div class="app">
@@ -27,6 +27,15 @@
         <div class="tool-group">
           <button id="toolDraw" type="button" class="tool" title="Dibujar (B)">Dibujar</button>
           <button id="toolSelect" type="button" class="tool" title="Seleccionar (V) · doble clic: trazo completo">Seleccionar</button>
+          <button id="toolCorner" type="button" class="tool" title="Esquinas (E) · solo en la grilla de puntos · clic en una esquina para redondearla, otro clic la devuelve al redondeo global, Shift + clic la deja en punta">Esquinas</button>
+          <select id="cornerRadius" aria-label="Radio de la esquina" title="Radio, en celdas" hidden>
+            <option value="0.5">Radio ½</option>
+            <option value="1" selected>Radio 1</option>
+            <option value="1.5">Radio 1½</option>
+            <option value="2">Radio 2</option>
+            <option value="3">Radio 3</option>
+            <option value="max">Radio máximo</option>
+          </select>
         </div>
         <div class="tool-group">
           <button id="mirrorH" type="button" class="tool" title="Espejo izquierda–derecha">↔ Espejo</button>
@@ -153,6 +162,7 @@
             </select>
           </label>
           <label class="row">Grosor del contorno (u) <input type="number" id="stroke" min="1" step="1"></label>
+          <p class="info">Para redondear esquinas una a una (arcos, panzas, contraformas redondas), usa la herramienta <strong>Esquinas</strong> (E) sobre el lienzo.</p>
         </div>
         <label class="row color">Tinta <input type="color" id="ink"></label>
         <label class="row color">Fondo <input type="color" id="paper"></label>
@@ -259,18 +269,18 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=8",
-        "./js/geometry.js": "./js/geometry.js?v=8",
-        "./js/model.js": "./js/model.js?v=8",
-        "./js/render.js": "./js/render.js?v=8",
-        "./js/tools.js": "./js/tools.js?v=8",
-        "./js/library.js": "./js/library.js?v=8",
-        "./js/outline.js": "./js/outline.js?v=8",
-        "./js/otf.js": "./js/otf.js?v=8",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=8"
+        "./js/charset.js": "./js/charset.js?v=9",
+        "./js/geometry.js": "./js/geometry.js?v=9",
+        "./js/model.js": "./js/model.js?v=9",
+        "./js/render.js": "./js/render.js?v=9",
+        "./js/tools.js": "./js/tools.js?v=9",
+        "./js/library.js": "./js/library.js?v=9",
+        "./js/outline.js": "./js/outline.js?v=9",
+        "./js/otf.js": "./js/otf.js?v=9",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=9"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=8"></script>
+  <script type="module" src="js/main.js?v=9"></script>
 </body>
 </html>

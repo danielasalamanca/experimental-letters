@@ -191,7 +191,7 @@ function label(x, y, text, cu) {
 // The ink. Circle grid: one path per star plus the "unión mínima" bridges.
 // Square grid: a single path with the outline of the rounded squares
 // (the same contours the .otf uses).
-export function drawShapes(font, cellList, { grid, curve, rounding }, ink, { lo, hi, cols }) {
+export function drawShapes(font, cellList, { grid, curve, rounding, corners = {} }, ink, { lo, hi, cols }) {
   const cu = font.cell;
   const cells = cellList.filter((k) => {
     const [c, r] = parseKey(k);
@@ -200,7 +200,7 @@ export function drawShapes(font, cellList, { grid, curve, rounding }, ink, { lo,
   const g = el("g", { fill: ink });
   if (grid === "squares") {
     const stroke = font.style === "outline" ? font.stroke / cu : 0;
-    g.appendChild(el("path", { d: contoursToPath(squareContours(cells, { rounding, stroke }), cu) }));
+    g.appendChild(el("path", { d: contoursToPath(squareContours(cells, { rounding, stroke, corners }), cu) }));
     return g;
   }
   for (const k of cells) {

@@ -206,39 +206,116 @@ function holeContour(P, geo) {
 
 // --- Square grid ---
 // Each filled cell is a square, so the ink is the union of the squares:
-// exactly the traced loops. `rounding` (0–1) rounds every corner with a
-// radius of up to half a cell: outer corners get a fillet inside the ink,
-// inner corners a fillet that fills the empty corner.
+// exactly the traced loops. Corners can be rounded: outer corners get a
+// fillet that cuts into the ink, inner corners one that fills the empty
+// corner. `rounding` (0–1) gives every corner a radius of up to half a cell;
+// `corners` sets the radius (in cells, or "max") of single corners, keyed by
+// their lattice point "x,y". Radii bigger than a cell make arches: an outer
+// corner of 2 around an inner corner of 1 is a concentric arch of width 1.
+//
+// Each radius is limited so the shape stays valid: a fillet never reaches an
+// empty cell (outer corner) or a filled one (inner corner), and two corners
+// never take more than the edge between them.
 //
 // With `stroke` (in cells, below 0.5) the glyph is an outline instead: the
 // ink minus a copy inset by `stroke`. Insetting a rounded corner of radius r
 // gives r − stroke on outer corners and r + stroke on inner ones, so the
 // inset loop is built the same way and added in the opposite direction.
 export const MAX_STROKE = 0.45;
+export const MAX_RADIUS = 12;
 
-export function squareContours(cells, { rounding = 0, stroke = 0 }) {
+export function squareContours(cells, { rounding = 0, stroke = 0, corners = {} }) {
   const set = new Set(cells);
   const has = (c, r) => set.has(key(c, r));
-  const radius = Math.min(Math.max(rounding, 0), 1) / 2;
+  const base = Math.min(Math.max(rounding, 0), 1) / 2;
   const t = Math.min(Math.max(stroke, 0), MAX_STROKE);
   const contours = [];
   for (const loop of traceLoops(set, has)) {
-    const corners = loop.map((v) => ({ ...v, turn: (v.dout - v.din + 4) % 4 })).filter((v) => v.turn !== 0);
-    contours.push(roundedLoop(corners.map((v) => ({ ...v, r: radius }))));
+    const turns = cornerList(loop);
+    // As an outline, walls must stay at least two strokes wide.
+    const radii = cornerRadii(turns, has, 2 * t, (v) => {
+      const want = corners[key(v.x, v.y)];
+      return want === undefined ? base : want === "max" ? MAX_RADIUS : Math.min(Math.max(+want || 0, 0), MAX_RADIUS);
+    });
+    contours.push(roundedLoop(turns.map((v, i) => ({ ...v, r: radii[i] }))));
     if (t > 0) {
-      const inset = corners.map((v) => {
+      const inset = turns.map((v, i) => {
         const [ax, ay] = DIRS[(v.din + 1) % 4], [bx, by] = DIRS[(v.dout + 1) % 4];
         return {
           x: v.x + t * (ax + bx), y: v.y + t * (ay + by),
           // Reversed: the inset is a hole in the ink.
           din: (v.dout + 2) % 4, dout: (v.din + 2) % 4,
-          r: v.turn === 1 ? Math.max(radius - t, 0) : radius + t,
+          r: v.turn === 1 ? Math.max(radii[i] - t, 0) : radii[i] + t,
         };
       }).reverse();
+      // A corner sharper than the stroke stays sharp inside, so its edge
+      // can run short: share the edges again.
+      shareEdges(inset, inset.map((v) => v.r)).forEach((r, i) => { inset[i].r = r; });
       contours.push(roundedLoop(inset));
     }
   }
   return contours;
+}
+
+// Corners of the outline (where it turns): { x, y, turn } with turn 1 for
+// outer corners and 3 for inner ones. Used to show the corners to click.
+export function squareCorners(cells) {
+  const set = new Set(cells);
+  const has = (c, r) => set.has(key(c, r));
+  return traceLoops(set, has).flatMap(cornerList);
+}
+
+const cornerList = (loop) =>
+  loop.map((v) => ({ ...v, turn: (v.dout - v.din + 4) % 4 })).filter((v) => v.turn !== 0);
+
+function cornerRadii(turns, has, wall, wanted) {
+  const radii = turns.map((v) => {
+    const want = wanted(v);
+    return want > 0 ? Math.min(want, roomAt(v, has, want, v.turn === 1 ? wall : 0)) : 0;
+  });
+  return shareEdges(turns, radii);
+}
+
+// Two corners on the same edge share its length.
+function shareEdges(turns, radii) {
+  const n = turns.length;
+  for (let pass = 0; pass < 2; pass++) {
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      const L = Math.abs(turns[j].x - turns[i].x) + Math.abs(turns[j].y - turns[i].y);
+      if (radii[i] + radii[j] <= L + EPS) continue;
+      if (radii[i] >= L / 2 && radii[j] >= L / 2) radii[i] = radii[j] = L / 2;
+      else if (radii[i] > radii[j]) radii[i] = L - radii[j];
+      else radii[j] = L - radii[i];
+    }
+  }
+  return radii;
+}
+
+// Largest radius (up to `want`) whose fillet stays on the right cells.
+// In corner coordinates (a along the incoming edge, b along the outgoing
+// one), the fillet of radius r covers the part of the r×r square outside
+// the circle centred at (r, r). Cell (i, j) of that square is touched once
+// r > i + j + √(2ij); it must be filled for an outer corner and empty for
+// an inner one. With `wall` > 0 an outer fillet also keeps that much ink
+// between itself and an empty cell: (r − i)² + (r − j)² ≤ (r − wall)²,
+// which holds up to r = (i + j − wall) + √(2(i − wall)(j − wall)).
+export function roomAt(v, has, want, wall = 0) {
+  const [e1x, e1y] = DIRS[(v.din + 2) % 4], [e2x, e2y] = DIRS[v.dout];
+  const outer = v.turn === 1;
+  let room = want;
+  const n = Math.ceil(want);
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      const diagonal = i > 0 && j > 0;
+      const reach = diagonal ? i + j - wall + Math.sqrt(2 * (i - wall) * (j - wall)) : i + j;
+      if (reach >= room) continue;
+      const c = Math.floor(v.x + (i + 0.5) * e1x + (j + 0.5) * e2x);
+      const r = Math.floor(v.y + (i + 0.5) * e1y + (j + 0.5) * e2y);
+      if (has(c, r) !== outer) room = reach;
+    }
+  }
+  return room;
 }
 
 // A loop of corners joined by straight edges; each corner is cut by a

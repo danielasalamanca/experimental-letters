@@ -60,7 +60,7 @@ export function glyphPath(opentype, font, glyph, mode) {
   const shape = glyphShape(font, glyph);
   const joinWidth = mode === "join" && font.join.enabled ? font.join.width / cu : 0;
   const contours = shape.grid === "squares"
-    ? squareContours(cells, { rounding: shape.rounding, stroke: font.style === "outline" ? font.stroke / cu : 0 })
+    ? squareContours(cells, { rounding: shape.rounding, corners: shape.corners, stroke: font.style === "outline" ? font.stroke / cu : 0 })
     : glyphContours(cells, { curve: shape.curve, joinWidth });
   const path = new opentype.Path();
   const X = (x) => Math.round(glyph.lsb + x * cu);

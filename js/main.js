@@ -3,7 +3,7 @@
 import { key, parseKey } from "./geometry.js";
 import {
   METRICS, createGlyph, normalizeFont, createBlankFont, setMetric, sameMetrics,
-  GRIDS, glyphGrid, shapeKey, hasOwnShape,
+  GRIDS, glyphGrid, shapeKey, hasOwnShape, resolvedCorners,
   planFit, applyFit, advanceWidth, resolvedCells, canUseComponent, dependents,
   kerningValue, setKerning, layoutText,
 } from "./model.js";
@@ -11,6 +11,7 @@ import { GROUPS, CHARSET, glyphName, fileName, codepoint } from "./charset.js";
 import { drawGlyph, drawText, el, SVG_NS } from "./render.js";
 import { openLibrary, saveFont, loadFont, deleteFont, newId, fontName } from "./library.js";
 import { AXES, axisRows, mirrorKeys, translate, cellsInRect, connectedCells } from "./tools.js";
+import { squareCorners } from "./outline.js";
 
 
 const $ = (id) => document.getElementById(id);
@@ -134,6 +135,7 @@ function decorate() {
       fill: "#2f80ed", "fill-opacity": 0.18, stroke: "#2f80ed", "stroke-width": 1, "vector-effect": "non-scaling-stroke",
     }));
   }
+  if (tool === "corner") drawCornerMarkers(layer);
   if (action?.type === "marquee" && action.moved) {
     const { x0, y0, x1, y1 } = action;
     layer.appendChild(el("rect", {
@@ -257,10 +259,17 @@ let action = null;           // the drag in progress
 let spaceDown = false;
 
 function setTool(next) {
+  // Corners only exist on the square grid.
+  if (next === "corner" && glyphGrid(font, glyph()) !== "squares") {
+    toast("La herramienta Esquinas funciona con la grilla de puntos (cuadrados).");
+    next = tool === "corner" ? "draw" : tool;
+  }
   tool = next;
-  if (tool === "draw") selection.clear();
+  if (tool !== "select") selection.clear();
   $("toolDraw").classList.toggle("active", tool === "draw");
   $("toolSelect").classList.toggle("active", tool === "select");
+  $("toolCorner").classList.toggle("active", tool === "corner");
+  $("cornerRadius").hidden = tool !== "corner";
   board.dataset.tool = tool;
   render(null);
 }
@@ -318,6 +327,12 @@ board.addEventListener("pointerdown", (evt) => {
   }
   const g = glyph();
   const k = cellAt(evt);
+
+  if (tool === "corner") {
+    frozenBounds = null;
+    toggleCorner(evt);
+    return;
+  }
 
   if (tool === "draw") {
     if (!k) { frozenBounds = null; return; }
@@ -427,6 +442,58 @@ window.addEventListener("pointerup", () => {
   render(done.type === "metric" ? "font" : "glyph");
 });
 
+// --- Corner tool (square grid) ---
+// Corners of the glyph's outline, keyed by lattice point.
+function outlineCorners() {
+  const out = new Map();
+  for (const v of squareCorners(resolvedCells(font, glyph()))) out.set(key(v.x, v.y), v);
+  return out;
+}
+
+function toggleCorner(evt) {
+  const { x, y } = toCells(evt);
+  const px = Math.round(x), py = Math.round(y);
+  if (Math.hypot(x - px, y - py) > 0.4) return;
+  const k = key(px, py);
+  if (!outlineCorners().has(k)) {
+    toast("Ese punto no es una esquina de la letra.");
+    return;
+  }
+  checkpoint();
+  const g = glyph();
+  const wanted = evt.shiftKey ? 0 : $("cornerRadius").value === "max" ? "max" : +$("cornerRadius").value;
+  // Clicking a corner with the radius it already has returns it to the global rounding.
+  const remove = g.corners[k] === wanted;
+  const [lo, hi] = axisRows(font.view.mirrorAxis, font.metrics, font.active);
+  const targets = new Set([k]);
+  for (const t of [...targets]) {
+    const [cx, cy] = parseKey(t);
+    if (font.view.mirrorH) targets.add(key(g.cols - cx, cy));
+  }
+  for (const t of [...targets]) {
+    const [cx, cy] = parseKey(t);
+    if (font.view.mirrorV) targets.add(key(cx, lo + hi - cy));
+  }
+  for (const t of targets) {
+    if (remove) delete g.corners[t];
+    else g.corners[t] = wanted;
+  }
+  render();
+}
+
+function drawCornerMarkers(layer) {
+  const cu = font.cell;
+  const own = glyph().corners;
+  for (const [k] of outlineCorners()) {
+    const [x, y] = parseKey(k);
+    const set = own[k];
+    const sharp = set === 0;
+    layer.appendChild(el(sharp ? "rect" : "circle", sharp
+      ? { x: x * cu - cu * 0.11, y: -y * cu - cu * 0.11, width: cu * 0.22, height: cu * 0.22, fill: "#1d1d1b", stroke: "#fff", "stroke-width": 1.5, "vector-effect": "non-scaling-stroke" }
+      : { cx: x * cu, cy: -y * cu, r: cu * 0.13, fill: set === undefined ? "#fff" : "#d6249f", stroke: "#d6249f", "stroke-width": 1.5, "vector-effect": "non-scaling-stroke" }));
+  }
+}
+
 // Double-click with the select tool picks the whole stroke.
 board.addEventListener("dblclick", (evt) => {
   if (tool !== "select") return;
@@ -477,6 +544,7 @@ $("zoomFit").addEventListener("click", zoomFit);
 // --- Toolbar ---
 $("toolDraw").addEventListener("click", () => setTool("draw"));
 $("toolSelect").addEventListener("click", () => setTool("select"));
+$("toolCorner").addEventListener("click", () => setTool("corner"));
 
 for (const id of ["mirrorH", "mirrorV"]) {
   $(id).addEventListener("click", () => {
@@ -507,6 +575,9 @@ function buildToolbar() {
 }
 
 function syncToolbar() {
+  const squares = glyphGrid(font, glyph()) === "squares";
+  $("toolCorner").disabled = !squares;
+  if (!squares && tool === "corner") setTool("draw");
   $("mirrorH").classList.toggle("active", font.view.mirrorH);
   $("mirrorV").classList.toggle("active", font.view.mirrorV);
   $("mirrorH").setAttribute("aria-pressed", font.view.mirrorH);
@@ -580,6 +651,7 @@ window.addEventListener("keydown", (e) => {
   else if (k === "escape") { selection.clear(); render(null); }
   else if (k === "b") setTool("draw");
   else if (k === "v") setTool("select");
+  else if (k === "e") setTool("corner");
   else if (k === "+" || k === "=") zoomAt(1.25);
   else if (k === "-") zoomAt(0.8);
   else if (k === "0") zoomFit();
@@ -697,7 +769,7 @@ $("copyFrom").addEventListener("click", () => {
   const g = glyph();
   Object.assign(g, {
     cells: [...src.cells], cols: src.cols, lsb: src.lsb, rsb: src.rsb, curve: src.curve,
-    grid: src.grid, rounding: src.rounding,
+    grid: src.grid, rounding: src.rounding, corners: { ...src.corners },
     metrics: { ...src.metrics },
     components: src.components.filter((c) => canUseComponent(font, font.active, c.glyph)).map((c) => ({ ...c })),
   });
@@ -889,7 +961,7 @@ $("invert").addEventListener("click", () => {
 $("save").addEventListener("click", () => {
   checkpoint();
   const g = glyph();
-  font.drafts.push(createGlyph({ ...g, cells: resolvedCells(font, g), components: [] }));
+  font.drafts.push(createGlyph({ ...g, cells: resolvedCells(font, g), corners: resolvedCorners(font, g), components: [] }));
   renderGallery();
   persist();
 });

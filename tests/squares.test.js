@@ -113,3 +113,65 @@ test("squares: random drawings", () => {
     check(cells, [0, 0.4, 0.8][n % 3], [0, 0.15, 0.3][Math.floor(n / 3) % 3]);
   }
 });
+
+// --- Corners with their own radius ---
+import { squareCorners, roomAt } from "../js/outline.js";
+
+const N_ARCH = ["0,4", "1,4", "2,4", "3,4", ...[0, 1, 2, 3].flatMap((r) => [`0,${r}`, `3,${r}`])];
+
+test("rounding the corners of an 'n' gives a concentric arch", () => {
+  const corners = { "0,5": "max", "4,5": "max", "1,4": "max", "3,4": "max" };
+  const polys = flatten(squareContours(N_ARCH, { corners }));
+  // Outer radius 2 and inner radius 1, both centred at (2, 3).
+  const at = (dist, angle) => [2 + dist * Math.cos(angle), 3 + dist * Math.sin(angle)];
+  for (const angle of [Math.PI * 0.6, Math.PI * 0.75, Math.PI * 0.9, Math.PI * 0.25]) {
+    assert.equal(winding(polys, at(1.5, angle)), 1, "inside the arch");
+    assert.equal(winding(polys, at(2.1, angle)), 0, "outside the arch");
+    assert.equal(winding(polys, at(0.9, angle)), 0, "inside the counter");
+  }
+  // The feet of the stems keep their sharp corners.
+  assert.equal(winding(polys, [0.02, 0.02]), 1);
+});
+
+test("a radius never eats into a counter or the neighbouring corner", () => {
+  const has = (c, r) => N_ARCH.includes(`${c},${r}`);
+  const outerTopLeft = squareCorners(N_ARCH).find((v) => v.x === 0 && v.y === 5);
+  assert.equal(outerTopLeft.turn, 1);
+  // The counter cell (1, 3) sits diagonally inside the corner: reached at r = 2 + √2.
+  assert.ok(Math.abs(roomAt(outerTopLeft, has, 10) - (2 + Math.SQRT2)) < 1e-9);
+  // A 1×1 block can at most become a circle.
+  const polys = flatten(squareContours(["0,0"], { corners: { "0,0": 3, "1,0": 3, "0,1": 3, "1,1": 3 } }));
+  assert.equal(winding(polys, [0.5, 0.5]), 1);
+  assert.equal(winding(polys, [0.05, 0.05]), 0);
+  assert.equal(winding(polys, [0.5, 0.02]), 1);
+});
+
+test("random drawings with random corner radii never overlap", () => {
+  let seed = 23;
+  const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let n = 0; n < 40; n++) {
+    const cells = [];
+    for (let c = 0; c < 6; c++) for (let r = 0; r < 6; r++) if (rand() < 0.6) cells.push(`${c},${r}`);
+    const corners = {};
+    for (const v of squareCorners(cells)) {
+      if (rand() < 0.6) corners[`${v.x},${v.y}`] = rand() < 0.3 ? "max" : [0, 0.5, 1, 1.5, 2, 3][Math.floor(rand() * 6)];
+    }
+    const stroke = [0, 0, 0.2, 0.4][n % 4];
+    const set = new Set(cells);
+    const polys = flatten(squareContours(cells, { corners, stroke }));
+    for (let i = 0; i < 1500; i++) {
+      const p = [((i * 0.6180339887) % 1) * 7 - 0.5, ((i * 0.7548776662 + 0.1) % 1) * 7 - 0.5];
+      const w = winding(polys, p);
+      assert.ok(w === 0 || w === 1, `superposición en ${p} (dibujo ${n}, winding ${w})`);
+      // Far from every lattice point, the ink is just the cells.
+      const near = Math.min(...Object.keys(corners).map((k) => {
+        const [x, y] = k.split(",").map(Number);
+        return Math.max(Math.abs(p[0] - x), Math.abs(p[1] - y));
+      }), Infinity);
+      const edge = Math.min(p[0] - Math.floor(p[0]), Math.ceil(p[0]) - p[0], p[1] - Math.floor(p[1]), Math.ceil(p[1]) - p[1]);
+      if (stroke === 0 && near > 3.5 && edge > 0.01) {
+        assert.equal(w === 1, set.has(`${Math.floor(p[0])},${Math.floor(p[1])}`), `forma distinta en ${p}`);
+      }
+    }
+  }
+});

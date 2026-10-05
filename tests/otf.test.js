@@ -87,3 +87,18 @@ test("square-grid glyphs export filled or as an outline, and can mix with circle
   // The "A" still uses the circle grid.
   assert.equal(fill.charToGlyph("A").path.commands.length, outline.charToGlyph("A").path.commands.length);
 });
+
+test("corner radii of the square grid reach the .otf, also through components", async () => {
+  const font = sampleFont();
+  font.grid = "squares";
+  font.rounding = 0;
+  font.glyphs.n.cols = 3;
+  font.glyphs.n.cells = ["0,0", "0,1", "0,2", "1,2", "2,2", "2,1", "2,0"];
+  const curves = (otf, ch) => otf.charToGlyph(ch).path.commands.filter((c) => c.type === "C").length;
+  const sharp = opentype.parse(await buildOtf(font));
+  assert.equal(curves(sharp, "n"), 0);
+  font.glyphs.n.corners = { "0,3": "max", "3,3": "max" };
+  const round = opentype.parse(await buildOtf(font));
+  assert.equal(curves(round, "n"), 2);
+  assert.equal(curves(round, "ñ"), 2, "la ñ hereda las esquinas de la n");
+});

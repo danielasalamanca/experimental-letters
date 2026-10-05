@@ -8,8 +8,10 @@ grilla:
   carácter de la letra.
 - **Puntos (cuadrados):** una grilla de puntos, como la de un cuaderno
   punteado, donde cada celda es un cuadrado. Las esquinas se pueden redondear
-  y la letra puede ser rellena o solo un **contorno** que recorre el borde de
-  los cuadrados.
+  —todas a la vez o una por una, con radios de varias celdas para hacer arcos,
+  panzas y contraformas redondas, al estilo de los alfabetos geométricos
+  modulares— y la letra puede ser rellena o solo un **contorno** que recorre
+  el borde de los cuadrados.
 
 **Abrir el editor:** https://danielasalamanca.github.io/experimental-letters/
 
@@ -49,6 +51,15 @@ grilla:
   selección se copia el dibujo completo).
 - **Copiar dibujo desde otro glifo** (panel Glifo): por ejemplo, de la "n" a
   la "h" como punto de partida.
+- **Esquinas (E)** (grilla de puntos): muestra las esquinas de la letra como
+  puntos; clic en una para redondearla con el radio elegido (½, 1, 1½, 2, 3
+  celdas o máximo), otro clic la devuelve al redondeo global y **Shift + clic**
+  la deja en punta. Un radio exterior de 2 alrededor de un interior de 1 da un
+  arco concéntrico de una celda de grosor (como la "n" de un alfabeto
+  modular). Cada radio se limita solo para no comerse una contraforma ni la
+  esquina vecina, y en estilo contorno para que el trazo quepa. Respeta el
+  espejo, y las letras compuestas (á, ñ…) heredan las esquinas de sus
+  componentes.
 - **Fondo:** muestra otro glifo en azul transparente detrás del que dibujas
   (por ejemplo, la "n" detrás de la "m").
 - **Zoom y desplazamiento:** Cmd/Ctrl + rueda (o pellizco en el trackpad)
