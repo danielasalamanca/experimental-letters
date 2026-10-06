@@ -69,6 +69,15 @@ grilla:
   **Esc** quita la selección y **Cmd/Ctrl + A** selecciona todo.
 - **Copiar y pegar:** Cmd/Ctrl + C, X y V, también entre glifos (sin
   selección se copia el dibujo completo).
+- **Las formas viajan completas:** al mover (arrastre o flechas), copiar,
+  cortar, pegar o borrar una selección, se llevan también sus **esquinas
+  redondeadas** (las que caen en las celdas elegidas o en sus bordes) y sus
+  **piezas** (las que quedan dentro del área elegida). Lo pegado queda
+  "flotando" sobre el dibujo hasta que eliges otra cosa: arrástralo o
+  muévelo con las flechas y el original queda en su lugar.
+- Con la herramienta **Nodos**, Cmd/Ctrl + C, X y V copian, cortan y pegan
+  contornos completos (los que tienen un punto elegido, o todos); lo pegado
+  queda elegido para moverlo.
 - **Copiar dibujo desde otro glifo** (panel Glifo): por ejemplo, de la "n" a
   la "h" como punto de partida.
 - **Esquinas (E)** (grilla de puntos): muestra las esquinas de la letra como

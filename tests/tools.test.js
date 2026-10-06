@@ -32,3 +32,23 @@ test("connectedCells follows side neighbours, not diagonals", () => {
   assert.deepEqual(sorted(connectedCells(cells, "0,0")), ["0,0", "1,0", "1,1"]);
   assert.deepEqual(connectedCells(cells, "9,9"), []);
 });
+
+import { selectionExtras, translateCorner, translatePiece } from "../js/tools.js";
+
+test("corners and pieces travel with the cells they belong to", () => {
+  const glyph = {
+    cells: ["0,0", "1,0", "5,5"],
+    corners: { "0,1": 2, "2,0": "max", "5,6": 1, "1.5,0.5": 0.5 },
+    pieces: [
+      { x0: 0, y0: 0, x1: 2, y1: 1, corner: "tl", shape: "tri", mode: "cut" },   // inside the selection
+      { x0: 4, y0: 4, x1: 6, y1: 6, corner: "bl", shape: "quarter", mode: "add" }, // elsewhere
+    ],
+  };
+  const { corners, pieces } = selectionExtras(glyph, new Set(["0,0", "1,0"]));
+  assert.deepEqual(corners.sort(), ["0,1", "1.5,0.5", "2,0"]);
+  assert.deepEqual(pieces, [0]);
+  assert.equal(translateCorner("1.5,0.5", 2, -1), "3.5,-0.5");
+  const moved = translatePiece({ x0: 0, y0: 0, x1: 2, y1: 1, points: [[0, 1], [2, 1], [0, 0]] }, 3, 4);
+  assert.deepEqual([moved.x0, moved.x1, moved.y0, moved.y1], [3, 5, 4, 5]);
+  assert.deepEqual(moved.points, [[3, 5], [5, 5], [3, 4]]);
+});

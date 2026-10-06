@@ -10,7 +10,10 @@ import {
 import { GROUPS, CHARSET, glyphName, fileName, codepoint } from "./charset.js";
 import { drawGlyph, drawText, el, SVG_NS, contoursToPath } from "./render.js";
 import { openLibrary, saveFont, loadFont, deleteFont, newId, fontName } from "./library.js";
-import { AXES, axisRows, mirrorKeys, translate, cellsInRect, connectedCells } from "./tools.js";
+import {
+  AXES, axisRows, mirrorKeys, translate, cellsInRect, connectedCells,
+  selectionExtras, translateCorner, translatePiece,
+} from "./tools.js";
 import { squareCorners, effectiveRadii, MAX_RADIUS } from "./outline.js";
 import {
   commandsToOutline, outlineToCommands, cloneOutline, splitSegment, toggleSmooth, deleteNodes,
@@ -114,6 +117,7 @@ function render(scope = "glyph") {
 
 function refreshAll() {
   selection.clear();
+  floating = null;
   nodeSel.clear();
   syncControls();
   render("font");
@@ -230,6 +234,7 @@ function marker(className, title) {
 function selectGlyph(char) {
   const prev = font.active;
   selection.clear();
+  floating = null;
   nodeSel.clear();
   font.active = char;
   updateThumb(prev);
@@ -277,6 +282,7 @@ let action = null;           // the drag in progress
 let spaceDown = false;
 
 function setTool(next) {
+  floating = null;
   // A glyph edited with nodes has no grid drawing to work on.
   if (glyph().outline && ["draw", "select", "corner", "piece"].includes(next)) {
     if (tool === "nodes") toast("Esta letra se edita con nodos. Para dibujar en la grilla, usa «Volver a la grilla» en el panel Glifo.");
@@ -397,11 +403,8 @@ board.addEventListener("pointerdown", (evt) => {
   const p = toCells(evt);
   if (k && selection.has(k) && !evt.shiftKey) {
     checkpoint();
-    const moving = [...selection];
-    action = {
-      type: "move", sx: Math.floor(p.x), sy: Math.floor(p.y), dc: 0, dr: 0, moving,
-      rest: g.cells.filter((x) => !selection.has(x)),
-    };
+    const lifted = liftSelection();
+    action = { type: "move", sx: Math.floor(p.x), sy: Math.floor(p.y), dc: 0, dr: 0, lifted };
     return;
   }
   action = { type: "marquee", x0: p.x, y0: p.y, x1: p.x, y1: p.y, moved: false, additive: evt.shiftKey, cell: k };
@@ -475,10 +478,8 @@ window.addEventListener("pointermove", (evt) => {
       const dc = Math.floor(p.x) - action.sx, dr = Math.floor(p.y) - action.sy;
       if (dc === action.dc && dr === action.dr) break;
       action.dc = dc; action.dr = dr;
-      const moved = translate(action.moving, dc, dr);
-      g.cells = [...new Set([...action.rest, ...moved])];
-      selection.clear();
-      moved.forEach((k) => selection.add(k));
+      const { lifted } = action;
+      applyShift(lifted.base, lifted.dc + dc, lifted.dr + dr);
       render();
       break;
     }
@@ -511,6 +512,7 @@ window.addEventListener("pointerup", () => {
     return;
   }
   if (done.type === "pan") return;
+  if (done.type === "move" && done.lifted === floating && floating) { floating.dc += done.dc; floating.dr += done.dr; }
   if (done.type === "corner") { endCorner(done); return; }
   if (done.type === "piece") { endPiece(done); return; }
   if (done.type === "node") { render(); syncPieceList(); return; }
@@ -1181,38 +1183,134 @@ function charLabel(char) {
 }
 
 // --- Selection editing ---
+// The selected cells together with the rounded corners and pieces that
+// belong to them, so moving, copying or deleting a shape keeps them.
+// A pasted copy floats over the drawing until the selection changes:
+// moving it leaves what was underneath in place.
+let floating = null; // { base, dc, dr }
+
+function liftSelection() {
+  if (floating) {
+    const now = translate(floating.base.moving, floating.dc, floating.dr);
+    if (now.length === selection.size && now.every((k) => selection.has(k))) return floating;
+  }
+  floating = null;
+  return { base: captureSelection(), dc: 0, dr: 0 };
+}
+
+function captureSelection() {
+  const g = glyph();
+  const { corners, pieces } = selectionExtras(g, selection);
+  const carried = Object.fromEntries(corners.map((k) => [k, g.corners[k]]));
+  const restCorners = { ...g.corners };
+  corners.forEach((k) => delete restCorners[k]);
+  return {
+    moving: [...selection],
+    rest: g.cells.filter((x) => !selection.has(x)),
+    carried, restCorners,
+    pieces: pieces.map((i) => [i, { ...g.pieces[i] }]),
+  };
+}
+
+function applyShift(base, dc, dr) {
+  const g = glyph();
+  const moved = translate(base.moving, dc, dr);
+  g.cells = [...new Set([...base.rest, ...moved])];
+  g.corners = { ...base.restCorners };
+  for (const [k, v] of Object.entries(base.carried)) g.corners[translateCorner(k, dc, dr)] = v;
+  for (const [i, p] of base.pieces) g.pieces[i] = translatePiece(p, dc, dr);
+  selection.clear();
+  moved.forEach((k) => selection.add(k));
+}
+
 function deleteSelection() {
   if (!selection.size) return;
   checkpoint();
-  glyph().cells = glyph().cells.filter((k) => !selection.has(k));
+  const g = glyph();
+  // A floating paste goes away without touching what was underneath.
+  const { base } = liftSelection();
+  floating = null;
+  g.cells = base.rest;
+  g.corners = base.restCorners;
+  const gone = new Set(base.pieces.map(([i]) => i));
+  g.pieces = g.pieces.filter((_, i) => !gone.has(i));
   selection.clear();
   render();
+  syncPieceList();
 }
 
 function nudge(dc, dr) {
   if (!selection.size) return;
   checkpoint("nudge");
-  const g = glyph();
-  const moved = translate([...selection], dc, dr);
-  g.cells = [...new Set([...g.cells.filter((k) => !selection.has(k)), ...moved])];
-  selection.clear();
-  moved.forEach((k) => selection.add(k));
+  const lifted = liftSelection();
+  applyShift(lifted.base, lifted.dc + dc, lifted.dr + dr);
+  if (lifted === floating) { floating.dc += dc; floating.dr += dr; }
   render();
 }
 
+// Copies the selection (or the whole drawing) with its corners and pieces.
 function copySelection() {
-  clipboard = selection.size ? [...selection] : [...glyph().cells];
-  toast(`${clipboard.length} celda(s) copiadas`);
+  const g = glyph();
+  if (!selection.size) g.cells.forEach((k) => selection.add(k));
+  const base = captureSelection();
+  clipboard = { cells: base.moving, corners: base.carried, pieces: base.pieces.map(([, p]) => p) };
+  if (tool !== "select") selection.clear();
+  const extras = Object.keys(clipboard.corners).length + clipboard.pieces.length;
+  toast(`${clipboard.cells.length} celda(s) copiadas` + (extras ? ` con ${extras} esquina(s) y pieza(s)` : ""));
 }
 
 function paste() {
-  if (!clipboard?.length) return;
+  if (!clipboard?.cells?.length) return;
   checkpoint();
   const g = glyph();
-  g.cells = [...new Set([...g.cells, ...clipboard])];
   setTool("select");
-  selection.clear();
-  clipboard.forEach((k) => selection.add(k));
+  const first = g.pieces.length;
+  g.pieces.push(...clipboard.pieces.map((p) => translatePiece(p, 0, 0)));
+  const base = {
+    moving: [...clipboard.cells],
+    rest: [...g.cells],
+    carried: { ...clipboard.corners },
+    restCorners: { ...g.corners },
+    pieces: clipboard.pieces.map((p, i) => [first + i, translatePiece(p, 0, 0)]),
+  };
+  applyShift(base, 0, 0);
+  floating = { base, dc: 0, dr: 0 };
+  render();
+  syncPieceList();
+  toast("Pegado: arrástralo o muévelo con las flechas; el original queda en su lugar.");
+}
+
+// Nodos: copy and paste whole outlines (those with a selected node, or all).
+let nodeClipboard = null;
+
+function copyNodes() {
+  const outline = editableOutline();
+  const picked = new Set([...nodeSel].map((k) => +k.split(":")[0]));
+  const contours = outline.filter((_, ci) => !picked.size || picked.has(ci));
+  nodeClipboard = cloneOutline(contours);
+  toast(`${contours.length} contorno(s) copiados`);
+  return [...picked];
+}
+
+function pasteNodes() {
+  if (!nodeClipboard?.length) return;
+  checkpoint();
+  const outline = ensureOutline();
+  const start = outline.length;
+  outline.push(...cloneOutline(nodeClipboard));
+  // The pasted copy stays selected, ready to drag or move with the arrows.
+  nodeSel.clear();
+  for (let ci = start; ci < outline.length; ci++) outline[ci].nodes.forEach((_, ni) => nodeSel.add(`${ci}:${ni}`));
+  render();
+}
+
+function cutNodes() {
+  const picked = copyNodes();
+  if (!picked.length) return;
+  checkpoint();
+  const outline = ensureOutline();
+  glyph().outline = outline.filter((_, ci) => !picked.includes(ci));
+  nodeSel.clear();
   render();
 }
 
@@ -1222,8 +1320,11 @@ window.addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase();
   if (mod) {
     if (k === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+    else if (k === "c" && tool === "nodes") { e.preventDefault(); copyNodes(); }
+    else if (k === "x" && tool === "nodes") { e.preventDefault(); cutNodes(); }
+    else if (k === "v" && tool === "nodes") { e.preventDefault(); pasteNodes(); }
     else if (k === "c") { e.preventDefault(); copySelection(); }
-    else if (k === "x") { e.preventDefault(); copySelection(); deleteSelection(); }
+    else if (k === "x") { e.preventDefault(); if (!selection.size) return; copySelection(); deleteSelection(); }
     else if (k === "v") { e.preventDefault(); paste(); }
     else if (k === "a" && tool === "nodes") {
       e.preventDefault();

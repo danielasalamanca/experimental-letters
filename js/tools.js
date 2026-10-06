@@ -60,3 +60,40 @@ export function connectedCells(cells, start) {
   }
   return [...seen];
 }
+
+// --- What travels with a selection of cells ---
+// Moving, copying or deleting cells also takes the rounded corners and the
+// pieces that belong to them: a corner on (or at the edge of) a selected
+// cell, and a piece lying inside the selection's area.
+
+const pointKey = (x, y) => {
+  const f = (v) => String(Math.round(v * 1000) / 1000);
+  return `${f(x)},${f(y)}`;
+};
+
+export function selectionExtras(glyph, selected) {
+  const cells = [...selected].map(parseKey);
+  if (!cells.length) return { corners: [], pieces: [] };
+  const onCell = (x, y) => cells.some(([c, r]) => x >= c - 1e-9 && x <= c + 1 + 1e-9 && y >= r - 1e-9 && y <= r + 1 + 1e-9);
+  const corners = Object.keys(glyph.corners ?? {}).filter((k) => onCell(...parseKey(k)));
+  const minX = Math.min(...cells.map(([c]) => c)), maxX = Math.max(...cells.map(([c]) => c)) + 1;
+  const minY = Math.min(...cells.map(([, r]) => r)), maxY = Math.max(...cells.map(([, r]) => r)) + 1;
+  const inside = (x, y) => x >= minX - 1e-9 && x <= maxX + 1e-9 && y >= minY - 1e-9 && y <= maxY + 1e-9;
+  const pieces = [];
+  (glyph.pieces ?? []).forEach((p, i) => {
+    const pts = p.points ?? [[p.x0, p.y0], [p.x1, p.y1]];
+    if (pts.every(([x, y]) => inside(x, y)) && inside(p.x0, p.y0) && inside(p.x1, p.y1)) pieces.push(i);
+  });
+  return { corners, pieces };
+}
+
+export function translateCorner(k, dc, dr) {
+  const [x, y] = parseKey(k);
+  return pointKey(x + dc, y + dr);
+}
+
+export function translatePiece(p, dc, dr) {
+  const q = { ...p, x0: p.x0 + dc, x1: p.x1 + dc, y0: p.y0 + dr, y1: p.y1 + dr };
+  if (p.points) q.points = p.points.map(([x, y]) => [x + dc, y + dr]);
+  return q;
+}
