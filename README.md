@@ -15,6 +15,20 @@ grilla:
 
 **Abrir el editor:** https://danielasalamanca.github.io/experimental-letters/
 
+## Cómo está organizada
+
+- **Arriba:** tu tipografía (elige otra en la lista), deshacer y rehacer,
+  **Nueva**, **Guardar** y **Exportar fuente**. El botón **?** abre una guía
+  rápida con los atajos.
+- **Izquierda:** las letras de la fuente; clic en una para editarla.
+- **Centro:** las herramientas (Dibujar, Seleccionar, Nodos, Esquinas,
+  Piezas) en una barra; las opciones de la herramienta activa aparecen
+  debajo, en una franja clara. Más abajo, el lienzo.
+- **Derecha:** paneles plegables: **Letra** y **Forma** abiertos; **Grilla**,
+  **Métricas**, **Tipografía** y **Exportar** se abren cuando los necesitas.
+- **Abajo:** la barra **Probar** para escribir con tu fuente y ajustar el
+  kerning.
+
 ## Qué se puede hacer
 
 ### Mapa de caracteres y glifos

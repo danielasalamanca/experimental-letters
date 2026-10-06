@@ -13,11 +13,11 @@ export const DEFAULT_METRICS = { ascender: 15, capHeight: 14, xHeight: 9, descen
 
 // Draw order is top to bottom; the baseline is fixed at 0.
 export const METRICS = [
-  { key: "ascender", name: "Ascendente", short: "asc", color: "#8b5cf6" },
-  { key: "capHeight", name: "Altura de mayúsculas", short: "mayús", color: "#e0484a" },
-  { key: "xHeight", name: "Altura de x", short: "x", color: "#2f80ed" },
-  { key: "baseline", name: "Línea base", short: "base", color: "#16a34a" },
-  { key: "descender", name: "Descendente", short: "desc", color: "#d97706" },
+  { key: "ascender", name: "Ascendente", short: "asc", color: "#7d5a8c" },
+  { key: "capHeight", name: "Altura de mayúsculas", short: "mayús", color: "#b5543a" },
+  { key: "xHeight", name: "Altura de x", short: "x", color: "#3d7a9e" },
+  { key: "baseline", name: "Línea base", short: "base", color: "#3f7a26" },
+  { key: "descender", name: "Descendente", short: "desc", color: "#b8862a" },
 ];
 
 export const metricColor = (k) => METRICS.find((m) => m.key === k).color;

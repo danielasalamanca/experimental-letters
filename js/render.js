@@ -8,7 +8,7 @@ import { outlineToCommands } from "./nodes.js";
 
 export const SVG_NS = "http://www.w3.org/2000/svg";
 
-export const SIDEBEARING_COLOR = "#0f766e";
+export const SIDEBEARING_COLOR = "#2f6b5e";
 export const BACKGROUND_COLOR = "#2f80ed";
 
 const FONT_FAMILY = "ui-sans-serif, system-ui, Helvetica, Arial, sans-serif";
@@ -236,7 +236,7 @@ export function drawShapes(font, cellList, { grid, curve, rounding, corners = {}
 }
 
 // --- Test text ---
-export const KERN_COLOR = "#d6249f";
+export const KERN_COLOR = "#c4622d";
 
 // Draws `text` set in the font. Each distinct glyph is drawn once in <defs>
 // and placed with <use>. Options: size (em in px), ink, paper,
