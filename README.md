@@ -112,6 +112,9 @@ grilla:
     Glifo, con su botón para quitarlas.
 - **Fondo:** muestra otro glifo en azul transparente detrás del que dibujas
   (por ejemplo, la "n" detrás de la "m").
+- **Ver solo la letra:** mientras mantienes apretada la **barra
+  espaciadora**, el lienzo muestra solo la letra, sin grilla, métricas,
+  márgenes, nodos ni etiquetas; al soltarla vuelve todo.
 - **Zoom y desplazamiento:** Cmd/Ctrl + rueda (o pellizco en el trackpad)
   hace zoom hacia el cursor; con zoom, la rueda desplaza; espacio + arrastre
   o el botón central del mouse también desplazan. Botones −, +, **Ajustar** y

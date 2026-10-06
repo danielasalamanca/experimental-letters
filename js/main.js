@@ -98,11 +98,12 @@ function render(scope = "glyph") {
     components: true,
     bounds: frozenBounds,
     background: bgChar && bgChar !== font.active ? font.glyphs[bgChar] : null,
+    preview: spaceDown,
   });
   const vb = board.viewBox.baseVal;
   fitBox = { x: vb.x, y: vb.y, w: vb.width, h: vb.height };
   if (zoomBox) board.setAttribute("viewBox", `${zoomBox.x} ${zoomBox.y} ${zoomBox.w} ${zoomBox.h}`);
-  decorate();
+  if (!spaceDown) decorate();
   $("zoomLevel").textContent = Math.round((fitBox.w / (zoomBox ?? fitBox).w) * 100) + "%";
   updateInfo();
   if (scope === "font") renderCharmap();
@@ -1259,18 +1260,25 @@ window.addEventListener("keydown", (e) => {
   else if (k === "-") zoomAt(0.8);
   else if (k === "0") zoomFit();
   else if (k === " ") {
+    // Holding space: only the letter is shown (and dragging pans the view).
     e.preventDefault();
+    if (spaceDown) return; // key repeat
     spaceDown = true;
     board.classList.add("pan-ready");
+    render(null);
   }
 });
 
-window.addEventListener("keyup", (e) => {
-  if (e.key === " ") {
-    spaceDown = false;
-    board.classList.remove("pan-ready");
-  }
-});
+function endPreview() {
+  if (!spaceDown) return;
+  spaceDown = false;
+  board.classList.remove("pan-ready");
+  render(null);
+}
+
+window.addEventListener("keyup", (e) => { if (e.key === " ") endPreview(); });
+// Releasing space while the window lost focus would leave it stuck.
+window.addEventListener("blur", endPreview);
 
 // --- Glyph panel ---
 function syncGlyphPanel() {

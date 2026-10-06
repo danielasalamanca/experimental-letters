@@ -53,6 +53,7 @@ const metricRows = (m) => ({ ...m, baseline: 0 });
 //   bounds  – fixed bounds, used to freeze the view while dragging
 //   background – another glyph drawn faintly behind (the background layer)
 //   frame: "advance" – crop to the advance width and metric range (thumbnails)
+//   preview – only the letter, without guides or labels (same framing)
 export function drawGlyph(svg, font, glyph, opts = {}) {
   const { guides = false, metrics = false, labels = false, components = false } = opts;
   const cu = font.cell;
@@ -75,6 +76,12 @@ export function drawGlyph(svg, font, glyph, opts = {}) {
   svg.setAttribute("viewBox", `${x0} ${top} ${x1 - x0} ${bottom - top}`);
   svg.replaceChildren();
   svg.appendChild(el("rect", { x: x0, y: top, width: x1 - x0, height: bottom - top, fill: paper }));
+
+  // Preview (space bar held in the editor): only the letter, same framing.
+  if (opts.preview) {
+    svg.appendChild(drawShapes(font, resolvedCells(font, glyph), glyphShape(font, glyph), ink, bounds));
+    return bounds;
+  }
 
   const contentRight = bounds.right ?? x1;
   const gridBottom = -(lo * cu - cu / 2);
