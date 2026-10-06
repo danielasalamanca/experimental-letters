@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
-  <link rel="stylesheet" href="style.css?v=17">
+  <link rel="stylesheet" href="style.css?v=18">
 </head>
 <body>
   <header class="topbar">
@@ -30,6 +30,11 @@
           <button id="toolSelect" type="button" class="tool" title="Seleccionar (V) · doble clic: trazo completo">Seleccionar</button>
           <button id="toolCorner" type="button" class="tool" title="Esquinas (E) · solo en la grilla de puntos · clic en una esquina para redondearla con el radio elegido, o arrástrala hacia adentro para elegir el radio; otro clic la devuelve al redondeo global y Shift + clic la deja en punta">Esquinas</button>
           <button id="toolPiece" type="button" class="tool" title="Piezas (P) · solo en la grilla de puntos · arrastra de un punto a otro para poner una pieza: nace en la esquina donde empiezas · arrastra sus nodos (cuadrados) para cambiar diagonales y arcos, con Shift en medias celdas · clic en una pieza para elegirla, Supr para borrarla">Piezas</button>
+        </div>
+        <div class="tool-group" id="nodeGroup">
+          <button id="nodeAdd" type="button" class="tool" title="Agregar nodo: con este botón activo, clic sobre el borde de la letra agrega un punto (y puedes arrastrarlo enseguida). También: doble clic sobre el borde">＋ Agregar nodo</button>
+          <button id="nodeRemove" type="button" class="tool" title="Quita los puntos elegidos (Supr)">− Quitar nodo</button>
+          <button id="nodeToggle" type="button" class="tool" title="Cambia los puntos elegidos entre esquina y curva (también: doble clic en el punto)">Esquina ↔ Curva</button>
         </div>
         <div class="tool-group" id="cornerGroup">
           <label id="cornerRadiusBox" class="inline corner-radius" title="Radio al hacer clic en una esquina, en celdas. Al máximo, cada esquina se redondea todo lo que la forma permite.">
@@ -294,22 +299,22 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=17",
-        "./js/geometry.js": "./js/geometry.js?v=17",
-        "./js/model.js": "./js/model.js?v=17",
-        "./js/render.js": "./js/render.js?v=17",
-        "./js/tools.js": "./js/tools.js?v=17",
-        "./js/library.js": "./js/library.js?v=17",
-        "./js/pieces.js": "./js/pieces.js?v=17",
-        "./js/nodes.js": "./js/nodes.js?v=17",
-        "./js/shapes.js": "./js/shapes.js?v=17",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=17",
-        "./js/outline.js": "./js/outline.js?v=17",
-        "./js/otf.js": "./js/otf.js?v=17",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=17"
+        "./js/charset.js": "./js/charset.js?v=18",
+        "./js/geometry.js": "./js/geometry.js?v=18",
+        "./js/model.js": "./js/model.js?v=18",
+        "./js/render.js": "./js/render.js?v=18",
+        "./js/tools.js": "./js/tools.js?v=18",
+        "./js/library.js": "./js/library.js?v=18",
+        "./js/pieces.js": "./js/pieces.js?v=18",
+        "./js/nodes.js": "./js/nodes.js?v=18",
+        "./js/shapes.js": "./js/shapes.js?v=18",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=18",
+        "./js/outline.js": "./js/outline.js?v=18",
+        "./js/otf.js": "./js/otf.js?v=18",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=18"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=17"></script>
+  <script type="module" src="js/main.js?v=18"></script>
 </body>
 </html>

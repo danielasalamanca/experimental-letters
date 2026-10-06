@@ -47,8 +47,13 @@ grilla:
     los borra; **Esc** quita la selección.
   - Un punto elegido muestra sus **manijas** (curvas Bézier) para
     arrastrarlas; en un punto suave las dos se mueven juntas (Alt las separa).
-  - **Doble clic en un tramo** agrega un punto; **doble clic en un punto** lo
-    cambia entre esquina y curva.
+  - **＋ Agregar nodo** (aparece al elegir Nodos): con el botón activo, un
+    punto sigue al puntero por el borde de la letra y un **clic** agrega ahí
+    un nodo, que puedes arrastrar sin soltar. **Esc** sale del modo. También
+    sirve el **doble clic en un tramo**.
+  - **− Quitar nodo** borra los puntos elegidos (igual que Supr) y
+    **Esquina ↔ Curva** los cambia entre esquina y curva (igual que el
+    doble clic en un punto).
   - Con el **espejo** activado, el punto simétrico se mueve igual.
   - La primera vez que cambias un punto, la letra pasa a ser un contorno de
     nodos (como expandir en Illustrator) y se marca con un cuadradito azul en

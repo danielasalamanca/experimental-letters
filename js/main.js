@@ -298,6 +298,8 @@ function setTool(next) {
   if (tool !== "piece") selectedPiece = null;
   if (tool !== "nodes") nodeSel.clear();
   $("toolNodes").classList.toggle("active", tool === "nodes");
+  $("nodeGroup").hidden = tool !== "nodes";
+  if (tool !== "nodes") setNodeAdd(false);
   $("toolPiece").classList.toggle("active", tool === "piece");
   $("pieceGroup").hidden = tool !== "piece";
   $("toolDraw").classList.toggle("active", tool === "draw");
@@ -411,6 +413,7 @@ board.addEventListener("pointerdown", (evt) => {
 });
 
 window.addEventListener("pointermove", (evt) => {
+  if (!action && tool === "nodes" && nodeAddMode && evt.target.closest?.("#board")) showNodeHover(evt);
   if (!action) return;
   const g = glyph();
   switch (action.type) {
@@ -594,7 +597,64 @@ function nodePartners(outline, keys) {
   return out;
 }
 
+// "＋ Agregar nodo": a click on the letter's edge adds a point there.
+let nodeAddMode = false;
+
+function setNodeAdd(on) {
+  nodeAddMode = on;
+  $("nodeAdd").classList.toggle("active", on);
+  $("nodeAdd").setAttribute("aria-pressed", on);
+  board.classList.toggle("adding-node", on);
+  document.getElementById("nodeHover")?.remove();
+}
+
+function addNodeAt(evt) {
+  const p = toCells(evt);
+  const seg = nearestSegment(editableOutline(), [p.x, p.y]);
+  if (!seg || seg.dist > pxToCells(12)) {
+    toast("Haz clic sobre el borde de la letra para agregar un nodo.");
+    return null;
+  }
+  checkpoint();
+  const outline = ensureOutline();
+  const ni = splitSegment(outline, seg.contour, seg.index, seg.t);
+  const k = `${seg.contour}:${ni}`;
+  nodeSel.clear();
+  nodeSel.add(k);
+  render();
+  return k;
+}
+
+// While adding nodes, a dot follows the pointer along the edge.
+function showNodeHover(evt) {
+  const p = toCells(evt);
+  const seg = nearestSegment(editableOutline(), [p.x, p.y]);
+  let dot = document.getElementById("nodeHover");
+  if (!seg || seg.dist > pxToCells(12)) { dot?.remove(); return; }
+  const c = editableOutline()[seg.contour];
+  const a = c.nodes[seg.index], b = c.nodes[(seg.index + 1) % c.nodes.length];
+  const P = [[a.x, a.y], a.out ? [a.x + a.out[0], a.y + a.out[1]] : [a.x, a.y], b.in ? [b.x + b.in[0], b.y + b.in[1]] : [b.x, b.y], [b.x, b.y]];
+  const t = seg.t, u = 1 - t;
+  const x = u * u * u * P[0][0] + 3 * u * u * t * P[1][0] + 3 * u * t * t * P[2][0] + t * t * t * P[3][0];
+  const y = u * u * u * P[0][1] + 3 * u * u * t * P[1][1] + 3 * u * t * t * P[2][1] + t * t * t * P[3][1];
+  if (!dot) {
+    dot = el("circle", { id: "nodeHover", fill: "#fff", stroke: NODE_COLOR, "stroke-width": 2, "vector-effect": "non-scaling-stroke", "pointer-events": "none" });
+    board.appendChild(dot);
+  }
+  const px = 1 / board.getScreenCTM().a;
+  dot.setAttribute("cx", x * font.cell);
+  dot.setAttribute("cy", -y * font.cell);
+  dot.setAttribute("r", 5 * px);
+}
+
 function startNodeAction(evt) {
+  if (nodeAddMode && !handleHit(editableOutline(), toCells(evt), pxToCells(8))) {
+    const k = addNodeAt(evt);
+    if (!k) return;
+    // The new node can be dragged right away.
+    action = { type: "nodes", key: k, start: toCells(evt), keys: [k], moved: false, partners: [], orig: cloneOutline(glyph().outline) };
+    return;
+  }
   const p = toCells(evt);
   const outline = editableOutline();
   const tol = pxToCells(8);
@@ -1124,6 +1184,21 @@ $("toolSelect").addEventListener("click", () => setTool("select"));
 $("toolCorner").addEventListener("click", () => setTool("corner"));
 $("toolPiece").addEventListener("click", () => setTool("piece"));
 $("toolNodes").addEventListener("click", () => setTool("nodes"));
+$("nodeAdd").addEventListener("click", () => setNodeAdd(!nodeAddMode));
+$("nodeRemove").addEventListener("click", () => {
+  if (!nodeSel.size) { toast("Elige uno o más puntos para quitarlos."); return; }
+  deleteSelectedNodes();
+});
+$("nodeToggle").addEventListener("click", () => {
+  if (!nodeSel.size) { toast("Elige uno o más puntos para cambiarlos entre esquina y curva."); return; }
+  checkpoint();
+  const outline = ensureOutline();
+  for (const k of nodeSel) {
+    const [ci, ni] = k.split(":").map(Number);
+    if (outline[ci]?.nodes[ni]) toggleSmooth(outline, ci, ni);
+  }
+  render();
+});
 $("pieceAdd").addEventListener("click", () => { pieceMode = "add"; syncToolbar(); });
 $("pieceCut").addEventListener("click", () => { pieceMode = "cut"; syncToolbar(); });
 $("cornerRadius").addEventListener("input", (e) => {
@@ -1347,7 +1422,10 @@ window.addEventListener("keydown", (e) => {
     nudgeNodes(arrows[k][0] * step, arrows[k][1] * step);
   }
   else if (tool === "nodes" && (k === "delete" || k === "backspace")) { e.preventDefault(); deleteSelectedNodes(); }
-  else if (tool === "nodes" && k === "escape") { nodeSel.clear(); render(null); }
+  else if (tool === "nodes" && k === "escape") {
+    if (nodeAddMode) setNodeAdd(false);
+    else { nodeSel.clear(); render(null); }
+  }
   else if (arrows[k] && selection.size) { e.preventDefault(); nudge(...arrows[k]); }
   else if ((k === "delete" || k === "backspace") && tool === "piece" && selectedPiece !== null) { e.preventDefault(); removePiece(selectedPiece); }
   else if (k === "delete" || k === "backspace") { if (selection.size) { e.preventDefault(); deleteSelection(); } }
