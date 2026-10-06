@@ -55,6 +55,22 @@ grilla:
     **Esquina ↔ Curva** los cambia entre esquina y curva (igual que el
     doble clic en un punto).
   - Con el **espejo** activado, el punto simétrico se mueve igual.
+  - **▭ Rectángulo** y **◯ Elipse**: arrastra para dibujar una forma nueva
+    encima (se ajusta a puntos y medios puntos de la grilla; Shift: cuadrado
+    o círculo; Alt: libre).
+  - **Buscatrazos**, como el de Illustrator, sobre las formas elegidas (las
+    que tienen algún punto elegido; sin selección, todas). Con una sola forma
+    elegida —por ejemplo, la que acabas de dibujar— la combina con todas las
+    demás, como la de más arriba:
+    - **Unir:** junta las formas en una.
+    - **Restar frente:** la forma de arriba recorta a las de abajo (por
+      ejemplo, una elipse que se vuelve contraforma).
+    - **Intersecar:** deja solo lo que tienen en común.
+    - **Excluir:** quita las partes donde se superponen.
+    Las curvas se conservan como curvas.
+  - La herramienta **Esquinas** también funciona en letras editadas con
+    nodos: el redondeo queda "vivo" (los nodos siguen en su punto y el arco
+    se aplica encima) y, si mueves el nodo, su redondeo lo acompaña.
   - La primera vez que cambias un punto, la letra pasa a ser un contorno de
     nodos (como expandir en Illustrator) y se marca con un cuadradito azul en
     el mapa. **Volver a la grilla** (panel Glifo) la devuelve a su dibujo en

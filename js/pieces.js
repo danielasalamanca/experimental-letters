@@ -500,3 +500,73 @@ export function unionContours(contours) {
   c.Execute(ClipperLib.ClipType.ctUnion, out, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
   return out.map((path) => book.refit(path));
 }
+
+// --- Outlines edited with nodes: live corners and the pathfinder ---
+
+function unionPaths(paths) {
+  const c = new ClipperLib.Clipper();
+  c.AddPaths(paths, ClipperLib.PolyType.ptSubject, true);
+  const out = new ClipperLib.Paths();
+  c.Execute(ClipperLib.ClipType.ctUnion, out, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+  return out;
+}
+
+// Any contours with rounded corners on top (radius per corner key, plus
+// the global `rounding`), cleaned of overlaps. Used for node outlines, so
+// rounding stays live while the nodes keep their sharp positions.
+export function roundedContours(contours, { rounding = 0, corners: cornerRadii = {} } = {}) {
+  const book = new CurveBook();
+  const shape = unionPaths(book.paths(contours));
+  const rounded = Object.keys(cornerRadii).length || rounding > 0
+    ? roundCorners(book, shape, findCorners(book, shape), rounding / 2, cornerRadii).shape
+    : shape;
+  return rounded.map((path) => book.refit(path));
+}
+
+// Corners of any contours, for the corner tool (like pieceGlyphCorners).
+export function contourCorners(contours, { rounding = 0, corners: cornerRadii = {} } = {}) {
+  const book = new CurveBook();
+  const shape = unionPaths(book.paths(contours));
+  const found = findCorners(book, shape);
+  const { radii } = roundCorners(book, shape, found, rounding / 2, cornerRadii);
+  return found.map((c, i) => ({ key: c.key, x: c.x, y: c.y, turn: c.turn, din: c.a, dout: c.b, radius: radii[i] }));
+}
+
+// Groups contours into objects, like shapes in Illustrator: each outer
+// contour with the holes inside it. Returns lists of contour indices, in
+// stacking order (by their outer contour).
+export function contourObjects(contours) {
+  const book = new CurveBook();
+  const paths = contours.map((c) => book.paths([c])[0] ?? []);
+  const area = paths.map((p) => (p.length > 2 ? ClipperLib.Clipper.Area(p) : 0));
+  const outer = paths.map((_, i) => i).filter((i) => area[i] > 0);
+  const groups = new Map(outer.map((i) => [i, [i]]));
+  paths.forEach((p, i) => {
+    if (area[i] >= 0 || !p.length) return;
+    // A hole belongs to the smallest outer contour around it.
+    const inside = outer.filter((o) => ClipperLib.Clipper.PointInPolygon(p[0], paths[o]) !== 0);
+    const host = inside.sort((a, b) => area[a] - area[b])[0];
+    if (host !== undefined) groups.get(host).push(i);
+    else groups.set(i, [i]); // a stray reversed contour: its own object
+  });
+  return [...groups.values()].sort((a, b) => a[0] - b[0]);
+}
+
+// Pathfinder on objects (lists of contours), like Illustrator:
+//   unite – all of them together      minusFront – the top one cuts the rest
+//   intersect – only what all share   exclude – overlaps removed
+export function pathfinder(op, objects) {
+  const book = new CurveBook();
+  const regions = objects.map((contours) => unionPaths(book.paths(contours)));
+  let result;
+  if (op === "unite") {
+    result = unionPaths(regions.flat());
+  } else if (op === "minusFront") {
+    const front = regions[regions.length - 1];
+    result = clipperOp(ClipperLib.ClipType.ctDifference, unionPaths(regions.slice(0, -1).flat()), front);
+  } else {
+    const type = op === "intersect" ? ClipperLib.ClipType.ctIntersection : ClipperLib.ClipType.ctXor;
+    result = regions.slice(1).reduce((acc, r) => clipperOp(type, acc, r), regions[0]);
+  }
+  return result.map((path) => book.refit(path));
+}

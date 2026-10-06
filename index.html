@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
-  <link rel="stylesheet" href="style.css?v=18">
+  <link rel="stylesheet" href="style.css?v=20">
 </head>
 <body>
   <header class="topbar">
@@ -35,6 +35,15 @@
           <button id="nodeAdd" type="button" class="tool" title="Agregar nodo: con este botón activo, clic sobre el borde de la letra agrega un punto (y puedes arrastrarlo enseguida). También: doble clic sobre el borde">＋ Agregar nodo</button>
           <button id="nodeRemove" type="button" class="tool" title="Quita los puntos elegidos (Supr)">− Quitar nodo</button>
           <button id="nodeToggle" type="button" class="tool" title="Cambia los puntos elegidos entre esquina y curva (también: doble clic en el punto)">Esquina ↔ Curva</button>
+          <button id="shapeRect" type="button" class="tool" title="Dibuja un rectángulo arrastrando (se ajusta a la grilla; Shift: cuadrado). Queda encima, listo para el buscatrazos">▭ Rectángulo</button>
+          <button id="shapeEllipse" type="button" class="tool" title="Dibuja una elipse arrastrando (se ajusta a la grilla; Shift: círculo). Queda encima, listo para el buscatrazos">◯ Elipse</button>
+        </div>
+        <div class="tool-group" id="pathfinderGroup">
+          <span class="group-label" title="Combina las formas elegidas (las que tienen algún punto elegido). Con una sola forma elegida —por ejemplo, la que acabas de dibujar— la combina con todas las demás, como la de más arriba. Sin selección, todas.">Buscatrazos</span>
+          <button id="pfUnite" type="button" class="tool" title="Unir: junta las formas elegidas en una">Unir</button>
+          <button id="pfMinus" type="button" class="tool" title="Restar frente: la forma de más arriba (la última dibujada o pegada) recorta a las de abajo">Restar frente</button>
+          <button id="pfIntersect" type="button" class="tool" title="Intersecar: deja solo lo que las formas tienen en común">Intersecar</button>
+          <button id="pfExclude" type="button" class="tool" title="Excluir: quita las partes donde las formas se superponen">Excluir</button>
         </div>
         <div class="tool-group" id="cornerGroup">
           <label id="cornerRadiusBox" class="inline corner-radius" title="Radio al hacer clic en una esquina, en celdas. Al máximo, cada esquina se redondea todo lo que la forma permite.">
@@ -299,22 +308,22 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=18",
-        "./js/geometry.js": "./js/geometry.js?v=18",
-        "./js/model.js": "./js/model.js?v=18",
-        "./js/render.js": "./js/render.js?v=18",
-        "./js/tools.js": "./js/tools.js?v=18",
-        "./js/library.js": "./js/library.js?v=18",
-        "./js/pieces.js": "./js/pieces.js?v=18",
-        "./js/nodes.js": "./js/nodes.js?v=18",
-        "./js/shapes.js": "./js/shapes.js?v=18",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=18",
-        "./js/outline.js": "./js/outline.js?v=18",
-        "./js/otf.js": "./js/otf.js?v=18",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=18"
+        "./js/charset.js": "./js/charset.js?v=20",
+        "./js/geometry.js": "./js/geometry.js?v=20",
+        "./js/model.js": "./js/model.js?v=20",
+        "./js/render.js": "./js/render.js?v=20",
+        "./js/tools.js": "./js/tools.js?v=20",
+        "./js/library.js": "./js/library.js?v=20",
+        "./js/pieces.js": "./js/pieces.js?v=20",
+        "./js/nodes.js": "./js/nodes.js?v=20",
+        "./js/shapes.js": "./js/shapes.js?v=20",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=20",
+        "./js/outline.js": "./js/outline.js?v=20",
+        "./js/otf.js": "./js/otf.js?v=20",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=20"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=18"></script>
+  <script type="module" src="js/main.js?v=20"></script>
 </body>
 </html>

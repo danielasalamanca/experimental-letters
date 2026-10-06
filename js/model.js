@@ -235,7 +235,7 @@ export function resolvedCorners(font, glyph, seen = new Set()) {
       out[key(x + comp.dx, y + comp.dy)] = r;
     }
   }
-  return glyph.outline ? out : Object.assign(out, glyph.corners);
+  return Object.assign(out, glyph.corners);
 }
 
 export const advanceWidth = (font, glyph) => glyph.lsb + glyph.cols * font.cell + glyph.rsb;

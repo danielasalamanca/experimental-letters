@@ -2,7 +2,7 @@
 // Font units have y up; SVG has y down, so every y is negated here.
 
 import { starPath, joinBridges, parseKey } from "./geometry.js";
-import { squareGlyphContours } from "./pieces.js";
+import { squareGlyphContours, roundedContours } from "./pieces.js";
 import { METRICS, glyphShape, glyphGrid, resolvedCells, resolvedOutline, advanceWidth, layoutText } from "./model.js";
 import { outlineToCommands } from "./nodes.js";
 
@@ -213,7 +213,11 @@ export function drawShapes(font, cellList, { grid, curve, rounding, corners = {}
   });
   const g = el("g", { fill: ink });
   // Outlines edited node by node.
-  if (outline.length) g.appendChild(el("path", { d: contoursToPath(outlineToCommands(outline), cu), "fill-rule": "nonzero" }));
+  // Outlines edited node by node, with their live rounded corners.
+  if (outline.length) {
+    const contours = roundedContours(outlineToCommands(outline), { rounding, corners });
+    g.appendChild(el("path", { d: contoursToPath(contours, cu), "fill-rule": "nonzero" }));
+  }
   if (grid === "squares") {
     const stroke = font.style === "outline" ? font.stroke / cu : 0;
     if (cells.length) g.appendChild(el("path", { d: contoursToPath(squareGlyphContours(cells, { rounding, stroke, corners, pieces }), cu) }));

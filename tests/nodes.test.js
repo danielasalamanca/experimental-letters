@@ -90,3 +90,51 @@ test("a glyph edited with nodes is drawn, composed and exported", async () => {
   assert.equal(moves, 1);
   assert.equal(otf.charToGlyph("a").path.commands.filter((c) => c.type === "M").length, 1);
 });
+
+// --- Pathfinder and live corners on node outlines ---
+import { pathfinder, contourObjects, roundedContours, contourCorners } from "../js/pieces.js";
+
+const rect = (x0, y0, x1, y1) => [{ type: "M", x: x0, y: y0 }, { type: "L", x: x1, y: y0 }, { type: "L", x: x1, y: y1 }, { type: "L", x: x0, y: y1 }, { type: "Z" }];
+const reversed = (cmds) => {
+  const pts = cmds.filter((c) => c.type !== "Z").map((c) => [c.x, c.y]).reverse();
+  return [{ type: "M", x: pts[0][0], y: pts[0][1] }, ...pts.slice(1).map(([x, y]) => ({ type: "L", x, y })), { type: "Z" }];
+};
+
+test("pathfinder: unite, minus front, intersect and exclude", () => {
+  const a = [rect(0, 0, 4, 4)], b = [rect(2, 2, 6, 6)];
+  assert.ok(Math.abs(area(pathfinder("unite", [a, b])) - 28) < 1e-6);
+  assert.ok(Math.abs(area(pathfinder("minusFront", [a, b])) - 12) < 1e-6);
+  assert.ok(Math.abs(area(pathfinder("intersect", [a, b])) - 4) < 1e-6);
+  assert.ok(Math.abs(area(pathfinder("exclude", [a, b])) - 24) < 1e-6);
+  // Curves survive: a circle cut out of a square keeps its arcs.
+  const circle = commandsToOutline([rect(0, 0, 1, 1)]);
+  const K = 0.5522847498;
+  circle[0].nodes = [
+    { x: 3, y: 2, in: [0, -K], out: [0, K] }, { x: 2, y: 3, in: [K, 0], out: [-K, 0] },
+    { x: 1, y: 2, in: [0, K], out: [0, -K] }, { x: 2, y: 1, in: [-K, 0], out: [K, 0] },
+  ];
+  const cut = pathfinder("minusFront", [[rect(0, 0, 4, 4)], outlineToCommands(circle)]);
+  assert.ok(cut.flat().filter((c) => c.type === "C").length >= 4);
+  assert.ok(Math.abs(area(cut) - (16 - Math.PI)) < 0.01);
+});
+
+test("shapes are outer contours with their holes", () => {
+  const ring = [rect(0, 0, 6, 6), reversed(rect(2, 2, 4, 4)), rect(10, 0, 12, 2)];
+  assert.deepEqual(contourObjects(ring), [[0, 1], [2]]);
+});
+
+test("live corners round a node outline and keep its nodes", () => {
+  const square = [rect(0, 0, 4, 4)];
+  const corners = contourCorners(square, {});
+  assert.deepEqual(corners.map((c) => c.key).sort(), ["0,0", "0,4", "4,0", "4,4"]);
+  const rounded = roundedContours(square, { corners: { "4,4": 2 } });
+  assert.ok(Math.abs(area(rounded) - (16 - (4 - Math.PI))) < 0.01);
+  assert.equal(rounded[0].filter((c) => c.type === "C").length, 1);
+});
+
+test("a glyph edited with nodes gets its rounded corners in the font", async () => {
+  const font = normalizeFont(null);
+  font.glyphs.o = createGlyph({ cols: 4, outline: commandsToOutline([rect(0, 0, 4, 4)]), corners: { "0,4": 2, "4,4": 2 } });
+  const otf = opentype.parse(await buildOtf(font));
+  assert.equal(otf.charToGlyph("o").path.commands.filter((c) => c.type === "C").length, 2);
+});

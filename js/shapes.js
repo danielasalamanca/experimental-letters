@@ -4,13 +4,22 @@
 // into an editable outline.
 
 import { glyphContours } from "./outline.js";
-import { squareGlyphContours, unionContours } from "./pieces.js";
+import { squareGlyphContours, roundedContours } from "./pieces.js";
 import { outlineToCommands } from "./nodes.js";
 import { resolvedCells, glyphShape } from "./model.js";
 import { parseKey } from "./geometry.js";
 
 // mode: "join" = with the minimum join (as on the canvas), "raw" = as is.
-export function glyphFinalContours(font, glyph, { mode = "join" } = {}) {
+export function glyphFinalContours(font, glyph, options = {}) {
+  const shape = glyphShape(font, glyph);
+  const raw = glyphRawContours(font, glyph, options);
+  if (!shape.outline.length) return raw;
+  // Node outlines: merged with the rest, with live rounded corners on top.
+  return roundedContours(raw, { rounding: shape.rounding, corners: shape.corners });
+}
+
+// The grid drawing (already rounded) plus the node outlines as they are.
+export function glyphRawContours(font, glyph, { mode = "join" } = {}) {
   const cu = font.cell;
   const cells = resolvedCells(font, glyph).filter((k) => {
     const [c] = parseKey(k);
@@ -24,9 +33,7 @@ export function glyphFinalContours(font, glyph, { mode = "join" } = {}) {
       stroke: font.style === "outline" ? font.stroke / cu : 0,
     })
     : glyphContours(cells, { curve: shape.curve, joinWidth });
-  if (!shape.outline.length) return contours;
-  // Hand-edited outlines may overlap the rest: merge everything.
-  return unionContours([...contours, ...outlineToCommands(shape.outline)]);
+  return [...contours, ...outlineToCommands(shape.outline)];
 }
 
 // The glyph's own shape, without components: what "Editar con nodos" turns

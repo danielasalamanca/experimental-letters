@@ -19,10 +19,10 @@ import {
   commandsToOutline, outlineToCommands, cloneOutline, splitSegment, toggleSmooth, deleteNodes,
   nearestSegment, snapToGrid, isSmooth,
 } from "./nodes.js";
-import { ownContours } from "./shapes.js";
+import { ownContours, glyphRawContours } from "./shapes.js";
 import {
   pieceContour, normalizePiece, mirrorPiece, PIECE_SHAPES, pieceGlyphCorners, cornerKey,
-  pieceHandles, movePieceHandle,
+  pieceHandles, movePieceHandle, contourCorners, contourObjects, pathfinder,
 } from "./pieces.js";
 
 
@@ -284,12 +284,13 @@ let spaceDown = false;
 function setTool(next) {
   floating = null;
   // A glyph edited with nodes has no grid drawing to work on.
-  if (glyph().outline && ["draw", "select", "corner", "piece"].includes(next)) {
+  if (glyph().outline && ["draw", "select", "piece"].includes(next)) {
     if (tool === "nodes") toast("Esta letra se edita con nodos. Para dibujar en la grilla, usa «Volver a la grilla» en el panel Glifo.");
     next = "nodes";
   }
   // Corners and pieces only exist on the square grid.
-  if ((next === "corner" || next === "piece") && glyphGrid(font, glyph()) !== "squares") {
+  const cornersOk = next === "corner" && glyph().outline;
+  if (!cornersOk && (next === "corner" || next === "piece") && glyphGrid(font, glyph()) !== "squares") {
     toast(`La herramienta ${next === "corner" ? "Esquinas" : "Piezas"} funciona con la grilla de puntos (cuadrados).`);
     next = tool === "corner" || tool === "piece" ? "draw" : tool;
   }
@@ -299,7 +300,8 @@ function setTool(next) {
   if (tool !== "nodes") nodeSel.clear();
   $("toolNodes").classList.toggle("active", tool === "nodes");
   $("nodeGroup").hidden = tool !== "nodes";
-  if (tool !== "nodes") setNodeAdd(false);
+  $("pathfinderGroup").hidden = tool !== "nodes";
+  if (tool !== "nodes") { setNodeAdd(false); setShapeMode(null); }
   $("toolPiece").classList.toggle("active", tool === "piece");
   $("pieceGroup").hidden = tool !== "piece";
   $("toolDraw").classList.toggle("active", tool === "draw");
@@ -457,6 +459,7 @@ window.addEventListener("pointermove", (evt) => {
     }
     case "nodes":
     case "handle":
+    case "shapeDraw":
     case "nodeMarquee": {
       moveNodeAction(evt);
       break;
@@ -519,7 +522,7 @@ window.addEventListener("pointerup", () => {
   if (done.type === "corner") { endCorner(done); return; }
   if (done.type === "piece") { endPiece(done); return; }
   if (done.type === "node") { render(); syncPieceList(); return; }
-  if (["nodes", "handle", "nodeMarquee"].includes(done.type)) { endNodeAction(done); return; }
+  if (["nodes", "handle", "nodeMarquee", "shapeDraw"].includes(done.type)) { endNodeAction(done); return; }
   render(done.type === "metric" ? "font" : "glyph");
 });
 
@@ -602,6 +605,7 @@ let nodeAddMode = false;
 
 function setNodeAdd(on) {
   nodeAddMode = on;
+  if (on) setShapeMode(null);
   $("nodeAdd").classList.toggle("active", on);
   $("nodeAdd").setAttribute("aria-pressed", on);
   board.classList.toggle("adding-node", on);
@@ -648,11 +652,16 @@ function showNodeHover(evt) {
 }
 
 function startNodeAction(evt) {
+  if (shapeMode) {
+    const [x, y] = shapeSnap([toCells(evt).x, toCells(evt).y]);
+    action = { type: "shapeDraw", x0: x, y0: y, x1: x, y1: y };
+    return;
+  }
   if (nodeAddMode && !handleHit(editableOutline(), toCells(evt), pxToCells(8))) {
     const k = addNodeAt(evt);
     if (!k) return;
     // The new node can be dragged right away.
-    action = { type: "nodes", key: k, start: toCells(evt), keys: [k], moved: false, partners: [], orig: cloneOutline(glyph().outline) };
+    action = { type: "nodes", key: k, start: toCells(evt), keys: [k], moved: false, partners: [], orig: cloneOutline(glyph().outline), origCorners: { ...glyph().corners } };
     return;
   }
   const p = toCells(evt);
@@ -686,6 +695,7 @@ function startNodeAction(evt) {
       type: "nodes", key: k, start: p, keys, moved: false,
       partners: nodePartners(outline, keys),
       orig: cloneOutline(outline),
+      origCorners: { ...glyph().corners },
     };
     render(null);
     return;
@@ -695,6 +705,18 @@ function startNodeAction(evt) {
 
 function moveNodeAction(evt) {
   const p = toCells(evt);
+  if (action.type === "shapeDraw") {
+    let [x, y] = evt.altKey ? [p.x, p.y] : shapeSnap([p.x, p.y]);
+    if (evt.shiftKey) {
+      // Square or circle.
+      const side = Math.max(Math.abs(x - action.x0), Math.abs(y - action.y0));
+      x = action.x0 + Math.sign(x - action.x0 || 1) * side;
+      y = action.y0 + Math.sign(y - action.y0 || 1) * side;
+    }
+    action.x1 = x; action.y1 = y;
+    render(null);
+    return;
+  }
   if (action.type === "nodeMarquee") {
     action.x1 = p.x; action.y1 = p.y;
     action.moved ||= Math.hypot(p.x - action.x0, p.y - action.y0) > pxToCells(4);
@@ -734,17 +756,38 @@ function moveNodeAction(evt) {
   }
   action.moved = true;
   const outline = ensureOutline();
+  // A rounded corner travels with its node.
+  const g = glyph();
+  g.corners = { ...action.origCorners };
+  const carried = [];
   const place = (k, [dx, dy]) => {
     const o = nodeAtKey(action.orig, k), n = nodeAtKey(outline, k);
     n.x = o.x + dx;
     n.y = o.y + dy;
+    const from = cornerKey(o.x, o.y);
+    if (from in action.origCorners) {
+      delete g.corners[from];
+      carried.push([cornerKey(n.x, n.y), action.origCorners[from]]);
+    }
   };
   for (const k of action.keys) place(k, d);
   for (const pt of action.partners) place(pt.key, pt.vec(d));
+  for (const [k, v] of carried) g.corners[k] = v;
   render();
 }
 
 function endNodeAction(done) {
+  if (done.type === "shapeDraw") {
+    const w = Math.abs(done.x1 - done.x0), h = Math.abs(done.y1 - done.y0);
+    if (w < 0.05 || h < 0.05) { render(null); return; }
+    checkpoint();
+    const outline = ensureOutline();
+    outline.push(shapeContour(shapeMode, done));
+    nodeSel.clear();
+    outline[outline.length - 1].nodes.forEach((_, ni) => nodeSel.add(`${outline.length - 1}:${ni}`));
+    render();
+    return;
+  }
   if (done.type === "nodeMarquee") {
     if (!done.additive) nodeSel.clear();
     if (done.moved) {
@@ -807,13 +850,81 @@ function nudgeNodes(dx, dy) {
   checkpoint("nudgeNodes");
   const outline = ensureOutline();
   const keys = [...nodeSel];
-  for (const k of keys) { const n = nodeAtKey(outline, k); n.x += dx; n.y += dy; }
-  for (const pt of nodePartners(outline, keys)) {
-    const n = nodeAtKey(outline, pt.key);
-    const [mx, my] = pt.vec([dx, dy]);
+  const g = glyph();
+  const before = { ...g.corners };
+  const carried = [];
+  const shift = (n, mx, my) => {
+    const from = cornerKey(n.x, n.y);
     n.x += mx; n.y += my;
-  }
+    if (from in before) { delete g.corners[from]; carried.push([cornerKey(n.x, n.y), before[from]]); }
+  };
+  for (const k of keys) shift(nodeAtKey(outline, k), dx, dy);
+  for (const pt of nodePartners(outline, keys)) shift(nodeAtKey(outline, pt.key), ...pt.vec([dx, dy]));
+  for (const [k, v] of carried) g.corners[k] = v;
   render();
+}
+
+// --- Rectangle and ellipse (to combine with the pathfinder) ---
+// Shapes snap to grid points when close, otherwise to half points.
+const shapeSnap = (pt) => pt.map((v) => (Math.abs(Math.round(v) - v) < 0.25 ? Math.round(v) : Math.round(v * 2) / 2));
+let shapeMode = null; // null | "rect" | "ellipse"
+
+function setShapeMode(mode) {
+  shapeMode = mode;
+  $("shapeRect").classList.toggle("active", mode === "rect");
+  $("shapeEllipse").classList.toggle("active", mode === "ellipse");
+  if (mode && nodeAddMode) setNodeAdd(false);
+  board.classList.toggle("drawing-shape", !!mode);
+}
+
+// A new contour (counter-clockwise, so it is ink) from a dragged box.
+function shapeContour(mode, { x0, y0, x1, y1 }) {
+  const [ax, bx] = [Math.min(x0, x1), Math.max(x0, x1)], [ay, by] = [Math.min(y0, y1), Math.max(y0, y1)];
+  if (mode === "rect") {
+    return { closed: true, nodes: [[ax, ay], [bx, ay], [bx, by], [ax, by]].map(([x, y]) => ({ x, y, in: null, out: null })) };
+  }
+  const K = 0.5522847498;
+  const cx = (ax + bx) / 2, cy = (ay + by) / 2, rx = (bx - ax) / 2, ry = (by - ay) / 2;
+  return { closed: true, nodes: [
+    { x: cx + rx, y: cy, in: [0, -K * ry], out: [0, K * ry] },
+    { x: cx, y: cy + ry, in: [K * rx, 0], out: [-K * rx, 0] },
+    { x: cx - rx, y: cy, in: [0, K * ry], out: [0, -K * ry] },
+    { x: cx, y: cy - ry, in: [-K * rx, 0], out: [K * rx, 0] },
+  ] };
+}
+
+// --- Pathfinder ("Buscatrazos") ---
+// Works on the shapes (outer contour + its holes) that have a selected
+// node, or on all of them; with a single shape selected, on all of them
+// with that one on top. The result replaces them and stays selected.
+function runPathfinder(op) {
+  const preview = editableOutline();
+  const objects = contourObjects(outlineToCommands(preview));
+  const picked = new Set([...nodeSel].map((k) => +k.split(":")[0]));
+  let chosen = picked.size ? objects.filter((obj) => obj.some((ci) => picked.has(ci))) : objects;
+  // One shape selected (e.g. a rectangle just drawn): it works on all the
+  // others, as the shape on top.
+  if (chosen.length === 1 && objects.length > 1) {
+    chosen = [...objects.filter((obj) => obj !== chosen[0]), chosen[0]];
+  }
+  if (op !== "unite" && chosen.length < 2) {
+    toast("Elige al menos dos formas (un punto de cada una, con Shift) o deja todo sin elegir.");
+    return;
+  }
+  checkpoint();
+  const outline = ensureOutline();
+  const commands = outlineToCommands(outline);
+  const result = pathfinder(op, chosen.map((obj) => obj.map((ci) => commands[ci])));
+  const used = new Set(chosen.flat());
+  const at = Math.min(...used);
+  const kept = outline.filter((_, ci) => !used.has(ci));
+  const before = outline.filter((_, ci) => ci < at && !used.has(ci)).length;
+  const added = commandsToOutline(result);
+  glyph().outline = [...kept.slice(0, before), ...added, ...kept.slice(before)];
+  nodeSel.clear();
+  added.forEach((c, i) => c.nodes.forEach((_, ni) => nodeSel.add(`${before + i}:${ni}`)));
+  render();
+  if (!added.length) toast("No quedó nada: las formas no se superponían.");
 }
 
 function drawNodeMarkers(layer) {
@@ -840,6 +951,12 @@ function drawNodeMarkers(layer) {
       fill: selected ? NODE_COLOR : "#fff", stroke: NODE_COLOR, "stroke-width": 1.2, "vector-effect": "non-scaling-stroke",
     }));
   }));
+  if (action?.type === "shapeDraw" && action.x1 !== action.x0 && action.y1 !== action.y0) {
+    layer.appendChild(el("path", {
+      d: contoursToPath(outlineToCommands([shapeContour(shapeMode, action)]), cu),
+      fill: NODE_COLOR, "fill-opacity": 0.15, stroke: NODE_COLOR, "stroke-width": 1.5, "vector-effect": "non-scaling-stroke",
+    }));
+  }
   if (action?.type === "nodeMarquee" && action.moved) {
     const { x0, y0, x1, y1 } = action;
     layer.appendChild(el("rect", {
@@ -1031,6 +1148,14 @@ function outlineCorners() {
   const cells = resolvedCells(font, g);
   const stroke = font.style === "outline" ? font.stroke / font.cell : 0;
   const out = new Map();
+  if (shape.outline.length) {
+    // Letters edited with nodes: corners of the outline (live rounding).
+    const raw = glyphRawContours(font, g);
+    for (const c of contourCorners(raw, { rounding: shape.rounding, corners: shape.corners })) {
+      out.set(c.key, { x: c.x, y: c.y, back: [-c.din[0], -c.din[1]], fwd: c.dout, radius: c.radius });
+    }
+    return out;
+  }
   if (shape.pieces.length) {
     for (const c of pieceGlyphCorners(cells, { rounding: shape.rounding, corners: shape.corners, pieces: shape.pieces })) {
       out.set(c.key, { x: c.x, y: c.y, back: [-c.din[0], -c.din[1]], fwd: c.dout, radius: c.radius });
@@ -1185,6 +1310,12 @@ $("toolCorner").addEventListener("click", () => setTool("corner"));
 $("toolPiece").addEventListener("click", () => setTool("piece"));
 $("toolNodes").addEventListener("click", () => setTool("nodes"));
 $("nodeAdd").addEventListener("click", () => setNodeAdd(!nodeAddMode));
+$("shapeRect").addEventListener("click", () => setShapeMode(shapeMode === "rect" ? null : "rect"));
+$("shapeEllipse").addEventListener("click", () => setShapeMode(shapeMode === "ellipse" ? null : "ellipse"));
+$("pfUnite").addEventListener("click", () => runPathfinder("unite"));
+$("pfMinus").addEventListener("click", () => runPathfinder("minusFront"));
+$("pfIntersect").addEventListener("click", () => runPathfinder("intersect"));
+$("pfExclude").addEventListener("click", () => runPathfinder("exclude"));
 $("nodeRemove").addEventListener("click", () => {
   if (!nodeSel.size) { toast("Elige uno o más puntos para quitarlos."); return; }
   deleteSelectedNodes();
@@ -1237,10 +1368,10 @@ function syncToolbar() {
   const squares = glyphGrid(font, glyph()) === "squares";
   const nodesOnly = !!glyph().outline;
   for (const id of ["toolDraw", "toolSelect"]) $(id).disabled = nodesOnly;
-  if (nodesOnly && tool !== "nodes") setTool("nodes");
-  $("toolCorner").disabled = !squares || nodesOnly;
+  if (nodesOnly && tool !== "nodes" && tool !== "corner") setTool("nodes");
+  $("toolCorner").disabled = !squares && !nodesOnly;
   $("toolPiece").disabled = !squares || nodesOnly;
-  if (!squares && (tool === "corner" || tool === "piece")) setTool("draw");
+  if (!squares && !nodesOnly && (tool === "corner" || tool === "piece")) setTool("draw");
   $("pieceAdd").classList.toggle("active", pieceMode === "add");
   $("pieceCut").classList.toggle("active", pieceMode === "cut");
   $("mirrorH").classList.toggle("active", font.view.mirrorH);
@@ -1424,6 +1555,7 @@ window.addEventListener("keydown", (e) => {
   else if (tool === "nodes" && (k === "delete" || k === "backspace")) { e.preventDefault(); deleteSelectedNodes(); }
   else if (tool === "nodes" && k === "escape") {
     if (nodeAddMode) setNodeAdd(false);
+    else if (shapeMode) setShapeMode(null);
     else { nodeSel.clear(); render(null); }
   }
   else if (arrows[k] && selection.size) { e.preventDefault(); nudge(...arrows[k]); }
