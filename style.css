@@ -110,7 +110,17 @@ input[type="color"] { width: 34px; height: 24px; border: 1px solid var(--line); 
 }
 .brand { display: flex; align-items: center; gap: 10px; }
 .logo { width: 28px; height: 28px; }
-.brand h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -0.01em; color: var(--green); white-space: nowrap; }
+/* Wordmark in Droog (Adobe Fonts, kit rhq3ads). */
+.brand h1.wordmark {
+  margin: 0;
+  font-family: "droog", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 900;
+  font-size: 19px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: var(--green);
+  white-space: nowrap;
+}
 .font-picker { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
 #fontSelect { font-weight: 600; max-width: 240px; background: transparent; border-color: transparent; }
 #fontSelect:hover { border-color: var(--line); background: var(--canvas); }
@@ -361,7 +371,7 @@ dialog.help { max-width: 520px; }
 @media (max-width: 1100px) {
   .tools-pill .tool span { display: none; }
   .tools-pill .tool { padding: 7px 10px; }
-  .brand h1 { display: none; }
+  .brand h1.wordmark { font-size: 16px; }
 }
 
 @media (max-width: 900px) {
