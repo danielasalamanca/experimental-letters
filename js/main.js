@@ -133,7 +133,7 @@ function decorate() {
 
   const layer = el("g", { "pointer-events": "none" });
   const top = -bounds.hi * cu, bottom = -bounds.lo * cu;
-  const axisStyle = { stroke: "#c4622d", "stroke-width": 1.5, "stroke-dasharray": "8 5", "vector-effect": "non-scaling-stroke" };
+  const axisStyle = { stroke: "#ff52a9", "stroke-width": 1.5, "stroke-dasharray": "8 5", "vector-effect": "non-scaling-stroke" };
   if (font.view.mirrorH) {
     const x = (g.cols * cu) / 2;
     layer.appendChild(el("line", { x1: x, x2: x, y1: top, y2: bottom, ...axisStyle }));
@@ -530,7 +530,7 @@ window.addEventListener("pointerup", () => {
 // Shows the anchor points of the glyph's real outline. The first time a
 // node is moved (or added, deleted, converted), the glyph's own drawing is
 // turned into an editable outline; "Volver a la grilla" undoes that.
-const NODE_COLOR = "#2d6fd6";
+const NODE_COLOR = "#ff7133";
 const nodeSel = new Set(); // "contour:node"
 
 // The outline being edited: the glyph's own, or a preview of what its
@@ -970,7 +970,7 @@ function drawNodeMarkers(layer) {
 let pieceMode = "cut";
 let selectedPiece = null; // index in the glyph's own pieces
 
-const PIECE_COLOR = "#2f6b5e";
+const PIECE_COLOR = "#ff7133";
 
 // A drag from one lattice point to another places a piece; the corner where
 // the drag starts is the piece's corner (right angle, or centre of the
@@ -1100,7 +1100,7 @@ function drawPieceMarkers(layer) {
       corner: (action.y0 <= action.y1 ? "b" : "t") + (action.x0 <= action.x1 ? "l" : "r"),
       shape: $("pieceShape").value, mode: pieceMode,
     });
-    const color = pieceMode === "cut" ? "#c4622d" : PIECE_COLOR;
+    const color = pieceMode === "cut" ? "#ff52a9" : PIECE_COLOR;
     layer.appendChild(el("path", {
       d: contoursToPath([pieceContour(p)], cu), fill: color, "fill-opacity": 0.3,
       stroke: color, "stroke-width": 2, "vector-effect": "non-scaling-stroke",
@@ -1241,7 +1241,7 @@ function drawCornerMarkers(layer) {
       const lx = c.x + 0.45 * (c.back[0] + c.fwd[0]), ly = c.y + 0.45 * (c.back[1] + c.fwd[1]);
       const t = el("text", {
         x: lx * cu, y: -ly * cu, "font-size": cu * 0.36, "text-anchor": "middle", "dominant-baseline": "central",
-        fill: "#c4622d", stroke: "#fff", "stroke-width": 3, "paint-order": "stroke", "font-weight": 600,
+        fill: "#ff52a9", stroke: "#fff", "stroke-width": 3, "paint-order": "stroke", "font-weight": 600,
         "font-family": "ui-sans-serif, system-ui, sans-serif",
       });
       t.textContent = radiusText(c.radius);
@@ -1251,7 +1251,7 @@ function drawCornerMarkers(layer) {
     const sharp = set === 0;
     layer.appendChild(el(sharp ? "rect" : "circle", sharp
       ? { x: c.x * cu - cu * 0.11, y: -c.y * cu - cu * 0.11, width: cu * 0.22, height: cu * 0.22, fill: "#1d1d1b", stroke: "#fff", "stroke-width": 1.5, "vector-effect": "non-scaling-stroke" }
-      : { cx: c.x * cu, cy: -c.y * cu, r: cu * 0.13, fill: set === undefined ? "#fff" : "#c4622d", stroke: "#c4622d", "stroke-width": 1.5, "vector-effect": "non-scaling-stroke" }));
+      : { cx: c.x * cu, cy: -c.y * cu, r: cu * 0.13, fill: set === undefined ? "#fff" : "#ff52a9", stroke: "#ff52a9", "stroke-width": 1.5, "vector-effect": "non-scaling-stroke" }));
   }
 }
 
