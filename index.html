@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
   <link rel="preload" href="fonts/Letritas-Regular.otf" as="font" type="font/otf" crossorigin>
-  <link rel="stylesheet" href="style.css?v=25">
+  <link rel="stylesheet" href="style.css?v=26">
 </head>
 <body>
   <header class="topbar">
@@ -29,13 +29,19 @@
   </header>
 
   <div class="app">
-    <aside class="zone zone-left" aria-label="Letras">
+    <aside class="zone zone-left" id="lettersPanel" aria-label="Letras">
+      <div class="zone-head">
+        <span class="zone-title">Letras</span>
+        <button id="toggleLetters" type="button" class="icon-btn" title="Ocultar las letras (L)" aria-label="Ocultar las letras" aria-expanded="true" aria-controls="lettersBody"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 4.5v15"/><path class="chev" d="M15.5 9.5l-2.5 2.5 2.5 2.5"/></svg></button>
+      </div>
+      <div class="zone-body" id="lettersBody">
       <div id="charmap"></div>
       <details class="drafts">
         <summary>Borradores</summary>
         <p class="hint">Clic para copiar al glifo actual · doble clic para borrar</p>
         <div id="gallery"></div>
       </details>
+      </div>
     </aside>
 
     <main class="zone zone-center">
@@ -318,6 +324,7 @@
       <h4>Atajos</h4>
       <dl class="shortcuts">
         <dt>B · V · A · E · P</dt><dd>Dibujar · Seleccionar · Nodos · Esquinas · Piezas</dd>
+        <dt>L</dt><dd>Mostrar u ocultar el panel de letras</dd>
         <dt>Espacio (mantener)</dt><dd>Ver solo la letra · con arrastre, desplazar</dd>
         <dt>Cmd/Ctrl + rueda</dt><dd>Zoom · también + y −, y 0 para ajustar</dd>
         <dt>Cmd/Ctrl + Z</dt><dd>Deshacer · con Shift, rehacer</dd>
@@ -371,22 +378,22 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=25",
-        "./js/geometry.js": "./js/geometry.js?v=25",
-        "./js/model.js": "./js/model.js?v=25",
-        "./js/render.js": "./js/render.js?v=25",
-        "./js/tools.js": "./js/tools.js?v=25",
-        "./js/library.js": "./js/library.js?v=25",
-        "./js/pieces.js": "./js/pieces.js?v=25",
-        "./js/nodes.js": "./js/nodes.js?v=25",
-        "./js/shapes.js": "./js/shapes.js?v=25",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=25",
-        "./js/outline.js": "./js/outline.js?v=25",
-        "./js/otf.js": "./js/otf.js?v=25",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=25"
+        "./js/charset.js": "./js/charset.js?v=26",
+        "./js/geometry.js": "./js/geometry.js?v=26",
+        "./js/model.js": "./js/model.js?v=26",
+        "./js/render.js": "./js/render.js?v=26",
+        "./js/tools.js": "./js/tools.js?v=26",
+        "./js/library.js": "./js/library.js?v=26",
+        "./js/pieces.js": "./js/pieces.js?v=26",
+        "./js/nodes.js": "./js/nodes.js?v=26",
+        "./js/shapes.js": "./js/shapes.js?v=26",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=26",
+        "./js/outline.js": "./js/outline.js?v=26",
+        "./js/otf.js": "./js/otf.js?v=26",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=26"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=25"></script>
+  <script type="module" src="js/main.js?v=26"></script>
 </body>
 </html>

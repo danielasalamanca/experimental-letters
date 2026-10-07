@@ -151,7 +151,16 @@ input[type="color"] { width: 34px; height: 24px; border: 1px solid var(--line); 
   grid-template-columns: 236px minmax(0, 1fr) 300px;
 }
 .zone { min-height: 0; overflow: auto; }
-.zone-left { padding: 14px 12px 20px 16px; }
+.zone-left { padding: 10px 12px 20px 16px; }
+.app { transition: grid-template-columns .2s ease; }
+.zone-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
+.zone-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 600; }
+.zone-head .chev { transition: transform .2s ease; transform-origin: 14px 12px; }
+.app.letters-hidden { grid-template-columns: 52px minmax(0, 1fr) 300px; }
+.app.letters-hidden .zone-left { padding: 10px 8px; overflow: hidden; }
+.app.letters-hidden .zone-head { justify-content: center; }
+.app.letters-hidden .zone-title, .app.letters-hidden .zone-body { display: none; }
+.app.letters-hidden .zone-head .chev { transform: scaleX(-1); }
 .zone-right { padding: 14px 16px 20px 12px; }
 
 /* ---------- Character map ---------- */
@@ -160,6 +169,7 @@ input[type="color"] { width: 34px; height: 24px; border: 1px solid var(--line); 
   color: var(--muted); font-weight: 600; margin: 18px 0 8px;
 }
 .zone-left h2:first-child { margin-top: 2px; }
+.zone-left .zone-body > #charmap > h2:first-child { margin-top: 4px; }
 .cm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 5px; }
 .cm-cell {
   position: relative;
@@ -393,7 +403,9 @@ dialog.help { max-width: 520px; }
   body { display: block; }
   .topbar { flex-wrap: wrap; }
   .top-actions { flex-wrap: wrap; }
-  .app { grid-template-columns: 1fr; }
+  .app, .app.letters-hidden { grid-template-columns: 1fr; }
+  .app.letters-hidden .zone-head { justify-content: space-between; }
+  .app.letters-hidden .zone-title { display: inline; }
   .zone-center { order: -1; height: 82vh; padding: 12px 16px; }
   .zone-left, .zone-right { padding: 12px 16px; }
   .testbar { max-height: none; }

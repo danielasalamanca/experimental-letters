@@ -1567,6 +1567,7 @@ window.addEventListener("keydown", (e) => {
   else if (k === "e") setTool("corner");
   else if (k === "p") setTool("piece");
   else if (k === "a") setTool("nodes");
+  else if (k === "l") toggleLetters();
   else if (e.key === "?") $("helpDialog").showModal();
   else if (k === "+" || k === "=") zoomAt(1.25);
   else if (k === "-") zoomAt(0.8);
@@ -2229,6 +2230,23 @@ function syncLibrary() {
 
 // --- Help and first-use tip ---
 $("helpBtn").addEventListener("click", () => $("helpDialog").showModal());
+
+// --- Collapsible letters panel ---
+const LETTERS_KEY = "experimental-letters:letters-hidden";
+function setLettersHidden(hidden) {
+  document.querySelector(".app").classList.toggle("letters-hidden", hidden);
+  const btn = $("toggleLetters");
+  const label = hidden ? "Mostrar las letras (L)" : "Ocultar las letras (L)";
+  btn.title = label;
+  btn.setAttribute("aria-label", label.replace(" (L)", ""));
+  btn.setAttribute("aria-expanded", String(!hidden));
+  try { localStorage.setItem(LETTERS_KEY, hidden ? "1" : "0"); } catch {}
+}
+function toggleLetters() {
+  setLettersHidden(!document.querySelector(".app").classList.contains("letters-hidden"));
+}
+$("toggleLetters").addEventListener("click", toggleLetters);
+try { if (localStorage.getItem(LETTERS_KEY) === "1") setLettersHidden(true); } catch {}
 
 const TIP_KEY = "experimental-letters:tip-seen";
 try {
