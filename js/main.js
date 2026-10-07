@@ -2,7 +2,7 @@
 
 import { key, parseKey } from "./geometry.js";
 import {
-  METRICS, createGlyph, normalizeFont, createBlankFont, setMetric, sameMetrics,
+  METRICS, createGlyph, normalizeFont, createBlankFont, defaultGlyph, setMetric, sameMetrics,
   GRIDS, glyphGrid, shapeKey, hasOwnShape, resolvedCorners, resolvedPieces, resolvedOutline, glyphShape,
   planFit, applyFit, advanceWidth, resolvedCells, canUseComponent, dependents,
   kerningValue, setKerning, layoutText,
@@ -1890,6 +1890,28 @@ function clampNum(v, lo, hi, fallback) {
 // --- Actions ---
 $("undo").addEventListener("click", undo);
 $("redo").addEventListener("click", redo);
+
+// Starts one letter over: exactly as it is in a new font (empty, default
+// width and margins; accented letters back to letter + accent).
+$("resetGlyph").addEventListener("click", async () => {
+  const char = font.active;
+  const shown = char === " " ? "el espacio" : `«${char}»`;
+  const sure = await confirmAction({
+    title: "Reiniciar letra",
+    message: `¿Reiniciar ${shown}? Se borran su dibujo, nodos, esquinas y piezas, y vuelve al ancho y márgenes iniciales. Las demás letras no cambian. Puedes deshacerlo con Cmd/Ctrl + Z.`,
+    ok: "Reiniciar",
+  });
+  if (!sure) return;
+  checkpoint();
+  font.glyphs[char] = defaultGlyph(font, char);
+  selection.clear();
+  nodeSel.clear();
+  floating = null;
+  if (tool === "nodes" || tool === "corner" || tool === "piece") setTool("draw");
+  syncControls();
+  render("glyph");
+  toast(`${shown[0].toUpperCase()}${shown.slice(1)} quedó como nueva.`);
+});
 
 $("clear").addEventListener("click", () => {
   checkpoint();

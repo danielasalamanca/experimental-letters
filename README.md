@@ -164,6 +164,11 @@ grilla:
   o el botón central del mouse también desplazan. Botones −, +, **Ajustar** y
   atajos +, − y 0.
 - **Columnas:** ancho del dibujo del glifo, en celdas.
+- **Reiniciar letra** (panel Letra): vuelve una sola letra a como empieza en
+  una tipografía nueva —sin dibujo, nodos, esquinas ni piezas, con el ancho y
+  los márgenes iniciales; las acentuadas vuelven a ser letra + acento—. Pide
+  confirmación y se puede deshacer. (**Limpiar**, en cambio, solo borra el
+  dibujo.)
 - **Invertir**, **Limpiar**, **Deshacer** y **Rehacer**
   (Cmd/Ctrl + Z y Cmd/Ctrl + Shift + Z). El historial es de toda la fuente:
   deshacer te lleva al glifo donde ocurrió el cambio.

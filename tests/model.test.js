@@ -138,3 +138,15 @@ test("the global rounding only applies when 'Redondear todas las esquinas' is on
   font.glyphs.a.rounding = 0.2;
   assert.equal(glyphRounding(font, font.glyphs.a), 0.2);
 });
+
+test("resetting a letter gives back a fresh one", async () => {
+  const { defaultGlyph, createGlyph } = await import("../js/model.js");
+  const font = normalizeFont(null);
+  font.glyphs.n = createGlyph({ cols: 12, cells: ["0,0"], lsb: 7, corners: { "0,1": 2 }, pieces: [{ x0: 0, y0: 0, x1: 1, y1: 1, corner: "bl", shape: "tri", mode: "cut" }], outline: [], grid: "squares", curve: 0.5 });
+  const fresh = defaultGlyph(font, "n");
+  assert.deepEqual([fresh.cells, fresh.pieces, fresh.corners, fresh.outline, fresh.grid, fresh.curve], [[], [], {}, null, null, null]);
+  assert.equal(fresh.cols, 8);
+  assert.equal(fresh.lsb, font.cell);
+  // An accented letter comes back as letter + accent.
+  assert.deepEqual(defaultGlyph(font, "ñ").components.map((c) => c.glyph), ["n", "˜"]);
+});
