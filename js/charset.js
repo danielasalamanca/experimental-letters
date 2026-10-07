@@ -13,7 +13,7 @@ export const TILDE = "˜"; // ˜
 export const GROUPS = [
   { name: "Mayúsculas", chars: [...range("A", "Z"), "Ñ"] },
   { name: "Minúsculas", chars: [...range("a", "z"), "ñ"] },
-  { name: "Acentuadas", chars: ["á", "é", "í", "ó", "ú"] },
+  { name: "Acentuadas", chars: ["á", "é", "í", "ó", "ú", "Á", "É", "Í", "Ó", "Ú"] },
   { name: "Números", chars: range("0", "9") },
   { name: "Puntuación", chars: [".", ",", ";", ":", "!", "?", "-", "'", "\"", "(", ")"] },
   { name: "Acentos (componentes)", chars: [ACUTE, TILDE] },
@@ -30,6 +30,7 @@ const NAMES = {
   "(": "parenleft", ")": "parenright", " ": "space",
   [ACUTE]: "acute", [TILDE]: "tilde",
   "á": "aacute", "é": "eacute", "í": "iacute", "ó": "oacute", "ú": "uacute",
+  "Á": "Aacute", "É": "Eacute", "Í": "Iacute", "Ó": "Oacute", "Ú": "Uacute",
   "ñ": "ntilde", "Ñ": "Ntilde",
 };
 
@@ -53,7 +54,12 @@ export const codepoint = (char) =>
 export const COMPOSITES = {
   "á": ["a", ACUTE], "é": ["e", ACUTE], "í": ["i", ACUTE],
   "ó": ["o", ACUTE], "ú": ["u", ACUTE], "ñ": ["n", TILDE], "Ñ": ["N", TILDE],
+  "Á": ["A", ACUTE], "É": ["E", ACUTE], "Í": ["I", ACUTE], "Ó": ["O", ACUTE], "Ú": ["U", ACUTE],
 };
+
+// Capitals (and digits) are drawn up to the cap height; this also covers
+// accented capitals like "Á", which /[A-Z]/ alone would miss.
+export const isCapital = (char) => /[0-9]/.test(char) || (char !== char.toLowerCase() && char === char.toUpperCase());
 
 export function defaultCols(char) {
   if (char === " ") return 5;

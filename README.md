@@ -33,7 +33,8 @@ grilla:
 
 ### Mapa de caracteres y glifos
 - A la izquierda está el set completo: A–Z, a–z, 0–9, puntuación básica
-  (. , ; : ! ? - ' " ( )), ñ, Ñ, las vocales acentuadas (á é í ó ú), los
+  (. , ; : ! ? - ' " ( )), ñ, Ñ, las vocales acentuadas (á é í ó ú y
+  Á É Í Ó Ú), los
   acentos usados como componentes (´ y ˜) y el espacio.
 - Cada celda muestra la miniatura del glifo, o el carácter en gris si está
   vacío. Clic para abrirlo en el editor.
@@ -44,8 +45,10 @@ grilla:
   verdes, en pasos de una décima de celda) y el **ancho de avance**
   resultante.
 - **Componentes:** un glifo puede reutilizar otro con un desplazamiento en
-  columnas (x) y filas (y). Las vocales acentuadas y la ñ/Ñ ya vienen como
-  letra + acento, así que al editar la "a" o el acento se actualiza la "á".
+  columnas (x) y filas (y). Las vocales acentuadas (minúsculas y
+  mayúsculas) y la ñ/Ñ ya vienen como letra + acento, así que al editar la
+  "a" o el acento se actualiza la "á"; en las mayúsculas el acento sube a la
+  altura de mayúsculas.
   En el lienzo, lo que viene de componentes se ve en gris. **Descomponer**
   copia todo al dibujo propio del glifo.
 

@@ -1980,6 +1980,7 @@ const PRESETS = [
   "0123456789 .,;:!?-'\"()",
   "AV To Ta Ye LT Wa",
   "El veloz murciélago hindú comía feliz cardillo y kiwi.",
+  "ÁRBOL ÉPOCA ÍNDICE ÓPERA ÚLTIMO ÑANDÚ",
   "niño año ñandú canción",
 ];
 const KERN_STEP = 10;

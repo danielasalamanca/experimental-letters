@@ -1,6 +1,7 @@
 // Drawing-tool helpers: mirroring, selections and strokes. Pure functions
 // on cell keys, so they can be tested with `node --test`.
 
+import { isCapital } from "./charset.js";
 import { key, parseKey } from "./geometry.js";
 
 // Vertical mirror axis: the middle of a pair of metric lines (in rows).
@@ -12,7 +13,7 @@ export const AXES = {
 };
 
 export function axisRows(axis, metrics, char) {
-  if (axis === "auto") axis = /[A-ZÑ0-9]/.test(char) ? "cap" : "x";
+  if (axis === "auto") axis = isCapital(char) ? "cap" : "x";
   if (axis === "cap") return [0, metrics.capHeight];
   if (axis === "full") return [metrics.descender, metrics.ascender];
   return [0, metrics.xHeight];

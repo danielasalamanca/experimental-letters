@@ -27,7 +27,7 @@ test("the .otf has every glyph, names, metrics and advance widths", async () => 
   assert.equal(otf.unitsPerEm, 1000);
   assert.equal(otf.ascender, 750);
   assert.equal(otf.descender, -250);
-  assert.equal(otf.glyphs.length, 84); // .notdef + 83 characters
+  assert.equal(otf.glyphs.length, 89); // .notdef + 88 characters
   const A = otf.charToGlyph("A");
   assert.equal(A.name, "A");
   assert.equal(A.advanceWidth, advanceWidth(font, font.glyphs.A));

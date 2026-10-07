@@ -2,7 +2,7 @@
 // Pure functions only (no DOM), so they can be tested with `node --test`.
 
 import { key, parseKey } from "./geometry.js";
-import { CHARSET, COMPOSITES, defaultCols } from "./charset.js";
+import { CHARSET, COMPOSITES, defaultCols, isCapital } from "./charset.js";
 import { cloneOutline, shiftOutline } from "./nodes.js";
 
 export const FORMAT = "experimental-letters";
@@ -70,7 +70,7 @@ export function defaultGlyph(font, char) {
     const baseCols = font.glyphs[base]?.cols ?? defaultCols(base);
     glyph.cols = baseCols;
     const accentCols = font.glyphs[accent]?.cols ?? defaultCols(accent);
-    const lift = /[A-ZÑ]/.test(char) ? font.metrics.capHeight - font.metrics.xHeight : 0;
+    const lift = isCapital(char) && !/[0-9]/.test(char) ? font.metrics.capHeight - font.metrics.xHeight : 0;
     glyph.components = [
       { glyph: base, dx: 0, dy: 0 },
       { glyph: accent, dx: Math.floor((baseCols - accentCols) / 2), dy: lift },

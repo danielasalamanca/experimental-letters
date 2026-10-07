@@ -150,3 +150,19 @@ test("resetting a letter gives back a fresh one", async () => {
   // An accented letter comes back as letter + accent.
   assert.deepEqual(defaultGlyph(font, "ñ").components.map((c) => c.glyph), ["n", "˜"]);
 });
+
+test("accented capitals are composites with the accent at cap height", async () => {
+  const { CHARSET, ACUTE, glyphName, isCapital } = await import("../js/charset.js");
+  const font = normalizeFont(null);
+  const lift = font.metrics.capHeight - font.metrics.xHeight;
+  for (const [char, base] of [["Á", "A"], ["É", "E"], ["Í", "I"], ["Ó", "O"], ["Ú", "U"]]) {
+    assert.ok(CHARSET.includes(char));
+    assert.deepEqual(font.glyphs[char].components.map((c) => [c.glyph, c.dy]), [[base, 0], [ACUTE, lift]]);
+  }
+  assert.equal(glyphName("Á"), "Aacute");
+  assert.ok(isCapital("Á") && isCapital("Ñ") && isCapital("7") && !isCapital("á"));
+  // Fonts saved before get them too.
+  const old = JSON.parse(JSON.stringify(font));
+  delete old.glyphs["É"];
+  assert.ok(normalizeFont(old).glyphs["É"]);
+});
