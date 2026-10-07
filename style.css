@@ -354,6 +354,13 @@ label.check { display: flex; align-items: center; gap: 8px; }
   gap: 8px;
   max-height: 40vh;
 }
+.testbar.collapsed { padding: 6px 14px; }
+.testbar.collapsed .test-controls > :not(#toggleTest):not(.test-title),
+.testbar.collapsed .test-view, .testbar.collapsed .kern-list { display: none; }
+.testbar.collapsed .test-title { cursor: pointer; }
+#toggleTest { margin-left: -6px; }
+#toggleTest .chev { transition: transform .2s ease; transform-origin: 12px 9.75px; }
+.testbar.collapsed #toggleTest .chev { transform: scaleY(-1); }
 .test-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .test-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--orange-2); font-weight: 700; }
 #testText { flex: 1 1 260px; min-width: 0; resize: vertical; min-height: 30px; max-height: 120px; }

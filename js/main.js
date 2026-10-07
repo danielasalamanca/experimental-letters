@@ -1568,6 +1568,7 @@ window.addEventListener("keydown", (e) => {
   else if (k === "p") setTool("piece");
   else if (k === "a") setTool("nodes");
   else if (k === "l") toggleLetters();
+  else if (k === "t") toggleTestbar();
   else if (e.key === "?") $("helpDialog").showModal();
   else if (k === "+" || k === "=") zoomAt(1.25);
   else if (k === "-") zoomAt(0.8);
@@ -2247,6 +2248,24 @@ function toggleLetters() {
 }
 $("toggleLetters").addEventListener("click", toggleLetters);
 try { if (localStorage.getItem(LETTERS_KEY) === "1") setLettersHidden(true); } catch {}
+
+// --- Collapsible test bar ---
+const TEST_KEY = "experimental-letters:test-hidden";
+function setTestHidden(hidden) {
+  $("testbar").classList.toggle("collapsed", hidden);
+  const btn = $("toggleTest");
+  const label = hidden ? "Mostrar la prueba de texto (T)" : "Ocultar la prueba de texto (T)";
+  btn.title = label;
+  btn.setAttribute("aria-label", label.replace(" (T)", ""));
+  btn.setAttribute("aria-expanded", String(!hidden));
+  try { localStorage.setItem(TEST_KEY, hidden ? "1" : "0"); } catch {}
+}
+function toggleTestbar() { setTestHidden(!$("testbar").classList.contains("collapsed")); }
+$("toggleTest").addEventListener("click", toggleTestbar);
+$("testbar").querySelector(".test-title").addEventListener("click", (e) => {
+  if ($("testbar").classList.contains("collapsed")) { e.preventDefault(); setTestHidden(false); }
+});
+try { if (localStorage.getItem(TEST_KEY) === "1") setTestHidden(true); } catch {}
 
 const TIP_KEY = "experimental-letters:tip-seen";
 try {
