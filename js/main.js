@@ -13,6 +13,7 @@ import { openLibrary, saveFont, loadFont, deleteFont, newId, fontName } from "./
 import {
   AXES, axisRows, mirrorKeys, translate, cellsInRect, connectedCells,
   selectionExtras, translateCorner, translatePiece,
+  transformMap, cellsBox, transformCells, transformCorner, transformPiece, transformContour, outlineBox, flips,
 } from "./tools.js";
 import { squareCorners, effectiveRadii, MAX_RADIUS } from "./outline.js";
 import {
@@ -308,6 +309,7 @@ function setTool(next) {
   $("toolSelect").classList.toggle("active", tool === "select");
   $("toolCorner").classList.toggle("active", tool === "corner");
   $("cornerGroup").hidden = tool !== "corner";
+  $("transformGroup").hidden = tool !== "select" && tool !== "nodes";
   board.dataset.tool = tool;
   render(null);
 }
@@ -1486,6 +1488,81 @@ function paste() {
   toast("Pegado: arrástralo o muévelo con las flechas; el original queda en su lugar.");
 }
 
+// --- Rotate and flip ---
+// Turns or flips the selection (or the whole letter) with its corners and
+// pieces; with nodes, the contours that have a chosen node (or all of them).
+const TRANSFORM_NAMES = { cw: "Girado 90° a la derecha", ccw: "Girado 90° a la izquierda", h: "Espejado izquierda–derecha", v: "Espejado arriba–abajo" };
+
+function transformShape(kind) {
+  const g = glyph();
+  if (tool === "nodes" || g.outline) return transformOutline(kind);
+  const whole = !selection.size;
+  if (whole) g.cells.forEach((k) => selection.add(k));
+  if (!selection.size) return;
+  checkpoint();
+  const lifted = liftSelection();
+  const { base, dc, dr } = lifted;
+  const moving = translate(base.moving, dc, dr);
+  const map = transformMap(kind, cellsBox(moving));
+  const moved = transformCells(moving, map.point);
+  const carried = {};
+  for (const [k, v] of Object.entries(base.carried)) carried[transformCorner(translateCorner(k, dc, dr), map.point)] = v;
+  const pieces = base.pieces.map(([i, p]) => [i, transformPiece(translatePiece(p, dc, dr), map.point)]);
+  const next = { ...base, moving: moved, carried, pieces };
+  const sx = keepInside(cellsBox(moved));
+  applyShift(next, sx, 0);
+  floating = lifted === floating ? { base: next, dc: sx, dr: 0 } : null;
+  if (whole && tool !== "select") selection.clear();
+  render();
+  syncPieceList();
+  toast(TRANSFORM_NAMES[kind]);
+}
+
+// Columns to shift a turned shape by so it doesn't start left of the
+// letter's first column; the letter widens if the shape no longer fits.
+function keepInside({ x0, x1 }) {
+  const g = glyph();
+  const sx = Math.max(0, -x0);
+  const width = Math.ceil(x1 + sx);
+  if (width > g.cols) {
+    g.cols = Math.min(24, width);
+    syncControls();
+  }
+  return sx;
+}
+
+function transformOutline(kind) {
+  const g = glyph();
+  const outline = tool === "nodes" ? ensureOutline() : g.outline;
+  const picked = new Set([...nodeSel].map((k) => +k.split(":")[0]));
+  const targets = outline.map((_, ci) => ci).filter((ci) => !picked.size || picked.has(ci));
+  if (!targets.length) return;
+  checkpoint();
+  const turned = transformMap(kind, outlineBox(targets.map((ci) => outline[ci])));
+  const sx = keepInside(outlineBox(targets.map((ci) => transformContour(outline[ci], turned))));
+  const map = { point: (p) => { const [x, y] = turned.point(p); return [x + sx, y]; }, vector: turned.vector };
+  // Rounded corners sitting on the moved nodes go with them.
+  const onNodes = new Set(targets.flatMap((ci) => outline[ci].nodes.map((n) => cornerKey(n.x, n.y))));
+  const corners = {}, carried = {};
+  for (const [k, v] of Object.entries(g.corners ?? {})) (onNodes.has(k) ? carried : corners)[k] = v;
+  for (const [k, v] of Object.entries(carried)) corners[transformCorner(k, map.point)] = v;
+  g.corners = corners;
+  const reverse = flips(kind);
+  for (const ci of targets) {
+    const n = outline[ci].nodes.length;
+    outline[ci] = transformContour(outline[ci], map, reverse);
+    // A reversed contour keeps the same nodes chosen.
+    if (reverse) {
+      for (let ni = 0; ni < n; ni++) {
+        if (nodeSel.has(`${ci}:${ni}`)) { nodeSel.delete(`${ci}:${ni}`); nodeSel.add(`r${ci}:${n - 1 - ni}`); }
+      }
+      for (const k of [...nodeSel]) if (k.startsWith(`r${ci}:`)) { nodeSel.delete(k); nodeSel.add(k.slice(1)); }
+    }
+  }
+  render();
+  toast(TRANSFORM_NAMES[kind]);
+}
+
 // Nodos: copy and paste whole outlines (those with a selected node, or all).
 let nodeClipboard = null;
 
@@ -1563,10 +1640,13 @@ window.addEventListener("keydown", (e) => {
   else if (k === "delete" || k === "backspace") { if (selection.size) { e.preventDefault(); deleteSelection(); } }
   else if (k === "escape") { selection.clear(); render(null); }
   else if (k === "b") setTool("draw");
+  else if (e.shiftKey && k === "v") transformShape("v");
   else if (k === "v") setTool("select");
   else if (k === "e") setTool("corner");
   else if (k === "p") setTool("piece");
   else if (k === "a") setTool("nodes");
+  else if (k === "r") transformShape(e.shiftKey ? "ccw" : "cw");
+  else if (e.shiftKey && k === "h") transformShape("h");
   else if (k === "l") toggleLetters();
   else if (k === "t") toggleTestbar();
   else if (e.key === "?") $("helpDialog").showModal();
@@ -2231,6 +2311,10 @@ function syncLibrary() {
 
 // --- Help and first-use tip ---
 $("helpBtn").addEventListener("click", () => $("helpDialog").showModal());
+
+for (const [id, kind] of [["rotCcw", "ccw"], ["rotCw", "cw"], ["flipH", "h"], ["flipV", "v"]]) {
+  $(id).addEventListener("click", () => transformShape(kind));
+}
 
 // --- Collapsible letters panel ---
 const LETTERS_KEY = "experimental-letters:letters-hidden";

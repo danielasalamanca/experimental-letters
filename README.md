@@ -105,6 +105,14 @@ grilla:
   celdas unidas por sus lados). Arrastra la selección para moverla, usa las
   **flechas** para moverla de a una celda y **Supr/Retroceso** para borrarla.
   **Esc** quita la selección y **Cmd/Ctrl + A** selecciona todo.
+- **Girar y espejar (Transformar):** con Seleccionar o Nodos aparecen
+  botones para girar 90° a la izquierda o a la derecha (**Shift + R** y
+  **R**) y espejar izquierda–derecha o arriba–abajo (**Shift + H** y
+  **Shift + V**). Actúan sobre lo seleccionado (en Nodos, los contornos con
+  algún punto elegido) o, sin selección, sobre toda la letra, y se llevan sus
+  esquinas redondeadas y piezas. Si la forma girada no cabe, la letra se
+  ensancha. A diferencia del **espejo** de dibujo, esto transforma una vez lo
+  que ya está dibujado.
 - **Copiar y pegar:** Cmd/Ctrl + C, X y V, también entre glifos (sin
   selección se copia el dibujo completo).
 - **Las formas viajan completas:** al mover (arrastre o flechas), copiar,

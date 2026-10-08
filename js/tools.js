@@ -98,3 +98,84 @@ export function translatePiece(p, dc, dr) {
   if (p.points) q.points = p.points.map(([x, y]) => [x + dc, y + dr]);
   return q;
 }
+
+// --- Rotating and flipping shapes ---
+// `kind` is "cw" / "ccw" (a quarter turn, y up) or "h" / "v" (flip
+// left–right / top–bottom). The shape turns around the middle of `box`
+// ({ x0, y0, x1, y1 }, lattice points) and is shifted by whole cells, so
+// grid points stay grid points. When that middle is off the grid, a tall
+// box rounds one way and a wide one the other, so turning back and forth
+// (or four times) lands exactly where it started.
+// (`0 - x` rather than `-x`, so a 0 never turns into -0.)
+const LINEAR = {
+  cw: ([x, y]) => [y, 0 - x],
+  ccw: ([x, y]) => [0 - y, x],
+  h: ([x, y]) => [0 - x, y],
+  v: ([x, y]) => [x, 0 - y],
+};
+export const TRANSFORM_KINDS = Object.keys(LINEAR);
+export const flips = (kind) => kind === "h" || kind === "v";
+
+export function transformMap(kind, { x0, y0, x1, y1 }) {
+  const f = LINEAR[kind];
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const [mx, my] = f([cx, cy]);
+  const snap = x1 - x0 < y1 - y0 ? Math.ceil : Math.floor;
+  const dx = snap(cx - mx), dy = snap(cy - my);
+  const point = (p) => {
+    const [x, y] = f(p);
+    return [x + dx, y + dy];
+  };
+  return { point, vector: f };
+}
+
+export function cellsBox(cells) {
+  const pts = cells.map(parseKey);
+  return {
+    x0: Math.min(...pts.map(([c]) => c)), x1: Math.max(...pts.map(([c]) => c)) + 1,
+    y0: Math.min(...pts.map(([, r]) => r)), y1: Math.max(...pts.map(([, r]) => r)) + 1,
+  };
+}
+
+export function transformCells(cells, point) {
+  return cells.map((k) => {
+    const [c, r] = parseKey(k);
+    const [ax, ay] = point([c, r]), [bx, by] = point([c + 1, r + 1]);
+    return key(Math.min(ax, bx), Math.min(ay, by));
+  });
+}
+
+export const transformCorner = (k, point) => pointKey(...point(parseKey(k)));
+
+// A piece keeps its shape: its corner C and the opposite corner O move, and
+// the box and `corner` are rebuilt from them (hand-moved nodes move too).
+export function transformPiece(p, point) {
+  const box = { bl: [p.x0, p.y0], br: [p.x1, p.y0], tl: [p.x0, p.y1], tr: [p.x1, p.y1] };
+  const opposite = { bl: "tr", br: "tl", tl: "br", tr: "bl" };
+  const corner = opposite[p.corner] ? p.corner : "bl";
+  const [cx, cy] = point(box[corner]), [ox, oy] = point(box[opposite[corner]]);
+  const q = {
+    ...p,
+    x0: Math.min(cx, ox), x1: Math.max(cx, ox), y0: Math.min(cy, oy), y1: Math.max(cy, oy),
+    corner: (cy < oy ? "b" : "t") + (cx < ox ? "l" : "r"),
+  };
+  if (p.points) q.points = p.points.map(point);
+  return q;
+}
+
+// Outline contours (see nodes.js). A flip turns a contour around, so it is
+// reversed to keep the ink on the same side of the path.
+export function transformContour(contour, { point, vector }, reverse = false) {
+  let nodes = contour.nodes.map((n) => {
+    const [x, y] = point([n.x, n.y]);
+    return { x, y, in: n.in && vector(n.in), out: n.out && vector(n.out) };
+  });
+  if (reverse) nodes = nodes.reverse().map((n) => ({ ...n, in: n.out, out: n.in }));
+  return { ...contour, nodes };
+}
+
+export function outlineBox(contours) {
+  const xs = contours.flatMap((c) => c.nodes.map((n) => n.x));
+  const ys = contours.flatMap((c) => c.nodes.map((n) => n.y));
+  return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+}

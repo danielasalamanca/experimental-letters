@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
   <link rel="preload" href="fonts/Letritas-Regular.otf" as="font" type="font/otf" crossorigin>
-  <link rel="stylesheet" href="style.css?v=27">
+  <link rel="stylesheet" href="style.css?v=28">
 </head>
 <body>
   <header class="topbar">
@@ -54,9 +54,9 @@
           <button id="toolPiece" type="button" class="tool" title="Piezas (P): arrastra de un punto a otro para agregar o recortar triángulos y curvas"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h14L5 5z"/></svg><span>Piezas</span></button>
         </div>
         <div class="view-tools">
-          <button id="mirrorH" type="button" class="icon-btn" title="Espejo izquierda–derecha" aria-label="Espejo izquierda–derecha"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16" stroke-dasharray="2 2.5"/><path d="M9 8L4 12l5 4z"/><path d="M15 8l5 4-5 4z"/></svg></button>
-          <button id="mirrorV" type="button" class="icon-btn" title="Espejo arriba–abajo" aria-label="Espejo arriba–abajo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16" stroke-dasharray="2 2.5"/><path d="M8 9l4-5 4 5z"/><path d="M8 15l4 5 4-5z"/></svg></button>
-          <select id="mirrorAxis" title="Eje del espejo arriba–abajo" aria-label="Eje del espejo arriba–abajo"></select>
+          <button id="mirrorH" type="button" class="icon-btn" title="Simetría al dibujar: lo que dibujas se repite a la izquierda y a la derecha" aria-label="Simetría izquierda–derecha al dibujar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16" stroke-dasharray="2 2.5"/><path d="M9 8L4 12l5 4z"/><path d="M15 8l5 4-5 4z"/></svg></button>
+          <button id="mirrorV" type="button" class="icon-btn" title="Simetría al dibujar: lo que dibujas se repite arriba y abajo" aria-label="Simetría arriba–abajo al dibujar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16" stroke-dasharray="2 2.5"/><path d="M8 9l4-5 4 5z"/><path d="M8 15l4 5 4-5z"/></svg></button>
+          <select id="mirrorAxis" title="Eje de la simetría arriba–abajo" aria-label="Eje de la simetría arriba–abajo"></select>
           <label class="inline" title="Muestra otra letra detrás, en transparencia">Fondo <select id="background" aria-label="Glifo de fondo"></select></label>
           <span class="zoom">
             <button id="zoomOut" type="button" class="icon-btn small" title="Alejar (−)" aria-label="Alejar">−</button>
@@ -68,6 +68,13 @@
       </div>
 
       <div class="context-bar">
+        <div class="tool-group" id="transformGroup" hidden>
+          <span class="group-label" title="Gira o espeja lo seleccionado, con sus esquinas y piezas. Sin selección, toda la letra.">Transformar</span>
+          <button id="rotCcw" type="button" class="icon-btn" title="Girar 90° a la izquierda (Shift + R)" aria-label="Girar 90° a la izquierda"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9a8 8 0 1 1 1 7"/><path d="M5 4v5h5"/></svg></button>
+          <button id="rotCw" type="button" class="icon-btn" title="Girar 90° a la derecha (R)" aria-label="Girar 90° a la derecha"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 9a8 8 0 1 0-1 7"/><path d="M19 4v5h-5"/></svg></button>
+          <button id="flipH" type="button" class="icon-btn" title="Espejar izquierda–derecha (Shift + H)" aria-label="Espejar izquierda–derecha"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18" stroke-dasharray="2 2.5"/><path d="M9 7L3 17h6z"/><path d="M15 7l6 10h-6z"/></svg></button>
+          <button id="flipV" type="button" class="icon-btn" title="Espejar arriba–abajo (Shift + V)" aria-label="Espejar arriba–abajo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18" stroke-dasharray="2 2.5"/><path d="M7 9L17 3v6z"/><path d="M7 15l10 6v-6z"/></svg></button>
+        </div>
         <div class="tool-group" id="nodeGroup">
           <button id="nodeAdd" type="button" class="chip" title="Con este botón activo, clic sobre el borde de la letra agrega un punto (también: doble clic sobre el borde)">＋ Agregar nodo</button>
           <button id="nodeRemove" type="button" class="chip" title="Quita los puntos elegidos (Supr)">− Quitar nodo</button>
@@ -325,6 +332,8 @@
       <h4>Atajos</h4>
       <dl class="shortcuts">
         <dt>B · V · A · E · P</dt><dd>Dibujar · Seleccionar · Nodos · Esquinas · Piezas</dd>
+        <dt>R · Shift + R</dt><dd>Girar 90° a la derecha · a la izquierda (lo seleccionado o toda la letra)</dd>
+        <dt>Shift + H · Shift + V</dt><dd>Espejar izquierda–derecha · arriba–abajo</dd>
         <dt>L · T</dt><dd>Mostrar u ocultar el panel de letras · la prueba de texto</dd>
         <dt>Espacio (mantener)</dt><dd>Ver solo la letra · con arrastre, desplazar</dd>
         <dt>Cmd/Ctrl + rueda</dt><dd>Zoom · también + y −, y 0 para ajustar</dd>
@@ -379,22 +388,22 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=27",
-        "./js/geometry.js": "./js/geometry.js?v=27",
-        "./js/model.js": "./js/model.js?v=27",
-        "./js/render.js": "./js/render.js?v=27",
-        "./js/tools.js": "./js/tools.js?v=27",
-        "./js/library.js": "./js/library.js?v=27",
-        "./js/pieces.js": "./js/pieces.js?v=27",
-        "./js/nodes.js": "./js/nodes.js?v=27",
-        "./js/shapes.js": "./js/shapes.js?v=27",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=27",
-        "./js/outline.js": "./js/outline.js?v=27",
-        "./js/otf.js": "./js/otf.js?v=27",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=27"
+        "./js/charset.js": "./js/charset.js?v=28",
+        "./js/geometry.js": "./js/geometry.js?v=28",
+        "./js/model.js": "./js/model.js?v=28",
+        "./js/render.js": "./js/render.js?v=28",
+        "./js/tools.js": "./js/tools.js?v=28",
+        "./js/library.js": "./js/library.js?v=28",
+        "./js/pieces.js": "./js/pieces.js?v=28",
+        "./js/nodes.js": "./js/nodes.js?v=28",
+        "./js/shapes.js": "./js/shapes.js?v=28",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=28",
+        "./js/outline.js": "./js/outline.js?v=28",
+        "./js/otf.js": "./js/otf.js?v=28",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=28"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=27"></script>
+  <script type="module" src="js/main.js?v=28"></script>
 </body>
 </html>
