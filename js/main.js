@@ -23,7 +23,7 @@ import {
 import { ownContours, glyphRawContours } from "./shapes.js";
 import {
   pieceContour, normalizePiece, mirrorPiece, PIECE_SHAPES, pieceGlyphCorners, cornerKey,
-  pieceHandles, movePieceHandle, contourCorners, contourObjects, pathfinder,
+  pieceHandles, movePieceHandle, contourCorners, contourObjects, pathfinder, polygonArea,
 } from "./pieces.js";
 
 
@@ -236,6 +236,7 @@ function selectGlyph(char) {
   const prev = font.active;
   selection.clear();
   floating = null;
+  polyDraft = null;
   nodeSel.clear();
   font.active = char;
   updateThumb(prev);
@@ -284,6 +285,7 @@ let spaceDown = false;
 
 function setTool(next) {
   floating = null;
+  polyDraft = null;
   // A glyph edited with nodes has no grid drawing to work on.
   if (glyph().outline && ["draw", "select", "piece"].includes(next)) {
     if (tool === "nodes") toast("Esta letra se edita con nodos. Para dibujar en la grilla, usa «Volver a la grilla» en el panel Glifo.");
@@ -381,7 +383,8 @@ board.addEventListener("pointerdown", (evt) => {
   }
 
   if (tool === "piece") {
-    const node = nodeAt(evt);
+    const poly = $("pieceShape").value === "poly";
+    const node = poly && polyDraft ? null : nodeAt(evt);
     if (node) {
       checkpoint();
       selectedPiece = node.index;
@@ -389,6 +392,7 @@ board.addEventListener("pointerdown", (evt) => {
       syncPieceList();
       return;
     }
+    if (poly) { polyClick(evt); return; }
     const { x, y } = toCells(evt);
     action = { type: "piece", x0: Math.round(x), y0: Math.round(y), x1: Math.round(x), y1: Math.round(y), moved: false, at: { x, y } };
     return;
@@ -418,6 +422,10 @@ board.addEventListener("pointerdown", (evt) => {
 
 window.addEventListener("pointermove", (evt) => {
   if (!action && tool === "nodes" && nodeAddMode && evt.target.closest?.("#board")) showNodeHover(evt);
+  if (!action && tool === "piece" && polyDraft && evt.target.closest?.("#board")) {
+    const at = snapPoly(evt);
+    if (!polyDraft.hover || at[0] !== polyDraft.hover[0] || at[1] !== polyDraft.hover[1]) { polyDraft.hover = at; render(null); }
+  }
   if (!action) return;
   const g = glyph();
   switch (action.type) {
@@ -995,6 +1003,12 @@ function endPiece(done) {
     corner: (done.y0 <= done.y1 ? "b" : "t") + (done.x0 <= done.x1 ? "l" : "r"),
     shape: $("pieceShape").value, mode: pieceMode,
   });
+  placePiece(piece);
+}
+
+// Adds a piece (and its mirror images, with the mirror on) and selects it.
+function placePiece(piece) {
+  const g = glyph();
   const [lo, hi] = axisRows(font.view.mirrorAxis, font.metrics, font.active);
   const placed = [piece];
   if (font.view.mirrorH) placed.push(...placed.map((p) => mirrorPiece(p, { h: g.cols })));
@@ -1003,6 +1017,71 @@ function endPiece(done) {
   selectedPiece = g.pieces.length - placed.length;
   render();
   syncPieceList();
+}
+
+// --- Polygon pieces: click grid points to join them ---
+// Each click adds a point (Shift: half cells); clicking the first point
+// again, double-clicking or Enter closes the polygon, Backspace takes back
+// the last point and Esc drops it.
+let polyDraft = null; // { points: [[x, y]], hover: [x, y] | null }
+
+function snapPoly(evt) {
+  const { x, y } = toCells(evt);
+  const step = evt.shiftKey ? 0.5 : 1;
+  return [Math.round(x / step) * step, Math.round(y / step) * step];
+}
+
+function polyClick(evt) {
+  const pt = snapPoly(evt);
+  const same = (a, b) => a[0] === b[0] && a[1] === b[1];
+  if (!polyDraft) {
+    polyDraft = { points: [pt], hover: pt };
+  } else {
+    const pts = polyDraft.points;
+    if (pts.length >= 3 && same(pt, pts[0])) { finishPoly(); return; }
+    if (!same(pt, pts[pts.length - 1])) pts.push(pt);
+  }
+  render(null);
+}
+
+function finishPoly() {
+  const pts = polyDraft?.points ?? [];
+  polyDraft = null;
+  if (pts.length < 3 || Math.abs(polygonArea(pts)) < 1e-9) {
+    render(null);
+    toast("Un polígono necesita al menos tres puntos que no estén en línea.");
+    return;
+  }
+  checkpoint();
+  placePiece(normalizePiece({ shape: "poly", mode: pieceMode, points: pts, x0: 0, y0: 0, x1: 0, y1: 0, corner: "bl" }));
+}
+
+function polyKey(k) {
+  if (k === "enter") finishPoly();
+  else if (k === "escape") { polyDraft = null; render(null); }
+  else if (k === "backspace" || k === "delete") {
+    polyDraft.points.pop();
+    if (!polyDraft.points.length) polyDraft = null;
+    render(null);
+  } else return false;
+  return true;
+}
+
+function drawPolyDraft(layer) {
+  const cu = font.cell;
+  const color = pieceMode === "cut" ? "#ff52a9" : PIECE_COLOR;
+  const pts = [...polyDraft.points];
+  const hover = polyDraft.hover;
+  if (hover && (hover[0] !== pts[pts.length - 1][0] || hover[1] !== pts[pts.length - 1][1])) pts.push(hover);
+  const d = pts.map(([x, y], i) => `${i ? "L" : "M"}${x * cu} ${-y * cu}`).join(" ");
+  if (pts.length >= 3) layer.appendChild(el("path", { d: d + " Z", fill: color, "fill-opacity": 0.22, stroke: "none" }));
+  layer.appendChild(el("path", { d, fill: "none", stroke: color, "stroke-width": 2, "vector-effect": "non-scaling-stroke" }));
+  polyDraft.points.forEach(([x, y], i) => {
+    const r = cu * (i === 0 ? 0.2 : 0.12);
+    layer.appendChild(el("circle", {
+      cx: x * cu, cy: -y * cu, r, fill: i === 0 ? "#fff" : color, stroke: color, "stroke-width": 2, "vector-effect": "non-scaling-stroke",
+    }));
+  });
 }
 
 // --- Moving piece nodes ---
@@ -1095,6 +1174,7 @@ function drawPieceMarkers(layer) {
       }));
     }
   });
+  if (polyDraft) drawPolyDraft(layer);
   // Preview while dragging.
   if (action?.type === "piece" && action.moved && action.x0 !== action.x1 && action.y0 !== action.y1) {
     const p = normalizePiece({
@@ -1260,6 +1340,7 @@ function drawCornerMarkers(layer) {
 // Double-click with the select tool picks the whole stroke.
 board.addEventListener("dblclick", (evt) => {
   if (tool === "nodes") { nodeDoubleClick(evt); return; }
+  if (tool === "piece" && polyDraft) { finishPoly(); return; }
   if (tool !== "select") return;
   const k = cellAt(evt);
   if (!k) return;
@@ -1332,8 +1413,17 @@ $("nodeToggle").addEventListener("click", () => {
   }
   render();
 });
-$("pieceAdd").addEventListener("click", () => { pieceMode = "add"; syncToolbar(); });
-$("pieceCut").addEventListener("click", () => { pieceMode = "cut"; syncToolbar(); });
+const PIECE_HINTS = {
+  drag: "Arrastra de un punto a otro · arrastra sus nodos para ajustarla",
+  poly: "Clic en los puntos de la grilla para unirlos · clic en el primero, doble clic o Enter para cerrar · Retroceso quita el último · Esc cancela · luego redondea sus vértices con Esquinas",
+};
+$("pieceShape").addEventListener("change", (e) => {
+  polyDraft = null;
+  $("pieceHint").textContent = PIECE_HINTS[e.target.value === "poly" ? "poly" : "drag"];
+  render(null);
+});
+$("pieceAdd").addEventListener("click", () => { pieceMode = "add"; syncToolbar(); if (polyDraft) render(null); });
+$("pieceCut").addEventListener("click", () => { pieceMode = "cut"; syncToolbar(); if (polyDraft) render(null); });
 $("cornerRadius").addEventListener("input", (e) => {
   $("cornerRadiusOut").textContent = +e.target.value >= MAX_RADIUS ? "máx" : String(+e.target.value).replace(".5", "½").replace(/^0½/, "½");
 });
@@ -1601,6 +1691,7 @@ window.addEventListener("keydown", (e) => {
   if (e.target.matches?.("input, select, textarea") || e.target.closest?.(".testbar")) return;
   const mod = e.metaKey || e.ctrlKey;
   const k = e.key.toLowerCase();
+  if (!mod && tool === "piece" && polyDraft && polyKey(k)) { e.preventDefault(); return; }
   if (mod) {
     if (k === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); }
     else if (k === "c" && tool === "nodes") { e.preventDefault(); copyNodes(); }

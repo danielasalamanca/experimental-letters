@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
   <link rel="preload" href="fonts/Letritas-Regular.otf" as="font" type="font/otf" crossorigin>
-  <link rel="stylesheet" href="style.css?v=29">
+  <link rel="stylesheet" href="style.css?v=30">
 </head>
 <body>
   <header class="topbar">
@@ -103,13 +103,14 @@
               <option value="tri">◣ Triángulo</option>
               <option value="quarter">◔ Cuarto de elipse</option>
               <option value="spandrel">◜ Esquina curva</option>
+              <option value="poly">⬠ Polígono (unir puntos)</option>
             </select>
             <span class="segmented" role="group" aria-label="Agregar o recortar">
               <button id="pieceAdd" type="button" class="chip" title="La pieza agrega tinta">Agregar</button>
               <button id="pieceCut" type="button" class="chip" title="La pieza recorta tinta">Recortar</button>
             </span>
           </span>
-          <span class="hint-inline">Arrastra de un punto a otro · arrastra sus nodos para ajustarla</span>
+          <span class="hint-inline" id="pieceHint">Arrastra de un punto a otro · arrastra sus nodos para ajustarla</span>
         </div>
       </div>
 
@@ -394,22 +395,22 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=29",
-        "./js/geometry.js": "./js/geometry.js?v=29",
-        "./js/model.js": "./js/model.js?v=29",
-        "./js/render.js": "./js/render.js?v=29",
-        "./js/tools.js": "./js/tools.js?v=29",
-        "./js/library.js": "./js/library.js?v=29",
-        "./js/pieces.js": "./js/pieces.js?v=29",
-        "./js/nodes.js": "./js/nodes.js?v=29",
-        "./js/shapes.js": "./js/shapes.js?v=29",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=29",
-        "./js/outline.js": "./js/outline.js?v=29",
-        "./js/otf.js": "./js/otf.js?v=29",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=29"
+        "./js/charset.js": "./js/charset.js?v=30",
+        "./js/geometry.js": "./js/geometry.js?v=30",
+        "./js/model.js": "./js/model.js?v=30",
+        "./js/render.js": "./js/render.js?v=30",
+        "./js/tools.js": "./js/tools.js?v=30",
+        "./js/library.js": "./js/library.js?v=30",
+        "./js/pieces.js": "./js/pieces.js?v=30",
+        "./js/nodes.js": "./js/nodes.js?v=30",
+        "./js/shapes.js": "./js/shapes.js?v=30",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=30",
+        "./js/outline.js": "./js/outline.js?v=30",
+        "./js/otf.js": "./js/otf.js?v=30",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=30"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=29"></script>
+  <script type="module" src="js/main.js?v=30"></script>
 </body>
 </html>

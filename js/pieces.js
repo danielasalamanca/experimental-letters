@@ -5,6 +5,7 @@
 //   quarter  – quarter ellipse centred at `corner` (bowls, round arms)
 //   spandrel – the bit between `corner` and a quarter ellipse centred at the
 //              opposite corner (cutting it rounds a corner with any radii)
+//   poly     – any polygon joining grid points, kept in `points`
 // `corner` is "bl", "br", "tl" or "tr" (y up); `mode` is "add" or "cut".
 // Pieces apply in order on top of the drawn cells.
 //
@@ -16,7 +17,7 @@
 import ClipperLib from "./vendor/clipper.js";
 import { squareContours, MAX_RADIUS } from "./outline.js";
 
-export const PIECE_SHAPES = { tri: "Triángulo", quarter: "Cuarto de elipse", spandrel: "Esquina curva" };
+export const PIECE_SHAPES = { tri: "Triángulo", quarter: "Cuarto de elipse", spandrel: "Esquina curva", poly: "Polígono" };
 
 const SCALE = 1e5;          // Clipper works in integers: 1 cell = 100 000
 const STEP = 0.05;          // flattening step along curves, in cells
@@ -26,8 +27,15 @@ const corners = ({ x0, y0, x1, y1 }) => ({ bl: [x0, y0], br: [x1, y0], tl: [x0, 
 const OPPOSITE = { bl: "tr", br: "tl", tl: "br", tr: "bl" };
 
 // A triangle whose nodes were moved by hand keeps them in `points`
-// ([[x, y] × 3]); its box then just wraps them.
-const validPoints = (pts) => Array.isArray(pts) && pts.length === 3 && pts.every((q) => Array.isArray(q) && q.every(Number.isFinite));
+// ([[x, y] × 3]); a polygon keeps three or more. Its box just wraps them.
+const validPoints = (pts, any = false) =>
+  Array.isArray(pts) && (any ? pts.length >= 3 : pts.length === 3) && pts.every((q) => Array.isArray(q) && q.length === 2 && q.every(Number.isFinite));
+
+// Twice the signed area of a polygon.
+export const polygonArea = (pts) => pts.reduce((a, [x, y], i) => {
+  const [nx, ny] = pts[(i + 1) % pts.length];
+  return a + x * ny - nx * y;
+}, 0);
 
 export function normalizePiece(p) {
   const shape = PIECE_SHAPES[p.shape] ? p.shape : "tri";
@@ -38,7 +46,7 @@ export function normalizePiece(p) {
     shape,
     mode: p.mode === "cut" ? "cut" : "add",
   };
-  if (shape === "tri" && validPoints(p.points)) {
+  if ((shape === "tri" && validPoints(p.points)) || (shape === "poly" && validPoints(p.points, true))) {
     out.points = p.points.map(([x, y]) => [x, y]);
     const xs = out.points.map((q) => q[0]), ys = out.points.map((q) => q[1]);
     Object.assign(out, { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) });
@@ -52,6 +60,7 @@ export function normalizePiece(p) {
 export function pieceHandles(piece) {
   const p = normalizePiece(piece);
   if (p.shape === "tri") return trianglePoints(p).map(([x, y], i) => ({ id: i, x, y }));
+  if (p.shape === "poly") return (p.points ?? []).map(([x, y], i) => ({ id: i, x, y }));
   const box = corners(p);
   const C = box[p.corner], O = box[OPPOSITE[p.corner]];
   return [{ id: "C", x: C[0], y: C[1] }, { id: "A", x: O[0], y: C[1] }, { id: "B", x: C[0], y: O[1] }];
@@ -91,6 +100,13 @@ export function diagonalPolygon([C, A, B]) {
 // flatten it.
 export function movePieceHandle(piece, id, [x, y]) {
   const p = normalizePiece(piece);
+  if (p.shape === "poly") {
+    if (!p.points) return null;
+    const points = p.points.map((q) => [...q]);
+    points[id] = [x, y];
+    if (Math.abs(polygonArea(points)) < 1e-9) return null;
+    return normalizePiece({ ...p, points });
+  }
   if (p.shape === "tri") {
     const points = trianglePoints(p).map((q) => [...q]);
     points[id] = [x, y];
@@ -119,6 +135,11 @@ export function pieceContour(piece) {
   const A = [O[0], C[1]], B = [C[0], O[1]];
   const M = (pt) => ({ type: "M", x: pt[0], y: pt[1] });
   const L = (pt) => ({ type: "L", x: pt[0], y: pt[1] });
+  if (p.shape === "poly") {
+    const pts = p.points ?? [];
+    if (pts.length < 3) return [M([p.x0, p.y0]), { type: "Z" }];
+    return [M(pts[0]), ...pts.slice(1).map(L), { type: "Z" }];
+  }
   // Quarter ellipse from P0 to P3 around `center`.
   const arc = (center, P0, P3) => ({
     type: "C",
@@ -308,6 +329,68 @@ function clipperOp(type, subject, clip) {
   c.AddPaths(clip, ClipperLib.PolyType.ptClip, true);
   const out = new ClipperLib.Paths();
   c.Execute(type, out, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+  return openTouchingHoles(out);
+}
+
+// Clipper leaves a cut that reaches the edge of the shape exactly (a wedge
+// whose side lies on the outline) as a hole touching the outline along that
+// side, instead of a notch. Two contours running along the same stretch in
+// opposite directions are joined there into one, which opens the notch.
+export function openTouchingHoles(paths) {
+  const out = paths.map((p) => p.slice());
+  let merged = true;
+  while (merged) {
+    merged = false;
+    search:
+    for (let a = 0; a < out.length; a++) {
+      for (let b = 0; b < out.length; b++) {
+        if (a === b) continue;
+        const joined = joinAlongSharedEdge(out[a], out[b]);
+        if (joined) {
+          out[a] = joined;
+          out.splice(b, 1);
+          merged = true;
+          break search;
+        }
+      }
+    }
+  }
+  return out.filter((p) => p.length >= 3);
+}
+
+function joinAlongSharedEdge(A, B) {
+  const TOL = 2; // Clipper units (1 cell = 100 000)
+  for (let i = 0; i < A.length; i++) {
+    const P = A[i], Q = A[(i + 1) % A.length];
+    const dx = Q.X - P.X, dy = Q.Y - P.Y, len = Math.hypot(dx, dy);
+    if (len < TOL) continue;
+    const off = (V) => Math.abs(dx * (V.Y - P.Y) - dy * (V.X - P.X)) / len;
+    const along = (V) => ((V.X - P.X) * dx + (V.Y - P.Y) * dy) / (len * len);
+    for (let j = 0; j < B.length; j++) {
+      const R = B[j], S = B[(j + 1) % B.length];
+      if (off(R) > TOL || off(S) > TOL) continue;
+      if ((S.X - R.X) * dx + (S.Y - R.Y) * dy >= 0) continue; // same direction
+      const t0 = Math.max(0, along(S)), t1 = Math.min(1, along(R));
+      if ((t1 - t0) * len < TOL) continue;
+      const at = (t) => ({ X: Math.round(P.X + dx * t), Y: Math.round(P.Y + dy * t) });
+      // A up to P, along the shared edge to where it starts, round B (from
+      // S back to R), then on to Q.
+      const path = [...A.slice(0, i + 1), at(t0)];
+      for (let k = 1; k <= B.length; k++) path.push(B[(j + k) % B.length]);
+      path.push(at(t1), ...A.slice(i + 1));
+      return dedupe(path);
+    }
+  }
+  return null;
+}
+
+function dedupe(path) {
+  const out = [];
+  for (const p of path) {
+    const last = out[out.length - 1];
+    if (!last || last.X !== p.X || last.Y !== p.Y) out.push(p);
+  }
+  while (out.length > 1 && out[0].X === out[out.length - 1].X && out[0].Y === out[out.length - 1].Y) out.pop();
   return out;
 }
 

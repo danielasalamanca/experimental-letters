@@ -307,3 +307,36 @@ test("moving an end of a diagonal keeps the cut reaching the edge", () => {
   assert.equal(winding(polys, [0.6, 0.5]), 1);
   check(block(0, 0, 8, 14), [moved]);
 });
+
+import { pieceHandles as polyHandles, movePieceHandle as movePoly, normalizePiece as normPoly, squareGlyphContours as glyphContoursWithPieces, pieceGlyphCorners as cornersWithPieces } from "../js/pieces.js";
+
+const filled = (w, h) => { const out = []; for (let c = 0; c < w; c++) for (let r = 0; r < h; r++) out.push(`${c},${r}`); return out; };
+const wedges = [
+  { shape: "poly", mode: "cut", points: [[2, 7], [9, 6], [9, 5]], x0: 0, y0: 0, x1: 0, y1: 0, corner: "bl" },
+  { shape: "poly", mode: "cut", points: [[7, 4], [0, 3], [0, 2]], x0: 0, y0: 0, x1: 0, y1: 0, corner: "bl" },
+];
+
+test("a polygon piece keeps its points and box", () => {
+  const p = normPoly({ shape: "poly", mode: "add", points: [[0, 0], [4, 1], [2, 3], [1, 2]] });
+  assert.deepEqual([p.x0, p.y0, p.x1, p.y1], [0, 0, 4, 3]);
+  assert.equal(polyHandles(p).length, 4);
+  assert.deepEqual(movePoly(p, 1, [5, 1]).points[1], [5, 1]);
+  assert.equal(movePoly({ shape: "poly", mode: "add", points: [[0, 0], [2, 0], [1, 1]] }, 2, [1, 0]), null);
+});
+
+test("wedges cut to the edge open into notches (one S-shaped contour)", () => {
+  const out = glyphContoursWithPieces(filled(9, 8), { pieces: wedges });
+  assert.equal(out.length, 1);
+  const pts = out[0].filter((c) => c.type !== "Z").map((c) => `${Math.round(c.x * 1000) / 1000},${Math.round(c.y * 1000) / 1000}`);
+  for (const k of ["2,7", "9,6", "9,5", "7,4", "0,3", "0,2"]) assert.ok(pts.includes(k), k);
+});
+
+test("the vertices of a polygon cut can be rounded", () => {
+  const found = cornersWithPieces(filled(9, 8), { pieces: wedges });
+  const keys = found.map((c) => c.key);
+  for (const k of ["2,7", "9,6", "9,5", "7,4", "0,3", "0,2", "0,0", "9,8"]) assert.ok(keys.includes(k), k);
+  const corners = Object.fromEntries(keys.map((k) => [k, "max"]));
+  const rounded = glyphContoursWithPieces(filled(9, 8), { pieces: wedges, corners });
+  assert.equal(rounded.length, 1);
+  assert.ok(rounded[0].filter((c) => c.type === "C").length >= 10);
+});

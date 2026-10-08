@@ -149,6 +149,13 @@ grilla:
   - **Esquina curva:** lo que queda entre esa esquina y un cuarto de elipse;
     recortado redondea una esquina con radios distintos en alto y ancho, por
     ejemplo el brazo de una "K" que baja curvo hasta tocar el asta.
+  - **Polígono (unir puntos):** en vez de arrastrar, haz clic en los puntos
+    de la grilla que quieres unir (con **Shift**, medias celdas). Se cierra
+    haciendo clic otra vez en el primer punto, con doble clic o con **Enter**;
+    **Retroceso** quita el último punto y **Esc** lo cancela. Sirve para
+    cuñas y diagonales libres: por ejemplo, un bloque lleno con dos cuñas
+    recortadas que llegan al borde forma una "S". Después, con **Esquinas**,
+    se redondean sus vértices (también las puntas de las cuñas).
   - En una letra con piezas, el redondeo (global y de la herramienta
     **Esquinas**) se aplica al final, sobre la forma ya recortada: las
     esquinas que crean las diagonales también se pueden redondear, y los
