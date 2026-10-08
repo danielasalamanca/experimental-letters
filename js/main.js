@@ -153,6 +153,11 @@ function decorate() {
   }
   if (tool === "corner") drawCornerMarkers(layer);
   if (tool === "piece") drawPieceMarkers(layer);
+  if (tool === "poly") {
+    if (!glyph().outline) drawPieceMarkers(layer);
+    if (polyDraft) drawPolyDraft(layer);
+    syncPolyBar();
+  }
   if (tool === "nodes") drawNodeMarkers(layer);
   if (action?.type === "marquee" && action.moved) {
     const { x0, y0, x1, y1 } = action;
@@ -298,8 +303,11 @@ function setTool(next) {
     next = tool === "corner" || tool === "piece" ? "draw" : tool;
   }
   tool = next;
+  $("toolPoly").classList.toggle("active", tool === "poly");
+  $("polyGroup").hidden = tool !== "poly";
+  if (tool === "poly") syncPolyBar();
   if (tool !== "select") selection.clear();
-  if (tool !== "piece") selectedPiece = null;
+  if (tool !== "piece" && tool !== "poly") selectedPiece = null;
   if (tool !== "nodes") nodeSel.clear();
   $("toolNodes").classList.toggle("active", tool === "nodes");
   $("nodeGroup").hidden = tool !== "nodes";
@@ -382,9 +390,16 @@ board.addEventListener("pointerdown", (evt) => {
     return;
   }
 
+  if (tool === "poly") {
+    // A click adds a point; dragging a node of a polygon already placed
+    // moves it instead.
+    const node = !polyDraft && !glyph().outline ? nodeAt(evt) : null;
+    action = { type: "polyPress", at: snapPoly(evt), node, sx: evt.clientX, sy: evt.clientY };
+    return;
+  }
+
   if (tool === "piece") {
-    const poly = $("pieceShape").value === "poly";
-    const node = poly && polyDraft ? null : nodeAt(evt);
+    const node = nodeAt(evt);
     if (node) {
       checkpoint();
       selectedPiece = node.index;
@@ -392,7 +407,6 @@ board.addEventListener("pointerdown", (evt) => {
       syncPieceList();
       return;
     }
-    if (poly) { polyClick(evt); return; }
     const { x, y } = toCells(evt);
     action = { type: "piece", x0: Math.round(x), y0: Math.round(y), x1: Math.round(x), y1: Math.round(y), moved: false, at: { x, y } };
     return;
@@ -422,7 +436,7 @@ board.addEventListener("pointerdown", (evt) => {
 
 window.addEventListener("pointermove", (evt) => {
   if (!action && tool === "nodes" && nodeAddMode && evt.target.closest?.("#board")) showNodeHover(evt);
-  if (!action && tool === "piece" && polyDraft && evt.target.closest?.("#board")) {
+  if (!action && tool === "poly" && polyDraft && evt.target.closest?.("#board")) {
     const at = snapPoly(evt);
     if (!polyDraft.hover || at[0] !== polyDraft.hover[0] || at[1] !== polyDraft.hover[1]) { polyDraft.hover = at; render(null); }
   }
@@ -465,6 +479,15 @@ window.addEventListener("pointermove", (evt) => {
     }
     case "node": {
       dragNode(evt);
+      break;
+    }
+    case "polyPress": {
+      if (action.node && Math.hypot(evt.clientX - action.sx, evt.clientY - action.sy) > 4) {
+        checkpoint();
+        selectedPiece = action.node.index;
+        action = { type: "node", ...action.node, shift: evt.shiftKey };
+        dragNode(evt);
+      }
       break;
     }
     case "nodes":
@@ -527,6 +550,7 @@ window.addEventListener("pointerup", () => {
     render(null);
     return;
   }
+  if (done.type === "polyPress") { polyAdd(done.at); return; }
   if (done.type === "pan") return;
   if (done.type === "move" && done.lifted === floating && floating) { floating.dc += done.dc; floating.dr += done.dr; }
   if (done.type === "corner") { endCorner(done); return; }
@@ -1019,11 +1043,13 @@ function placePiece(piece) {
   syncPieceList();
 }
 
-// --- Polygon pieces: click grid points to join them ---
+// --- Polygon tool: click grid points to join them ---
 // Each click adds a point (Shift: half cells); clicking the first point
-// again, double-clicking or Enter closes the polygon, Backspace takes back
-// the last point and Esc drops it.
+// again, double-clicking or Enter closes the figure, Backspace takes back
+// the last point and Esc drops it. On the dot grid the figure is a piece
+// (the cells stay editable); otherwise it joins the letter's outline.
 let polyDraft = null; // { points: [[x, y]], hover: [x, y] | null }
+let polyMode = "add";
 
 function snapPoly(evt) {
   const { x, y } = toCells(evt);
@@ -1031,8 +1057,7 @@ function snapPoly(evt) {
   return [Math.round(x / step) * step, Math.round(y / step) * step];
 }
 
-function polyClick(evt) {
-  const pt = snapPoly(evt);
+function polyAdd(pt) {
   const same = (a, b) => a[0] === b[0] && a[1] === b[1];
   if (!polyDraft) {
     polyDraft = { points: [pt], hover: pt };
@@ -1049,11 +1074,38 @@ function finishPoly() {
   polyDraft = null;
   if (pts.length < 3 || Math.abs(polygonArea(pts)) < 1e-9) {
     render(null);
-    toast("Un polígono necesita al menos tres puntos que no estén en línea.");
+    toast("Una figura necesita al menos tres puntos que no estén en línea.");
+    return;
+  }
+  const g = glyph();
+  if (!g.outline && glyphGrid(font, g) === "squares") {
+    checkpoint();
+    placePiece(normalizePiece({ shape: "poly", mode: polyMode, points: pts, x0: 0, y0: 0, x1: 0, y1: 0, corner: "bl" }));
+    if (polyMode === "cut" && !g.cells.length) toast("«Recortar» quita tinta: en una letra vacía no se ve. Usa «Agregar».");
+    return;
+  }
+  // Circles grid or a letter edited with nodes: the figure joins the outline.
+  const commands = outlineToCommands(editableOutline());
+  if (polyMode === "cut" && !commands.length) {
+    render(null);
+    toast("«Recortar» quita tinta, y esta letra está vacía. Usa «Agregar».");
     return;
   }
   checkpoint();
-  placePiece(normalizePiece({ shape: "poly", mode: pieceMode, points: pts, x0: 0, y0: 0, x1: 0, y1: 0, corner: "bl" }));
+  const [lo, hi] = axisRows(font.view.mirrorAxis, font.metrics, font.active);
+  let figures = [pts];
+  if (font.view.mirrorH) figures = [...figures, ...figures.map((f) => f.map(([x, y]) => [g.cols - x, y]))];
+  if (font.view.mirrorV) figures = [...figures, ...figures.map((f) => f.map(([x, y]) => [x, lo + hi - y]))];
+  const front = figures.map((f) => [
+    { type: "M", x: f[0][0], y: f[0][1] }, ...f.slice(1).map(([x, y]) => ({ type: "L", x, y })), { type: "Z" },
+  ]);
+  const result = polyMode === "cut"
+    ? pathfinder("minusFront", [commands, front])
+    : pathfinder("unite", commands.length ? [commands, front] : [front]);
+  ensureOutline();
+  g.outline = commandsToOutline(result);
+  syncToolbar();
+  render();
 }
 
 function polyKey(k) {
@@ -1067,9 +1119,22 @@ function polyKey(k) {
   return true;
 }
 
+function syncPolyBar() {
+  $("polyAdd").classList.toggle("active", polyMode === "add");
+  $("polyCut").classList.toggle("active", polyMode === "cut");
+  const n = polyDraft?.points.length ?? 0;
+  $("polyClose").disabled = n < 3;
+  $("polyCancel").disabled = n === 0;
+  $("polyHint").textContent = n === 0
+    ? "Haz clic en un punto de la grilla para empezar"
+    : n < 3
+      ? `${n} punto(s) · sigue haciendo clic en otros puntos`
+      : `${n} puntos · clic en el primero (o Enter) para cerrar · Retroceso quita el último`;
+}
+
 function drawPolyDraft(layer) {
   const cu = font.cell;
-  const color = pieceMode === "cut" ? "#ff52a9" : PIECE_COLOR;
+  const color = polyMode === "cut" ? "#ff52a9" : PIECE_COLOR;
   const pts = [...polyDraft.points];
   const hover = polyDraft.hover;
   if (hover && (hover[0] !== pts[pts.length - 1][0] || hover[1] !== pts[pts.length - 1][1])) pts.push(hover);
@@ -1174,7 +1239,6 @@ function drawPieceMarkers(layer) {
       }));
     }
   });
-  if (polyDraft) drawPolyDraft(layer);
   // Preview while dragging.
   if (action?.type === "piece" && action.moved && action.x0 !== action.x1 && action.y0 !== action.y1) {
     const p = normalizePiece({
@@ -1340,7 +1404,7 @@ function drawCornerMarkers(layer) {
 // Double-click with the select tool picks the whole stroke.
 board.addEventListener("dblclick", (evt) => {
   if (tool === "nodes") { nodeDoubleClick(evt); return; }
-  if (tool === "piece" && polyDraft) { finishPoly(); return; }
+  if (tool === "poly" && polyDraft) { finishPoly(); return; }
   if (tool !== "select") return;
   const k = cellAt(evt);
   if (!k) return;
@@ -1413,17 +1477,13 @@ $("nodeToggle").addEventListener("click", () => {
   }
   render();
 });
-const PIECE_HINTS = {
-  drag: "Arrastra de un punto a otro · arrastra sus nodos para ajustarla",
-  poly: "Clic en los puntos de la grilla para unirlos · clic en el primero, doble clic o Enter para cerrar · Retroceso quita el último · Esc cancela · luego redondea sus vértices con Esquinas",
-};
-$("pieceShape").addEventListener("change", (e) => {
-  polyDraft = null;
-  $("pieceHint").textContent = PIECE_HINTS[e.target.value === "poly" ? "poly" : "drag"];
-  render(null);
-});
-$("pieceAdd").addEventListener("click", () => { pieceMode = "add"; syncToolbar(); if (polyDraft) render(null); });
-$("pieceCut").addEventListener("click", () => { pieceMode = "cut"; syncToolbar(); if (polyDraft) render(null); });
+$("toolPoly").addEventListener("click", () => setTool("poly"));
+$("polyAdd").addEventListener("click", () => { polyMode = "add"; syncPolyBar(); render(null); });
+$("polyCut").addEventListener("click", () => { polyMode = "cut"; syncPolyBar(); render(null); });
+$("polyClose").addEventListener("click", () => finishPoly());
+$("polyCancel").addEventListener("click", () => { polyDraft = null; render(null); });
+$("pieceAdd").addEventListener("click", () => { pieceMode = "add"; syncToolbar(); });
+$("pieceCut").addEventListener("click", () => { pieceMode = "cut"; syncToolbar(); });
 $("cornerRadius").addEventListener("input", (e) => {
   $("cornerRadiusOut").textContent = +e.target.value >= MAX_RADIUS ? "máx" : String(+e.target.value).replace(".5", "½").replace(/^0½/, "½");
 });
@@ -1460,7 +1520,7 @@ function syncToolbar() {
   const squares = glyphGrid(font, glyph()) === "squares";
   const nodesOnly = !!glyph().outline;
   for (const id of ["toolDraw", "toolSelect"]) $(id).disabled = nodesOnly;
-  if (nodesOnly && tool !== "nodes" && tool !== "corner") setTool("nodes");
+  if (nodesOnly && tool !== "nodes" && tool !== "corner" && tool !== "poly") setTool("nodes");
   $("toolCorner").disabled = !squares && !nodesOnly;
   $("toolPiece").disabled = !squares || nodesOnly;
   if (!squares && !nodesOnly && (tool === "corner" || tool === "piece")) setTool("draw");
@@ -1691,7 +1751,7 @@ window.addEventListener("keydown", (e) => {
   if (e.target.matches?.("input, select, textarea") || e.target.closest?.(".testbar")) return;
   const mod = e.metaKey || e.ctrlKey;
   const k = e.key.toLowerCase();
-  if (!mod && tool === "piece" && polyDraft && polyKey(k)) { e.preventDefault(); return; }
+  if (!mod && tool === "poly" && polyDraft && polyKey(k)) { e.preventDefault(); return; }
   if (mod) {
     if (k === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); }
     else if (k === "c" && tool === "nodes") { e.preventDefault(); copyNodes(); }
@@ -1735,6 +1795,7 @@ window.addEventListener("keydown", (e) => {
   else if (k === "v") setTool("select");
   else if (k === "e") setTool("corner");
   else if (k === "p") setTool("piece");
+  else if (k === "g") setTool("poly");
   else if (k === "a") setTool("nodes");
   else if (k === "r") transformShape(e.shiftKey ? "ccw" : "cw");
   else if (e.shiftKey && k === "h") transformShape("h");

@@ -138,6 +138,18 @@ grilla:
   esquina vecina, y en estilo contorno para que el trazo quepa. Respeta el
   espejo, y las letras compuestas (á, ñ…) heredan las esquinas de sus
   componentes.
+- **Polígono (G):** une puntos de la grilla para formar una figura, en
+  cualquier tipo de grilla. Haz clic en los puntos que quieres unir (con
+  **Shift**, medias celdas) y ciérrala con un clic en el primero, doble clic,
+  **Enter** o el botón **Cerrar figura**; **Retroceso** quita el último punto
+  y **Esc** o **Cancelar** la descarta. **Agregar** (por defecto) suma tinta y
+  **Recortar** la quita: por ejemplo, un bloque con dos cuñas recortadas que
+  llegan al borde forma una "S". Después, con **Esquinas**, se redondean sus
+  vértices (también las puntas de las cuñas).
+  - En la grilla de puntos la figura queda como una pieza, así que las celdas
+    se siguen dibujando y sus puntos se pueden arrastrar con la misma
+    herramienta. En la grilla de círculos (o en una letra con nodos) la figura
+    se suma al contorno de la letra, que pasa a editarse con nodos.
 - **Piezas (P)** (grilla de puntos): piezas geométricas que **agregan** o
   **recortan** tinta encima de las celdas, para diagonales y curvas que la
   grilla sola no permite. Arrastra de un punto de la grilla a otro: la pieza
@@ -149,13 +161,6 @@ grilla:
   - **Esquina curva:** lo que queda entre esa esquina y un cuarto de elipse;
     recortado redondea una esquina con radios distintos en alto y ancho, por
     ejemplo el brazo de una "K" que baja curvo hasta tocar el asta.
-  - **Polígono (unir puntos):** en vez de arrastrar, haz clic en los puntos
-    de la grilla que quieres unir (con **Shift**, medias celdas). Se cierra
-    haciendo clic otra vez en el primer punto, con doble clic o con **Enter**;
-    **Retroceso** quita el último punto y **Esc** lo cancela. Sirve para
-    cuñas y diagonales libres: por ejemplo, un bloque lleno con dos cuñas
-    recortadas que llegan al borde forma una "S". Después, con **Esquinas**,
-    se redondean sus vértices (también las puntas de las cuñas).
   - En una letra con piezas, el redondeo (global y de la herramienta
     **Esquinas**) se aplica al final, sobre la forma ya recortada: las
     esquinas que crean las diagonales también se pueden redondear, y los

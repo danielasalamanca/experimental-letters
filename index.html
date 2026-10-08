@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
   <link rel="preload" href="fonts/Letritas-Regular.otf" as="font" type="font/otf" crossorigin>
-  <link rel="stylesheet" href="style.css?v=30">
+  <link rel="stylesheet" href="style.css?v=32">
 </head>
 <body>
   <header class="topbar">
@@ -52,6 +52,7 @@
           <button id="toolNodes" type="button" class="tool" title="Nodos (A): mueve los puntos de la letra como en Illustrator"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19C8 9 16 15 19 5"/><rect x="3" y="17" width="4" height="4" rx=".6"/><rect x="17" y="3" width="4" height="4" rx=".6"/></svg><span>Nodos</span></button>
           <button id="toolCorner" type="button" class="tool" title="Esquinas (E): clic en una esquina para redondearla, o arrástrala; Shift + clic la deja en punta"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V12a7 7 0 0 1 7-7h7"/><circle cx="12" cy="5" r="1.4"/><circle cx="5" cy="12" r="1.4"/></svg><span>Esquinas</span></button>
           <button id="toolPiece" type="button" class="tool" title="Piezas (P): arrastra de un punto a otro para agregar o recortar triángulos y curvas"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h14L5 5z"/></svg><span>Piezas</span></button>
+          <button id="toolPoly" type="button" class="tool" title="Polígono (G): haz clic en puntos de la grilla para unirlos y formar una figura; luego redondea sus vértices con Esquinas"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18L8 5l11 5-4 9z"/><circle cx="5" cy="18" r="1.6" fill="currentColor"/><circle cx="8" cy="5" r="1.6" fill="currentColor"/><circle cx="19" cy="10" r="1.6" fill="currentColor"/><circle cx="15" cy="19" r="1.6" fill="currentColor"/></svg><span>Polígono</span></button>
         </div>
         <div class="view-tools">
           <button id="mirrorH" type="button" class="icon-btn" title="Simetría al dibujar: lo que dibujas se repite a la izquierda y a la derecha" aria-label="Simetría izquierda–derecha al dibujar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16" stroke-dasharray="2 2.5"/><path d="M9 8L4 12l5 4z"/><path d="M15 8l5 4-5 4z"/></svg></button>
@@ -97,20 +98,28 @@
           </label>
           <span class="hint-inline">Clic en una esquina para redondearla · arrástrala para elegir el radio · Shift + clic: en punta</span>
         </div>
+        <div class="tool-group" id="polyGroup" hidden>
+          <span class="segmented" role="group" aria-label="Agregar o recortar">
+            <button id="polyAdd" type="button" class="chip" title="La figura agrega tinta">Agregar</button>
+            <button id="polyCut" type="button" class="chip" title="La figura recorta tinta">Recortar</button>
+          </span>
+          <button id="polyClose" type="button" class="chip" title="Cierra la figura (Enter, o clic en el primer punto)">✓ Cerrar figura</button>
+          <button id="polyCancel" type="button" class="chip" title="Descarta la figura (Esc)">Cancelar</button>
+          <span class="hint-inline" id="polyHint"></span>
+        </div>
         <div class="tool-group" id="pieceGroup">
           <span id="pieceBox" class="piece-box">
             <select id="pieceShape" aria-label="Forma de la pieza">
               <option value="tri">◣ Triángulo</option>
               <option value="quarter">◔ Cuarto de elipse</option>
               <option value="spandrel">◜ Esquina curva</option>
-              <option value="poly">⬠ Polígono (unir puntos)</option>
             </select>
             <span class="segmented" role="group" aria-label="Agregar o recortar">
               <button id="pieceAdd" type="button" class="chip" title="La pieza agrega tinta">Agregar</button>
               <button id="pieceCut" type="button" class="chip" title="La pieza recorta tinta">Recortar</button>
             </span>
           </span>
-          <span class="hint-inline" id="pieceHint">Arrastra de un punto a otro · arrastra sus nodos para ajustarla</span>
+          <span class="hint-inline">Arrastra de un punto a otro · arrastra sus nodos para ajustarla</span>
         </div>
       </div>
 
@@ -338,7 +347,7 @@
       </ol>
       <h4>Atajos</h4>
       <dl class="shortcuts">
-        <dt>B · V · A · E · P</dt><dd>Dibujar · Seleccionar · Nodos · Esquinas · Piezas</dd>
+        <dt>B · V · A · E · P · G</dt><dd>Dibujar · Seleccionar · Nodos · Esquinas · Piezas · Polígono</dd>
         <dt>R · Shift + R</dt><dd>Girar 90° a la derecha · a la izquierda (lo seleccionado o toda la letra)</dd>
         <dt>Shift + H · Shift + V</dt><dd>Espejar izquierda–derecha · arriba–abajo</dd>
         <dt>L · T</dt><dd>Mostrar u ocultar el panel de letras · la prueba de texto</dd>
@@ -395,22 +404,22 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=30",
-        "./js/geometry.js": "./js/geometry.js?v=30",
-        "./js/model.js": "./js/model.js?v=30",
-        "./js/render.js": "./js/render.js?v=30",
-        "./js/tools.js": "./js/tools.js?v=30",
-        "./js/library.js": "./js/library.js?v=30",
-        "./js/pieces.js": "./js/pieces.js?v=30",
-        "./js/nodes.js": "./js/nodes.js?v=30",
-        "./js/shapes.js": "./js/shapes.js?v=30",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=30",
-        "./js/outline.js": "./js/outline.js?v=30",
-        "./js/otf.js": "./js/otf.js?v=30",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=30"
+        "./js/charset.js": "./js/charset.js?v=32",
+        "./js/geometry.js": "./js/geometry.js?v=32",
+        "./js/model.js": "./js/model.js?v=32",
+        "./js/render.js": "./js/render.js?v=32",
+        "./js/tools.js": "./js/tools.js?v=32",
+        "./js/library.js": "./js/library.js?v=32",
+        "./js/pieces.js": "./js/pieces.js?v=32",
+        "./js/nodes.js": "./js/nodes.js?v=32",
+        "./js/shapes.js": "./js/shapes.js?v=32",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=32",
+        "./js/outline.js": "./js/outline.js?v=32",
+        "./js/otf.js": "./js/otf.js?v=32",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=32"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=30"></script>
+  <script type="module" src="js/main.js?v=32"></script>
 </body>
 </html>

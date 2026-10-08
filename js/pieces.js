@@ -591,7 +591,7 @@ function unionPaths(paths) {
   c.AddPaths(paths, ClipperLib.PolyType.ptSubject, true);
   const out = new ClipperLib.Paths();
   c.Execute(ClipperLib.ClipType.ctUnion, out, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
-  return out;
+  return openTouchingHoles(out);
 }
 
 // Any contours with rounded corners on top (radius per corner key, plus
