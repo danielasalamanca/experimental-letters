@@ -310,6 +310,14 @@ label.row select { max-width: 160px; }
 label.check { display: flex; align-items: center; gap: 8px; }
 .swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; flex: none; }
 .swatch.sb { background: var(--sb); }
+.rows-editor { margin: 12px 0 4px; padding-top: 10px; border-top: 1px solid var(--line); }
+.rows-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.rows-head strong { font-size: 12px; font-weight: 500; color: var(--muted); }
+.zone-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0; font-size: 13px; }
+.zone-row > span { display: flex; align-items: center; gap: 8px; }
+.stepper { display: flex; align-items: center; gap: 4px; }
+.stepper input { width: 46px; text-align: center; -moz-appearance: textfield; }
+.stepper input::-webkit-inner-spin-button, .stepper input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .info { margin: 6px 0 8px; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; }
 .buttons.three { grid-template-columns: repeat(3, 1fr); }

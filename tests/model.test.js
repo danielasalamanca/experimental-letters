@@ -166,3 +166,23 @@ test("accented capitals are composites with the accent at cap height", async () 
   delete old.glyphs["É"];
   assert.ok(normalizeFont(old).glyphs["É"]);
 });
+
+import { zoneRows, setZoneRows } from "../js/model.js";
+
+test("rows per zone: adding rows to a zone moves the lines above it", () => {
+  const m = { ascender: 15, capHeight: 14, xHeight: 9, descender: -5 };
+  assert.deepEqual(zoneRows(m), { top: 1, caps: 5, x: 9, desc: 5 });
+  assert.deepEqual(setZoneRows(m, "x", 11), { ascender: 17, capHeight: 16, xHeight: 11, descender: -5 });
+  assert.deepEqual(setZoneRows(m, "top", 3), { ascender: 17, capHeight: 14, xHeight: 9, descender: -5 });
+  assert.deepEqual(setZoneRows(m, "desc", 2), { ascender: 15, capHeight: 14, xHeight: 9, descender: -2 });
+  assert.deepEqual(setZoneRows(m, "caps", 0), { ascender: 10, capHeight: 9, xHeight: 9, descender: -5 });
+});
+
+test("rows per zone stay within limits", () => {
+  const m = { ascender: 15, capHeight: 14, xHeight: 9, descender: -5 };
+  assert.equal(setZoneRows(m, "x", 0).xHeight, 1);
+  assert.equal(setZoneRows(m, "desc", 0).descender, -1);
+  assert.equal(setZoneRows(m, "desc", 99).descender, -40);
+  assert.equal(setZoneRows(m, "top", 999).ascender, 60);
+  assert.equal(setZoneRows(m, "top", -3).ascender, 14);
+});

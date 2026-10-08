@@ -4,7 +4,7 @@ import { key, parseKey } from "./geometry.js";
 import {
   METRICS, createGlyph, normalizeFont, createBlankFont, defaultGlyph, setMetric, sameMetrics,
   GRIDS, glyphGrid, shapeKey, hasOwnShape, resolvedCorners, resolvedPieces, resolvedOutline, glyphShape,
-  planFit, applyFit, advanceWidth, resolvedCells, canUseComponent, dependents,
+  planFit, applyFit, ROW_ZONES, zoneRows, setZoneRows, metricColor, advanceWidth, resolvedCells, canUseComponent, dependents,
   kerningValue, setKerning, layoutText,
 } from "./model.js";
 import { GROUPS, CHARSET, glyphName, fileName, codepoint } from "./charset.js";
@@ -1854,7 +1854,41 @@ function buildMetricInputs() {
   }
 }
 
+// Rows per zone (Grilla panel): − / number / + for each zone.
+const ZONE_COLORS = { top: "ascender", caps: "capHeight", x: "xHeight", desc: "descender" };
+
+function buildRowInputs() {
+  const box = $("rowZones");
+  for (const def of ROW_ZONES) {
+    const row = document.createElement("div");
+    row.className = "zone-row";
+    row.innerHTML =
+      `<span><i class="swatch" style="background:${metricColor(ZONE_COLORS[def.key])}"></i>${def.name}</span>` +
+      `<span class="stepper"><button type="button" class="icon-btn small" data-d="-1" aria-label="Quitar una fila">−</button>` +
+      `<input type="number" id="rows-${def.key}" min="${def.min}" step="1" aria-label="${def.name} (filas)">` +
+      `<button type="button" class="icon-btn small" data-d="1" aria-label="Agregar una fila">+</button></span>`;
+    const input = row.querySelector("input");
+    const apply = (rows) => {
+      const next = setZoneRows(font.metrics, def.key, rows);
+      const changed = Object.keys(next).some((k) => next[k] !== font.metrics[k]);
+      if (changed) {
+        checkpoint(`rows-${def.key}`);
+        font.metrics = next;
+        render("font");
+      }
+      syncMetricInputs();
+    };
+    input.addEventListener("change", () => apply(+input.value));
+    row.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => apply(zoneRows(font.metrics)[def.key] + +b.dataset.d)));
+    box.appendChild(row);
+  }
+}
+
 function syncMetricInputs() {
+  const z = zoneRows(font.metrics);
+  for (const def of ROW_ZONES) $(`rows-${def.key}`).value = z[def.key];
+  const total = font.metrics.ascender - font.metrics.descender;
+  $("rowsTotal").textContent = `${total} en total`;
   for (const def of METRICS) {
     if (def.key === "baseline") continue;
     const input = $(`m-${def.key}`);
@@ -1927,6 +1961,8 @@ function updateInfo() {
   $("fitInfo").textContent = plan.pending.length === 0
     ? "Todos los glifos están dibujados con las métricas actuales."
     : `${plan.pending.length} glifo(s) dibujados con métricas anteriores.`;
+  $("rowsFit").hidden = $("rowsFitInfo").hidden = plan.affected === 0;
+  $("rowsFitInfo").textContent = `${plan.affected} letra(s) quedaron con las filas anteriores. Ajustarlas inserta o quita filas en sus dibujos.`;
   $("undo").disabled = undoStack.length === 0;
   $("redo").disabled = redoStack.length === 0;
 }
@@ -2029,6 +2065,7 @@ $("save").addEventListener("click", () => {
   persist();
 });
 
+$("rowsFit").addEventListener("click", () => $("fit").click());
 $("fit").addEventListener("click", () => {
   const plan = planFit(font);
   if (plan.affected === 0) {
@@ -2493,6 +2530,7 @@ $("png").addEventListener("click", () => {
 $("exportTarget").addEventListener("change", (e) => { $("exportGrid").disabled = e.target.value === "text"; });
 
 buildMetricInputs();
+buildRowInputs();
 buildToolbar();
 setTool("draw");
 refreshAll();

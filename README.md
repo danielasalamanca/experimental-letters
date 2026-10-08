@@ -221,6 +221,12 @@ grilla:
   valor en el panel "Métricas". Siempre quedan ancladas a filas enteras.
 - Son globales para toda la fuente. Mover una guía **no** cambia los dibujos:
   solo la referencia.
+- **Filas de la grilla:** en el panel "Grilla" se elige cuántas filas tiene
+  cada zona (sobre las mayúsculas, de la x a las mayúsculas, altura de x y
+  bajo la línea base) con − y +, y se ve el total. Agregar o quitar filas en
+  una zona mueve las líneas que están encima. Si quedan letras dibujadas con
+  las filas anteriores, aparece **Ajustar letras a las filas**, que hace lo
+  mismo que el botón de abajo.
 - **Ajustar glifos a métricas:** adapta los dibujos a las métricas nuevas sin
   escalarlos. En cada zona que cambió inserta o quita filas enteras (como en
   una planilla), duplicando o quitando primero las filas que repiten a su

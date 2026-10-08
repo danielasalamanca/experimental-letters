@@ -317,6 +317,37 @@ export function setMetric(metrics, name, rows) {
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
+// --- Rows per zone ---
+// The grid's height as rows in each zone between metric lines, from the top:
+// above the capitals, between x-height and capitals, the x-height and below
+// the baseline. Changing a zone inserts or removes rows there, so the lines
+// above it move with it.
+export const ROW_ZONES = [
+  { key: "top", name: "Sobre las mayúsculas", min: 0 },
+  { key: "caps", name: "De la x a las mayúsculas", min: 0 },
+  { key: "x", name: "Altura de x", min: 1 },
+  { key: "desc", name: "Bajo la línea base", min: 1 },
+];
+
+export const zoneRows = (m) => ({
+  top: m.ascender - m.capHeight,
+  caps: m.capHeight - m.xHeight,
+  x: m.xHeight,
+  desc: -m.descender,
+});
+
+export function setZoneRows(metrics, zone, rows) {
+  const z = zoneRows(metrics);
+  const def = ROW_ZONES.find((d) => d.key === zone);
+  if (!def) return { ...metrics };
+  // Same limits as setMetric: up to 60 rows above the baseline, 40 below.
+  const above = z.top + z.caps + z.x;
+  const max = zone === "desc" ? 40 : 60 - (above - z[zone]);
+  z[zone] = clamp(Math.round(rows), def.min, max);
+  const xHeight = z.x, capHeight = xHeight + z.caps, ascender = capHeight + z.top;
+  return { ...metrics, descender: -z.desc, xHeight, capHeight, ascender };
+}
+
 // --- "Ajustar glifos a métricas" ---
 // Moves a drawing from one set of metrics to another without scaling:
 // each zone between two metric lines gains or loses whole rows, like
