@@ -129,6 +129,11 @@
           <button id="mirrorV" type="button" class="icon-btn" title="Simetría al dibujar: lo que dibujas se repite arriba y abajo" aria-label="Simetría arriba–abajo al dibujar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16" stroke-dasharray="2 2.5"/><path d="M8 9l4-5 4 5z"/><path d="M8 15l4 5 4-5z"/></svg></button>
           <select id="mirrorAxis" title="Eje de la simetría arriba–abajo" aria-label="Eje de la simetría arriba–abajo"></select>
           <label class="inline" title="Muestra otra letra detrás, en transparencia">Fondo <select id="background" aria-label="Glifo de fondo"></select></label>
+          <label class="inline" title="Muestra la letra en gris, en una fuente del sistema, como referencia para empezar a dibujarla">Guía <select id="placeholder" aria-label="Letra guía">
+            <option value="empty">Si está vacía</option>
+            <option value="always">Siempre</option>
+            <option value="off">Nunca</option>
+          </select></label>
           <span class="zoom">
             <button id="zoomOut" type="button" class="icon-btn small" title="Alejar (−)" aria-label="Alejar">−</button>
             <output id="zoomLevel" title="Zoom">100%</output>

@@ -133,6 +133,7 @@ function render(scope = "glyph") {
     bounds: frozenBounds,
     // On the bold master the Regular shows behind, as a reference.
     background: master === "bold" ? font.glyphs[font.active] : bgChar && bgChar !== font.active ? font.glyphs[bgChar] : null,
+    placeholder: placeholderChar(),
     preview: spaceDown,
   });
   const vb = board.viewBox.baseVal;
@@ -147,6 +148,18 @@ function render(scope = "glyph") {
   if (master === "bold") syncBoldBar();
   scheduleWeights();
   persist();
+}
+
+// Character shown as the gray reference letter, or null.
+function placeholderChar() {
+  const mode = font.view.placeholder;
+  const char = font.active;
+  if (mode === "off" || !char.trim()) return null;
+  if (mode === "empty") {
+    const g = font.glyphs[char];
+    if (resolvedCells(font, g).length || resolvedOutline(font, g).length) return null;
+  }
+  return char;
 }
 
 function refreshAll() {
@@ -1560,6 +1573,10 @@ $("background").addEventListener("change", (e) => {
   font.view.background = e.target.value;
   render(null);
 });
+$("placeholder").addEventListener("change", (e) => {
+  font.view.placeholder = e.target.value;
+  render(null);
+});
 
 function buildToolbar() {
   for (const [value, name] of Object.entries(GRIDS)) $("newFontGrid").appendChild(new Option(name, value));
@@ -1596,6 +1613,7 @@ function syncToolbar() {
   $("mirrorAxis").value = font.view.mirrorAxis;
   $("mirrorAxis").disabled = !font.view.mirrorV;
   $("background").value = font.view.background;
+  $("placeholder").value = font.view.placeholder;
 }
 
 function charLabel(char) {

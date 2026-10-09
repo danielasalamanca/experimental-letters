@@ -120,6 +120,9 @@ export function createFont() {
     view: {
       ink: DEFAULT_INK, paper: DEFAULT_PAPER, guides: true, metrics: true,
       mirrorH: false, mirrorV: false, mirrorAxis: "auto", background: "",
+      // Reference letter in a system font behind the glyph, like Glyphs:
+      // "empty" = only while the glyph is empty, "always", or "off".
+      placeholder: "empty",
       gridOpacity: 1,
       test: { text: "hamburgefonstiv", size: 72, inverted: false },
     },
