@@ -181,8 +181,8 @@ grilla:
   (por ejemplo, la "n" detrás de la "m").
 - **Guía:** como en Glyphs, muestra la letra en gris con una fuente del
   sistema, para tener una referencia al empezar. Las mayúsculas llegan a la
-  altura de mayúsculas y las minúsculas a la altura x; si es más ancha que la
-  grilla se angosta para caber. Por defecto aparece solo **si la letra está
+  altura de mayúsculas y las minúsculas a la altura x, siempre con sus
+  proporciones, aunque sea más ancha que la grilla. Por defecto aparece solo **si la letra está
   vacía** y desaparece al dibujar; también puede ser **Siempre** o **Nunca**.
 - **Ver solo la letra:** mientras mantienes apretada la **barra
   espaciadora**, el lienzo muestra solo la letra, sin grilla, métricas,

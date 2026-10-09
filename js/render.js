@@ -201,32 +201,23 @@ export function drawGlyph(svg, font, glyph, opts = {}) {
 
 // Reference letter: the character in a system font, scaled so its capitals
 // reach the cap height (lowercase: the x-height) and centered on the grid.
-// If it is wider than the grid it is narrowed to fit, since nothing can be
-// drawn outside the grid.
+// It always keeps its proportions, even if it is wider than the grid.
 const PLACEHOLDER_FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif';
 const PLACEHOLDER_COLOR = "#000";
 let placeholderRatios = null;
-let measureCtx = null;
-
-function placeholderContext() {
-  if (measureCtx === null) {
-    try {
-      measureCtx = document.createElement("canvas").getContext("2d");
-      measureCtx.font = `100px ${PLACEHOLDER_FONT}`;
-    } catch { measureCtx = false; }
-  }
-  return measureCtx;
-}
 
 // Height of "H" and "x" as a fraction of the font size.
 function placeholderRatio(lower) {
   if (!placeholderRatios) {
     placeholderRatios = { H: 0.72, x: 0.52 };
-    const ctx = placeholderContext();
-    for (const ch of ctx ? ["H", "x"] : []) {
-      const a = ctx.measureText(ch).actualBoundingBoxAscent;
-      if (a > 0) placeholderRatios[ch] = a / 100;
-    }
+    try {
+      const ctx = document.createElement("canvas").getContext("2d");
+      ctx.font = `100px ${PLACEHOLDER_FONT}`;
+      for (const ch of ["H", "x"]) {
+        const a = ctx.measureText(ch).actualBoundingBoxAscent;
+        if (a > 0) placeholderRatios[ch] = a / 100;
+      }
+    } catch { /* keep the defaults */ }
   }
   return placeholderRatios[lower ? "x" : "H"];
 }
@@ -240,12 +231,6 @@ function placeholderLetter(char, m, cols, cu) {
     fill: PLACEHOLDER_COLOR, opacity: 0.13, "pointer-events": "none",
   });
   t.textContent = char;
-  const ctx = placeholderContext();
-  const width = ctx ? (ctx.measureText(char).width * size) / 100 : 0;
-  if (width > cols * cu) {
-    t.setAttribute("textLength", cols * cu);
-    t.setAttribute("lengthAdjust", "spacingAndGlyphs");
-  }
   return t;
 }
 
