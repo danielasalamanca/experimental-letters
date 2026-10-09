@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
   <link rel="preload" href="fonts/Letritas-Regular.otf" as="font" type="font/otf" crossorigin>
-  <link rel="stylesheet" href="style.css?v=36">
+  <link rel="stylesheet" href="style.css?v=38">
 </head>
 <body>
   <header class="topbar">
@@ -61,7 +61,70 @@
             <button id="masterBold" type="button" class="chip" title="Ajusta el máster grueso con Nodos (M alterna)">ExtraBold</button>
           </span>
         </div>
-        <div class="view-tools">
+      </div>
+
+      <div class="work">
+      <div class="context-bar" role="toolbar" aria-orientation="vertical" aria-label="Opciones de la herramienta">
+        <div class="tool-group" id="boldGroup" hidden>
+          <span id="boldStatus" class="bold-status wide-cell"></span>
+          <label class="field wide-cell" title="Engrosar: cuánto se engrosa el Regular para crear el máster grueso automático, en unidades por lado"><span>Engrosar</span><input type="number" class="thicken" min="1" max="400" step="1" aria-label="Engrosar, en unidades por lado"></label>
+          <button id="boldGrid" type="button" class="icon-btn" title="Dibujar en la grilla: copia el dibujo del Regular (celdas, esquinas, piezas) para redibujarlo con más columnas, trazos más gruesos" aria-label="Dibujar en la grilla"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/></svg></button>
+          <button id="boldRegen" type="button" class="icon-btn" title="Engrosar automático: vuelve a crear el máster grueso de esta letra engrosando el Regular" aria-label="Engrosar automático"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 9a8 8 0 1 0-1 7"/><path d="M19 4v5h-5"/><rect x="10" y="9" width="4" height="6" fill="currentColor"/></svg></button>
+        </div>
+        <div class="tool-group" id="transformGroup" hidden>
+          <button id="rotCcw" type="button" class="icon-btn" title="Girar 90° a la izquierda (Shift + R). Sin selección, toda la letra." aria-label="Girar 90° a la izquierda"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9a8 8 0 1 1 1 7"/><path d="M5 4v5h5"/></svg></button>
+          <button id="rotCw" type="button" class="icon-btn" title="Girar 90° a la derecha (R). Sin selección, toda la letra." aria-label="Girar 90° a la derecha"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 9a8 8 0 1 0-1 7"/><path d="M19 4v5h-5"/></svg></button>
+          <button id="flipH" type="button" class="icon-btn" title="Espejar izquierda–derecha (Shift + H)" aria-label="Espejar izquierda–derecha"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18" stroke-dasharray="2 2.5"/><path d="M9 7L3 17h6z"/><path d="M15 7l6 10h-6z"/></svg></button>
+          <button id="flipV" type="button" class="icon-btn" title="Espejar arriba–abajo (Shift + V)" aria-label="Espejar arriba–abajo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18" stroke-dasharray="2 2.5"/><path d="M7 9L17 3v6z"/><path d="M7 15l10 6v-6z"/></svg></button>
+        </div>
+        <div class="tool-group" id="nodeGroup">
+          <button id="nodeAdd" type="button" class="icon-btn" title="Agregar nodo: con este botón activo, clic sobre el borde de la letra agrega un punto (también: doble clic sobre el borde)" aria-label="Agregar nodo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18C7 10 11 9 14 9"/><rect x="2.5" y="16.5" width="3.5" height="3.5" rx=".5"/><path d="M18 5v8M14 9h8"/></svg></button>
+          <button id="nodeRemove" type="button" class="icon-btn" title="Quitar nodo: quita los puntos elegidos (Supr)" aria-label="Quitar nodo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18C7 10 11 9 14 9"/><rect x="2.5" y="16.5" width="3.5" height="3.5" rx=".5"/><path d="M14 9h8"/></svg></button>
+          <button id="nodeToggle" type="button" class="icon-btn" title="Esquina ↔ Curva: cambia los puntos elegidos (también: doble clic en el punto)" aria-label="Esquina o curva"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18l5-11 4 11"/><path d="M12 18c1-8 8-8 9 0"/></svg></button>
+          <button id="shapeRect" type="button" class="icon-btn" title="Rectángulo: dibújalo arrastrando (Shift: cuadrado). Queda encima, listo para el buscatrazos" aria-label="Rectángulo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="16" height="12" rx="1"/></svg></button>
+          <button id="shapeEllipse" type="button" class="icon-btn" title="Elipse: dibújala arrastrando (Shift: círculo). Queda encima, listo para el buscatrazos" aria-label="Elipse"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="12" rx="8.5" ry="6.5"/></svg></button>
+        </div>
+        <div class="tool-group" id="pathfinderGroup" role="group" aria-label="Buscatrazos" title="Buscatrazos: combina las formas elegidas. Con una sola forma elegida la combina con todas las demás; sin selección, todas.">
+          <button id="pfUnite" type="button" class="icon-btn" title="Unir: junta las formas en una" aria-label="Unir"><svg class="ico pf" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M3 3h11v6h7v12H10v-6H3z"/></svg></button>
+          <button id="pfMinus" type="button" class="icon-btn" title="Restar frente: la forma de arriba recorta a las de abajo" aria-label="Restar frente"><svg class="ico pf" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M3 3h11v6h-4v6H3z"/><rect x="10" y="9" width="11" height="12" stroke-dasharray="2 2"/></svg></button>
+          <button id="pfIntersect" type="button" class="icon-btn" title="Intersecar: deja solo lo que tienen en común" aria-label="Intersecar"><svg class="ico pf" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="11" height="12"/><rect x="10" y="9" width="11" height="12"/><rect class="fill" x="10" y="9" width="4" height="6"/></svg></button>
+          <button id="pfExclude" type="button" class="icon-btn" title="Excluir: quita las partes donde se superponen" aria-label="Excluir"><svg class="ico pf" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" fill-rule="evenodd" d="M3 3h11v12H3zM10 9h11v12H10z"/><rect x="10" y="9" width="4" height="6" fill="var(--pink-soft)"/></svg></button>
+        </div>
+        <div class="tool-group" id="cornerGroup">
+          <label id="cornerRadiusBox" class="corner-radius wide-cell" title="Radio al hacer clic en una esquina, en celdas. Al máximo, cada esquina se redondea todo lo que la forma permite.">
+            <span>Radio</span>
+            <output id="cornerRadiusOut">máx</output>
+            <input type="range" id="cornerRadius" min="0.5" max="12" step="0.5" value="12" aria-label="Radio">
+          </label>
+        </div>
+        <div class="tool-group" id="polyGroup" hidden>
+          <button id="polyAdd" type="button" class="icon-btn" title="Agregar: la figura agrega tinta" aria-label="Agregar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+          <button id="polyCut" type="button" class="icon-btn" title="Recortar: la figura recorta tinta" aria-label="Recortar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="7" r="2.5"/><circle cx="6" cy="17" r="2.5"/><path d="M8 8.5L20 17M8 15.5L20 7"/></svg></button>
+          <button id="polyClose" type="button" class="icon-btn" title="Cerrar figura (Enter, o clic en el primer punto)" aria-label="Cerrar figura"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg></button>
+          <button id="polyCancel" type="button" class="icon-btn" title="Cancelar: descarta la figura (Esc)" aria-label="Cancelar figura"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        </div>
+        <div class="tool-group" id="pieceGroup">
+          <input type="hidden" id="pieceShape" value="tri">
+          <button type="button" class="icon-btn piece-shape" data-shape="tri" title="Triángulo" aria-label="Triángulo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h14L5 5z" fill="currentColor" fill-opacity=".35"/></svg></button>
+          <button type="button" class="icon-btn piece-shape" data-shape="quarter" title="Cuarto de elipse" aria-label="Cuarto de elipse"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V5a14 14 0 0 1 14 14z" fill="currentColor" fill-opacity=".35"/></svg></button>
+          <button type="button" class="icon-btn piece-shape" data-shape="spandrel" title="Esquina curva" aria-label="Esquina curva"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V5h14A14 14 0 0 0 5 19z" fill="currentColor" fill-opacity=".35"/></svg></button>
+          <span class="grid-gap" aria-hidden="true"></span>
+          <button id="pieceAdd" type="button" class="icon-btn" title="Agregar: la pieza agrega tinta" aria-label="Agregar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+          <button id="pieceCut" type="button" class="icon-btn" title="Recortar: la pieza recorta tinta" aria-label="Recortar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="7" r="2.5"/><circle cx="6" cy="17" r="2.5"/><path d="M8 8.5L20 17M8 15.5L20 7"/></svg></button>
+        </div>
+      </div>
+
+      <div class="board-card">
+        <div class="board-wrap">
+          <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+        <div class="board-hints" aria-live="polite">
+          <span class="hint-inline" id="boldHint"></span>
+          <span class="hint-inline" id="polyHint"></span>
+          <span class="hint-inline" id="cornerHint">Clic en una esquina para redondearla · arrástrala para elegir el radio · Shift + clic: en punta</span>
+          <span class="hint-inline" id="pieceHint">Arrastra de un punto a otro · arrastra sus nodos para ajustarla</span>
+        </div>
+        <div class="view-tools" role="toolbar" aria-label="Vista">
           <button id="mirrorH" type="button" class="icon-btn" title="Simetría al dibujar: lo que dibujas se repite a la izquierda y a la derecha" aria-label="Simetría izquierda–derecha al dibujar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16" stroke-dasharray="2 2.5"/><path d="M9 8L4 12l5 4z"/><path d="M15 8l5 4-5 4z"/></svg></button>
           <button id="mirrorV" type="button" class="icon-btn" title="Simetría al dibujar: lo que dibujas se repite arriba y abajo" aria-label="Simetría arriba–abajo al dibujar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16" stroke-dasharray="2 2.5"/><path d="M8 9l4-5 4 5z"/><path d="M8 15l4 5 4-5z"/></svg></button>
           <select id="mirrorAxis" title="Eje de la simetría arriba–abajo" aria-label="Eje de la simetría arriba–abajo"></select>
@@ -73,81 +136,13 @@
             <button id="zoomFit" type="button" class="ghost small" title="Ajustar a la ventana (0)">Ajustar</button>
           </span>
         </div>
-      </div>
-
-      <div class="context-bar">
-        <div class="tool-group" id="boldGroup" hidden>
-          <span class="group-label">Máster <span class="bold-name">ExtraBold</span></span>
-          <span id="boldStatus" class="bold-status"></span>
-          <label class="inline" title="Cuánto se engrosa el Regular para crear el máster grueso automático, en unidades por lado">Engrosar <input type="number" class="thicken" min="1" max="400" step="1"> u</label>
-          <button id="boldGrid" type="button" class="chip" title="Copia el dibujo del Regular (celdas, esquinas, piezas) para redibujarlo en la grilla: más columnas, trazos más gruesos">▦ Dibujar en la grilla</button>
-          <button id="boldRegen" type="button" class="chip" title="Vuelve a crear el máster grueso de esta letra engrosando el Regular">Engrosar automático</button>
-          <span class="hint-inline" id="boldHint"></span>
-        </div>
-        <div class="tool-group" id="transformGroup" hidden>
-          <span class="group-label" title="Gira o espeja lo seleccionado, con sus esquinas y piezas. Sin selección, toda la letra.">Transformar</span>
-          <button id="rotCcw" type="button" class="icon-btn" title="Girar 90° a la izquierda (Shift + R)" aria-label="Girar 90° a la izquierda"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9a8 8 0 1 1 1 7"/><path d="M5 4v5h5"/></svg></button>
-          <button id="rotCw" type="button" class="icon-btn" title="Girar 90° a la derecha (R)" aria-label="Girar 90° a la derecha"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 9a8 8 0 1 0-1 7"/><path d="M19 4v5h-5"/></svg></button>
-          <button id="flipH" type="button" class="icon-btn" title="Espejar izquierda–derecha (Shift + H)" aria-label="Espejar izquierda–derecha"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18" stroke-dasharray="2 2.5"/><path d="M9 7L3 17h6z"/><path d="M15 7l6 10h-6z"/></svg></button>
-          <button id="flipV" type="button" class="icon-btn" title="Espejar arriba–abajo (Shift + V)" aria-label="Espejar arriba–abajo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18" stroke-dasharray="2 2.5"/><path d="M7 9L17 3v6z"/><path d="M7 15l10 6v-6z"/></svg></button>
-        </div>
-        <div class="tool-group" id="nodeGroup">
-          <button id="nodeAdd" type="button" class="chip" title="Con este botón activo, clic sobre el borde de la letra agrega un punto (también: doble clic sobre el borde)">＋ Agregar nodo</button>
-          <button id="nodeRemove" type="button" class="chip" title="Quita los puntos elegidos (Supr)">− Quitar nodo</button>
-          <button id="nodeToggle" type="button" class="chip" title="Cambia los puntos elegidos entre esquina y curva (también: doble clic en el punto)">Esquina ↔ Curva</button>
-          <span class="divider"></span>
-          <button id="shapeRect" type="button" class="chip" title="Dibuja un rectángulo arrastrando (Shift: cuadrado). Queda encima, listo para el buscatrazos">▭ Rectángulo</button>
-          <button id="shapeEllipse" type="button" class="chip" title="Dibuja una elipse arrastrando (Shift: círculo). Queda encima, listo para el buscatrazos">◯ Elipse</button>
-        </div>
-        <div class="tool-group" id="pathfinderGroup">
-          <span class="group-label" title="Combina las formas elegidas. Con una sola forma elegida —por ejemplo, la que acabas de dibujar— la combina con todas las demás, como la de más arriba. Sin selección, todas.">Buscatrazos</span>
-          <button id="pfUnite" type="button" class="chip" title="Unir: junta las formas en una">Unir</button>
-          <button id="pfMinus" type="button" class="chip" title="Restar frente: la forma de arriba recorta a las de abajo">Restar frente</button>
-          <button id="pfIntersect" type="button" class="chip" title="Intersecar: deja solo lo que tienen en común">Intersecar</button>
-          <button id="pfExclude" type="button" class="chip" title="Excluir: quita las partes donde se superponen">Excluir</button>
-        </div>
-        <div class="tool-group" id="cornerGroup">
-          <label id="cornerRadiusBox" class="inline corner-radius" title="Radio al hacer clic en una esquina, en celdas. Al máximo, cada esquina se redondea todo lo que la forma permite.">
-            Radio <input type="range" id="cornerRadius" min="0.5" max="12" step="0.5" value="12">
-            <output id="cornerRadiusOut">máx</output>
-          </label>
-          <span class="hint-inline">Clic en una esquina para redondearla · arrástrala para elegir el radio · Shift + clic: en punta</span>
-        </div>
-        <div class="tool-group" id="polyGroup" hidden>
-          <span class="segmented" role="group" aria-label="Agregar o recortar">
-            <button id="polyAdd" type="button" class="chip" title="La figura agrega tinta">Agregar</button>
-            <button id="polyCut" type="button" class="chip" title="La figura recorta tinta">Recortar</button>
-          </span>
-          <button id="polyClose" type="button" class="chip" title="Cierra la figura (Enter, o clic en el primer punto)">✓ Cerrar figura</button>
-          <button id="polyCancel" type="button" class="chip" title="Descarta la figura (Esc)">Cancelar</button>
-          <span class="hint-inline" id="polyHint"></span>
-        </div>
-        <div class="tool-group" id="pieceGroup">
-          <span id="pieceBox" class="piece-box">
-            <select id="pieceShape" aria-label="Forma de la pieza">
-              <option value="tri">◣ Triángulo</option>
-              <option value="quarter">◔ Cuarto de elipse</option>
-              <option value="spandrel">◜ Esquina curva</option>
-            </select>
-            <span class="segmented" role="group" aria-label="Agregar o recortar">
-              <button id="pieceAdd" type="button" class="chip" title="La pieza agrega tinta">Agregar</button>
-              <button id="pieceCut" type="button" class="chip" title="La pieza recorta tinta">Recortar</button>
-            </span>
-          </span>
-          <span class="hint-inline">Arrastra de un punto a otro · arrastra sus nodos para ajustarla</span>
-        </div>
-      </div>
-
-      <div class="board-card">
-        <div class="board-wrap">
-          <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
-        </div>
         <div class="tip" id="tip" hidden>
           <strong>Para empezar</strong>
           <span>Elige una letra a la izquierda y haz clic o arrastra sobre la grilla para dibujarla. Mantén la barra espaciadora para verla sin guías.</span>
           <button id="tipClose" type="button" class="ghost small">Entendido</button>
         </div>
         <div id="toast" class="toast" role="status" hidden></div>
+      </div>
       </div>
     </main>
 
@@ -435,22 +430,22 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=36",
-        "./js/geometry.js": "./js/geometry.js?v=36",
-        "./js/model.js": "./js/model.js?v=36",
-        "./js/render.js": "./js/render.js?v=36",
-        "./js/tools.js": "./js/tools.js?v=36",
-        "./js/library.js": "./js/library.js?v=36",
-        "./js/pieces.js": "./js/pieces.js?v=36",
-        "./js/nodes.js": "./js/nodes.js?v=36",
-        "./js/shapes.js": "./js/shapes.js?v=36",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=36",
-        "./js/outline.js": "./js/outline.js?v=36",
-        "./js/otf.js": "./js/otf.js?v=36",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=36"
+        "./js/charset.js": "./js/charset.js?v=38",
+        "./js/geometry.js": "./js/geometry.js?v=38",
+        "./js/model.js": "./js/model.js?v=38",
+        "./js/render.js": "./js/render.js?v=38",
+        "./js/tools.js": "./js/tools.js?v=38",
+        "./js/library.js": "./js/library.js?v=38",
+        "./js/pieces.js": "./js/pieces.js?v=38",
+        "./js/nodes.js": "./js/nodes.js?v=38",
+        "./js/shapes.js": "./js/shapes.js?v=38",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=38",
+        "./js/outline.js": "./js/outline.js?v=38",
+        "./js/otf.js": "./js/otf.js?v=38",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=38"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=36"></script>
+  <script type="module" src="js/main.js?v=38"></script>
 </body>
 </html>

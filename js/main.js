@@ -364,6 +364,11 @@ function setTool(next) {
   $("cornerGroup").hidden = tool !== "corner";
   $("transformGroup").hidden = tool !== "select" && tool !== "nodes";
   $("boldGroup").hidden = master !== "bold";
+  // Hints float over the board instead of taking space in the bar.
+  $("boldHint").hidden = master !== "bold";
+  $("polyHint").hidden = tool !== "poly";
+  $("cornerHint").hidden = tool !== "corner";
+  $("pieceHint").hidden = tool !== "piece";
   board.dataset.tool = tool;
   render(null);
 }
@@ -1531,6 +1536,10 @@ $("polyCut").addEventListener("click", () => { polyMode = "cut"; syncPolyBar(); 
 $("polyClose").addEventListener("click", () => finishPoly());
 $("polyCancel").addEventListener("click", () => { polyDraft = null; render(null); });
 $("pieceAdd").addEventListener("click", () => { pieceMode = "add"; syncToolbar(); });
+document.querySelectorAll(".piece-shape").forEach((b) => b.addEventListener("click", () => {
+  $("pieceShape").value = b.dataset.shape;
+  syncToolbar();
+}));
 $("pieceCut").addEventListener("click", () => { pieceMode = "cut"; syncToolbar(); });
 $("cornerRadius").addEventListener("input", (e) => {
   $("cornerRadiusOut").textContent = +e.target.value >= MAX_RADIUS ? "máx" : String(+e.target.value).replace(".5", "½").replace(/^0½/, "½");
@@ -1579,6 +1588,7 @@ function syncToolbar() {
   document.querySelectorAll(".bold-name").forEach((n) => { n.textContent = boldName(); });
   $("pieceAdd").classList.toggle("active", pieceMode === "add");
   $("pieceCut").classList.toggle("active", pieceMode === "cut");
+  document.querySelectorAll(".piece-shape").forEach((b) => b.classList.toggle("active", b.dataset.shape === $("pieceShape").value));
   $("mirrorH").classList.toggle("active", font.view.mirrorH);
   $("mirrorV").classList.toggle("active", font.view.mirrorV);
   $("mirrorH").setAttribute("aria-pressed", font.view.mirrorH);
@@ -2625,15 +2635,18 @@ function syncBoldBar() {
     text = "✓ Compatible con el Regular";
     kind = "ok";
   }
-  status.textContent = text;
+  // The column is narrow: a short label, the full text on hover (and in the
+  // hint over the board when something is wrong).
+  status.textContent = { ok: "✓ Compatible", bad: "⚠ Revisar", auto: "Automático" }[kind];
+  status.title = text;
   status.className = `bold-status ${kind}`;
   $("boldRegen").hidden = $("boldGrid").hidden = pureComposite(g);
   const onGrid = g.bold && !g.bold.outline;
-  $("boldHint").textContent = pureComposite(g)
+  $("boldHint").textContent = (kind === "bad" ? `${text}. ` : "") + (pureComposite(g)
     ? "Edita las letras que la componen."
     : onGrid
       ? "Dibuja con cualquier herramienta y cambia el ancho en columnas. Para interpolar, necesita los mismos contornos y puntos que el Regular."
-      : "Ajusta los puntos con Nodos, o usa «Dibujar en la grilla» para redibujarlo con más columnas.";
+      : "Ajusta los puntos con Nodos, o usa «Dibujar en la grilla» para redibujarlo con más columnas.");
 }
 
 $("boldGrid").addEventListener("click", async () => {
