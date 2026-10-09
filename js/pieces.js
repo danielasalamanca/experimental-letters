@@ -6,6 +6,10 @@
 //   spandrel – the bit between `corner` and a quarter ellipse centred at the
 //              opposite corner (cutting it rounds a corner with any radii)
 //   poly     – any polygon joining grid points, kept in `points`
+//   ellipse  – the ellipse inscribed in the box (round dots and counters)
+//   pill     – a capsule: the box with its short ends fully round (slits
+//              and rounded strokes, like the counters of a bubbly display
+//              face); `corner` means nothing for these two
 // `corner` is "bl", "br", "tl" or "tr" (y up); `mode` is "add" or "cut".
 // Pieces apply in order on top of the drawn cells.
 //
@@ -17,7 +21,7 @@
 import ClipperLib from "./vendor/clipper.js";
 import { squareContours, MAX_RADIUS } from "./outline.js";
 
-export const PIECE_SHAPES = { tri: "Triángulo", quarter: "Cuarto de elipse", spandrel: "Esquina curva", poly: "Polígono" };
+export const PIECE_SHAPES = { tri: "Triángulo", quarter: "Cuarto de elipse", spandrel: "Esquina curva", ellipse: "Elipse", pill: "Cápsula", poly: "Polígono" };
 
 const SCALE = 1e5;          // Clipper works in integers: 1 cell = 100 000
 const STEP = 0.05;          // flattening step along curves, in cells
@@ -152,7 +156,32 @@ export function pieceContour(piece) {
     return [M(poly[0]), ...poly.slice(1).map(L), { type: "Z" }];
   }
   if (p.shape === "quarter") return [M(C), L(A), arc(C, A, B), { type: "Z" }];
+  if (p.shape === "ellipse" || p.shape === "pill") return roundBox(p, M, L, arc);
   return [M(C), L(A), arc(O, A, B), { type: "Z" }]; // spandrel
+}
+
+// An ellipse filling the box, or a capsule: the box with half circles on
+// its short sides (a circle when the box is square). Counter-clockwise from
+// the bottom, whatever the piece's corner, so turning one changes nothing.
+function roundBox({ x0, y0, x1, y1, shape }, M, L, arc) {
+  const w = x1 - x0, h = y1 - y0;
+  // Ellipse: radii are the half sizes; capsule: half the short side.
+  const r = shape === "pill" ? Math.min(w, h) / 2 : null;
+  const rx = r ?? w / 2, ry = r ?? h / 2;
+  // Centres of the four corner arcs and where their straight sides start.
+  const L0 = x0 + rx, R0 = x1 - rx, B0 = y0 + ry, T0 = y1 - ry;
+  const cmds = [M([L0, y0])];
+  const side = (from, to) => { if (Math.hypot(to[0] - from[0], to[1] - from[1]) > 1e-12) cmds.push(L(to)); };
+  side([L0, y0], [R0, y0]);
+  cmds.push(arc([R0, B0], [R0, y0], [x1, B0]));
+  side([x1, B0], [x1, T0]);
+  cmds.push(arc([R0, T0], [x1, T0], [R0, y1]));
+  side([R0, y1], [L0, y1]);
+  cmds.push(arc([L0, T0], [L0, y1], [x0, T0]));
+  side([x0, T0], [x0, B0]);
+  cmds.push(arc([L0, B0], [x0, B0], [L0, y0]));
+  cmds.push({ type: "Z" });
+  return cmds;
 }
 
 // Square-grid glyph: drawn cells plus pieces, as a filled shape or, with

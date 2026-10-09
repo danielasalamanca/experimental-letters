@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
   <link rel="preload" href="fonts/Letritas-Regular.otf" as="font" type="font/otf" crossorigin>
-  <link rel="stylesheet" href="style.css?v=38">
+  <link rel="stylesheet" href="style.css?v=39">
 </head>
 <body>
   <header class="topbar">
@@ -108,6 +108,8 @@
           <button type="button" class="icon-btn piece-shape" data-shape="tri" title="Triángulo" aria-label="Triángulo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h14L5 5z" fill="currentColor" fill-opacity=".35"/></svg></button>
           <button type="button" class="icon-btn piece-shape" data-shape="quarter" title="Cuarto de elipse" aria-label="Cuarto de elipse"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V5a14 14 0 0 1 14 14z" fill="currentColor" fill-opacity=".35"/></svg></button>
           <button type="button" class="icon-btn piece-shape" data-shape="spandrel" title="Esquina curva" aria-label="Esquina curva"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V5h14A14 14 0 0 0 5 19z" fill="currentColor" fill-opacity=".35"/></svg></button>
+          <button type="button" class="icon-btn piece-shape" data-shape="ellipse" title="Elipse: puntos y contraformas redondas" aria-label="Elipse"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="12" rx="7" ry="7" fill="currentColor" fill-opacity=".35"/></svg></button>
+          <button type="button" class="icon-btn piece-shape" data-shape="pill" title="Cápsula: ranuras y trazos de puntas redondas" aria-label="Cápsula"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="4" width="6" height="16" rx="3" fill="currentColor" fill-opacity=".35"/></svg></button>
           <span class="grid-gap" aria-hidden="true"></span>
           <button id="pieceAdd" type="button" class="icon-btn" title="Agregar: la pieza agrega tinta" aria-label="Agregar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
           <button id="pieceCut" type="button" class="icon-btn" title="Recortar: la pieza recorta tinta" aria-label="Recortar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="7" r="2.5"/><circle cx="6" cy="17" r="2.5"/><path d="M8 8.5L20 17M8 15.5L20 7"/></svg></button>
@@ -122,7 +124,7 @@
           <span class="hint-inline" id="boldHint"></span>
           <span class="hint-inline" id="polyHint"></span>
           <span class="hint-inline" id="cornerHint">Clic en una esquina para redondearla · arrástrala para elegir el radio · Shift + clic: en punta</span>
-          <span class="hint-inline" id="pieceHint">Arrastra de un punto a otro · arrastra sus nodos para ajustarla</span>
+          <span class="hint-inline" id="pieceHint">Arrastra de un punto a otro (Shift: medias celdas) · arrastra sus nodos para ajustarla</span>
         </div>
         <div class="view-tools" role="toolbar" aria-label="Vista">
           <button id="mirrorH" type="button" class="icon-btn" title="Simetría al dibujar: lo que dibujas se repite a la izquierda y a la derecha" aria-label="Simetría izquierda–derecha al dibujar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16" stroke-dasharray="2 2.5"/><path d="M9 8L4 12l5 4z"/><path d="M15 8l5 4-5 4z"/></svg></button>
@@ -435,22 +437,22 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=38",
-        "./js/geometry.js": "./js/geometry.js?v=38",
-        "./js/model.js": "./js/model.js?v=38",
-        "./js/render.js": "./js/render.js?v=38",
-        "./js/tools.js": "./js/tools.js?v=38",
-        "./js/library.js": "./js/library.js?v=38",
-        "./js/pieces.js": "./js/pieces.js?v=38",
-        "./js/nodes.js": "./js/nodes.js?v=38",
-        "./js/shapes.js": "./js/shapes.js?v=38",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=38",
-        "./js/outline.js": "./js/outline.js?v=38",
-        "./js/otf.js": "./js/otf.js?v=38",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=38"
+        "./js/charset.js": "./js/charset.js?v=39",
+        "./js/geometry.js": "./js/geometry.js?v=39",
+        "./js/model.js": "./js/model.js?v=39",
+        "./js/render.js": "./js/render.js?v=39",
+        "./js/tools.js": "./js/tools.js?v=39",
+        "./js/library.js": "./js/library.js?v=39",
+        "./js/pieces.js": "./js/pieces.js?v=39",
+        "./js/nodes.js": "./js/nodes.js?v=39",
+        "./js/shapes.js": "./js/shapes.js?v=39",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=39",
+        "./js/outline.js": "./js/outline.js?v=39",
+        "./js/otf.js": "./js/otf.js?v=39",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=39"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=38"></script>
+  <script type="module" src="js/main.js?v=39"></script>
 </body>
 </html>

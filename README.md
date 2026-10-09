@@ -161,6 +161,18 @@ grilla:
   - **Esquina curva:** lo que queda entre esa esquina y un cuarto de elipse;
     recortado redondea una esquina con radios distintos en alto y ancho, por
     ejemplo el brazo de una "K" que baja curvo hasta tocar el asta.
+  - **Elipse:** la elipse que llena el rectángulo (un círculo si es
+    cuadrado). Recortada, hace los puntos que reemplazan a las contraformas
+    en las letras gruesas y burbujeantes (una "O" o un "8" con un punto en
+    vez de ojo).
+  - **Cápsula:** el rectángulo con sus lados cortos en medio círculo.
+    Recortada, hace ranuras de puntas redondas (la contraforma angosta de
+    una "P", una "D" o una "U"); agregada, trazos de puntas redondas.
+  - Con **Shift** el arrastre se ajusta a medias celdas, para puntos y
+    ranuras más finos que una celda.
+  - Para letras como las de una tipografía display redonda: rellena un
+    bloque, redondea sus esquinas exteriores al máximo con **Esquinas** y
+    recorta puntos y ranuras con la Elipse y la Cápsula.
   - En una letra con piezas, el redondeo (global y de la herramienta
     **Esquinas**) se aplica al final, sobre la forma ya recortada: las
     esquinas que crean las diagonales también se pueden redondear, y los

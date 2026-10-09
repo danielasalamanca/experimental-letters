@@ -109,8 +109,10 @@ test("a flipped contour is reversed with its handles swapped", () => {
 });
 
 test("every piece shape keeps its exact outline when turned or flipped", () => {
-  const ends = (cmds) => cmds.filter((c) => c.type !== "Z").map((c) => `${Math.round(c.x * 1e6) / 1e6},${Math.round(c.y * 1e6) / 1e6}`).sort();
-  for (const shape of ["tri", "quarter", "spandrel"]) {
+  // Ellipses and capsules always start at the bottom, so the closing point
+  // can differ: the set of points is what must match.
+  const ends = (cmds) => [...new Set(cmds.filter((c) => c.type !== "Z").map((c) => `${Math.round(c.x * 1e6) / 1e6},${Math.round(c.y * 1e6) / 1e6}`))].sort();
+  for (const shape of ["tri", "quarter", "spandrel", "ellipse", "pill"]) {
     for (const corner of ["bl", "br", "tl", "tr"]) {
       const p = { x0: 1, y0: 2, x1: 4, y1: 3, corner, shape, mode: "add" };
       for (const kind of ["cw", "ccw", "h", "v"]) {

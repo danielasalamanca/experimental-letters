@@ -61,6 +61,15 @@ function inPiece(piece, [x, y]) {
   const C = { bl: [p.x0, p.y0], br: [p.x1, p.y0], tl: [p.x0, p.y1], tr: [p.x1, p.y1] }[p.corner];
   const O = [p.x0 + p.x1 - C[0], p.y0 + p.y1 - C[1]];
   const u = Math.abs(x - C[0]) / w, v = Math.abs(y - C[1]) / h;
+  if (p.shape === "ellipse") {
+    const ex = (x - (p.x0 + p.x1) / 2) / (w / 2), ey = (y - (p.y0 + p.y1) / 2) / (h / 2);
+    return ex * ex + ey * ey <= 1;
+  }
+  if (p.shape === "pill") {
+    const r = Math.min(w, h) / 2;
+    const cx = Math.min(Math.max(x, p.x0 + r), p.x1 - r), cy = Math.min(Math.max(y, p.y0 + r), p.y1 - r);
+    return Math.hypot(x - cx, y - cy) <= r;
+  }
   if (p.shape === "tri") return u + v <= 1;
   if (p.shape === "quarter") return u * u + v * v <= 1;
   const a = Math.abs(x - O[0]) / w, b = Math.abs(y - O[1]) / h;
@@ -119,6 +128,30 @@ test("diagonals: an A cut out of a block with two triangles", () => {
   assert.equal(contours[0].filter((c) => c.type === "L").length, 3); // a trapezoid: M + 3 lines + close
 });
 
+test("dots and slits: an O block with a round dot and a capsule cut out", () => {
+  const pieces = [
+    { x0: 2, y0: 9, x1: 4, y1: 11, corner: "bl", shape: "ellipse", mode: "cut" },
+    { x0: 2.5, y0: 2, x1: 3.5, y1: 7, corner: "bl", shape: "pill", mode: "cut" },
+  ];
+  check(block(0, 0, 6, 14), pieces);
+  const contours = squareGlyphContours(block(0, 0, 6, 14), { pieces });
+  assert.equal(contours.length, 3, "the block and two holes");
+  // Holes run the other way round, and keep exact curves.
+  const holes = contours.filter((c) => area(flatten([c])) < 0);
+  assert.equal(holes.length, 2);
+  for (const h of holes) assert.ok(h.filter((c) => c.type === "C").length >= 2);
+  const expected = 84 - Math.PI - (4 + Math.PI / 4);
+  assert.ok(Math.abs(area(flatten(contours)) - expected) < 0.01);
+});
+
+test("a capsule added on top is a stroke with round ends", () => {
+  const pieces = [{ x0: 0, y0: 0, x1: 2, y1: 8, corner: "bl", shape: "pill", mode: "add" }];
+  check([], pieces);
+  const contours = squareGlyphContours([], { pieces });
+  assert.equal(contours.length, 1);
+  assert.ok(Math.abs(area(flatten(contours)) - (12 + Math.PI)) < 0.01);
+});
+
 test("pieces apply in order", () => {
   const cut = { x0: 0, y0: 0, x1: 4, y1: 4, corner: "tl", shape: "quarter", mode: "cut" };
   const add = { ...cut, shape: "tri", mode: "add" };
@@ -129,7 +162,7 @@ test("pieces apply in order", () => {
 test("random drawings with random pieces", () => {
   let seed = 5;
   const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const shapes = ["tri", "quarter", "spandrel"], cornersList = ["bl", "br", "tl", "tr"];
+  const shapes = ["tri", "quarter", "spandrel", "ellipse", "pill"], cornersList = ["bl", "br", "tl", "tr"];
   for (let n = 0; n < 25; n++) {
     const cells = [];
     for (let c = 0; c < 7; c++) for (let r = 0; r < 12; r++) if (rand() < 0.55) cells.push(`${c},${r}`);
@@ -138,7 +171,7 @@ test("random drawings with random pieces", () => {
       const x0 = Math.floor(rand() * 6), y0 = Math.floor(rand() * 10);
       pieces.push({
         x0, y0, x1: x0 + 1 + Math.floor(rand() * 4), y1: y0 + 1 + Math.floor(rand() * 6),
-        corner: cornersList[Math.floor(rand() * 4)], shape: shapes[Math.floor(rand() * 3)],
+        corner: cornersList[Math.floor(rand() * 4)], shape: shapes[Math.floor(rand() * shapes.length)],
         mode: rand() < 0.5 ? "cut" : "add",
       });
     }
@@ -233,7 +266,7 @@ test("a big radius stops before eating a counter", () => {
 test("random drawings with pieces and rounded corners never overlap", () => {
   let seed = 9;
   const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const shapes = ["tri", "quarter", "spandrel"], cornersList = ["bl", "br", "tl", "tr"];
+  const shapes = ["tri", "quarter", "spandrel", "ellipse", "pill"], cornersList = ["bl", "br", "tl", "tr"];
   for (let n = 0; n < 15; n++) {
     const cells = [];
     for (let c = 0; c < 7; c++) for (let r = 0; r < 10; r++) if (rand() < 0.6) cells.push(`${c},${r}`);
@@ -241,7 +274,7 @@ test("random drawings with pieces and rounded corners never overlap", () => {
     for (let k = 0; k < 1 + Math.floor(rand() * 3); k++) {
       const x0 = Math.floor(rand() * 6), y0 = Math.floor(rand() * 8);
       pieces.push({ x0, y0, x1: x0 + 1 + Math.floor(rand() * 3), y1: y0 + 1 + Math.floor(rand() * 5),
-        corner: cornersList[Math.floor(rand() * 4)], shape: shapes[Math.floor(rand() * 3)], mode: rand() < 0.5 ? "cut" : "add" });
+        corner: cornersList[Math.floor(rand() * 4)], shape: shapes[Math.floor(rand() * shapes.length)], mode: rand() < 0.5 ? "cut" : "add" });
     }
     const corners = {};
     for (const c of pieceGlyphCorners(cells, { pieces })) if (rand() < 0.5) corners[c.key] = rand() < 0.3 ? "max" : [0.5, 1, 2][Math.floor(rand() * 3)];

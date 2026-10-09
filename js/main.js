@@ -474,7 +474,10 @@ board.addEventListener("pointerdown", (evt) => {
       return;
     }
     const { x, y } = toCells(evt);
-    action = { type: "piece", x0: Math.round(x), y0: Math.round(y), x1: Math.round(x), y1: Math.round(y), moved: false, at: { x, y } };
+    // Grid points; with Shift, half cells (thin slits, small dots).
+    const step = evt.shiftKey ? 0.5 : 1;
+    const sx = Math.round(x / step) * step, sy = Math.round(y / step) * step;
+    action = { type: "piece", x0: sx, y0: sy, x1: sx, y1: sy, moved: false, at: { x, y } };
     return;
   }
 
@@ -565,7 +568,8 @@ window.addEventListener("pointermove", (evt) => {
     }
     case "piece": {
       const { x, y } = toCells(evt);
-      const x1 = Math.round(x), y1 = Math.round(y);
+      const step = evt.shiftKey ? 0.5 : 1;
+      const x1 = Math.round(x / step) * step, y1 = Math.round(y / step) * step;
       if (x1 !== action.x1 || y1 !== action.y1) {
         action.x1 = x1; action.y1 = y1;
         action.moved = x1 !== action.x0 || y1 !== action.y0;
@@ -1074,7 +1078,8 @@ const PIECE_COLOR = "#ff7133";
 
 // A drag from one lattice point to another places a piece; the corner where
 // the drag starts is the piece's corner (right angle, or centre of the
-// quarter ellipse). A click on a piece selects it.
+// quarter ellipse; an ellipse or a capsule just fills the box). A click on
+// a piece selects it.
 function endPiece(done) {
   const g = glyph();
   if (!done.moved || done.x0 === done.x1 || done.y0 === done.y1) {
