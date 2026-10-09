@@ -344,7 +344,7 @@ function setTool(next) {
   floating = null;
   polyDraft = null;
   // A glyph edited with nodes has no grid drawing to work on.
-  if (glyph().outline && ["draw", "select", "piece"].includes(next)) {
+  if (glyph().outline && ["draw", "select"].includes(next)) {
     if (tool === "nodes") {
       toast(master === "bold"
         ? `Este máster ${boldName()} está en nodos. Para dibujarlo en la grilla usa «Dibujar en la grilla», arriba.`
@@ -352,11 +352,12 @@ function setTool(next) {
     }
     next = "nodes";
   }
-  // Corners and pieces only exist on the square grid.
+  // Corners only exist on the square grid (or on node outlines). Pieces
+  // work everywhere: elsewhere they join the outline, like the polygon.
   const cornersOk = next === "corner" && glyph().outline;
-  if (!cornersOk && (next === "corner" || next === "piece") && glyphGrid(font, glyph()) !== "squares") {
-    toast(`La herramienta ${next === "corner" ? "Esquinas" : "Piezas"} funciona con la grilla de puntos (cuadrados).`);
-    next = tool === "corner" || tool === "piece" ? "draw" : tool;
+  if (!cornersOk && next === "corner" && glyphGrid(font, glyph()) !== "squares") {
+    toast("La herramienta Esquinas funciona con la grilla de puntos (cuadrados).");
+    next = tool === "corner" ? "draw" : tool;
   }
   tool = next;
   $("toolPoly").classList.toggle("active", tool === "poly");
@@ -465,7 +466,7 @@ board.addEventListener("pointerdown", (evt) => {
   }
 
   if (tool === "piece") {
-    const node = nodeAt(evt);
+    const node = piecesLive() ? nodeAt(evt) : null;
     if (node) {
       checkpoint();
       selectedPiece = node.index;
@@ -1071,7 +1072,7 @@ function drawNodeMarkers(layer) {
 }
 
 // --- Piece tool (square grid) ---
-let pieceMode = "cut";
+let pieceMode = "add";
 let selectedPiece = null; // index in the glyph's own pieces
 
 const PIECE_COLOR = "#ff7133";
@@ -1083,6 +1084,7 @@ const PIECE_COLOR = "#ff7133";
 function endPiece(done) {
   const g = glyph();
   if (!done.moved || done.x0 === done.x1 || done.y0 === done.y1) {
+    if (!piecesLive()) return;
     const { x, y } = done.at;
     const hit = g.pieces.map((p, i) => [normalizePiece(p), i])
       .filter(([p]) => x >= p.x0 && x <= p.x1 && y >= p.y0 && y <= p.y1)
@@ -1098,8 +1100,19 @@ function endPiece(done) {
     corner: (done.y0 <= done.y1 ? "b" : "t") + (done.x0 <= done.x1 ? "l" : "r"),
     shape: $("pieceShape").value, mode: pieceMode,
   });
+  if (!piecesLive()) {
+    joinOutline(piece);
+    return;
+  }
+  if (piece.mode === "cut" && !g.cells.length && !g.pieces.some((p) => p.mode !== "cut")) {
+    toast("«Recortar» quita tinta: en una letra vacía no se ve. Usa «Agregar».");
+  }
   placePiece(piece);
 }
+
+// Pieces stay editable pieces on the square grid; on the circles grid or
+// in a letter edited with nodes they join the outline instead.
+const piecesLive = () => !glyph().outline && glyphGrid(font, glyph()) === "squares";
 
 // Adds a piece (and its mirror images, with the mirror on) and selects it.
 function placePiece(piece) {
@@ -1156,23 +1169,31 @@ function finishPoly() {
     return;
   }
   // Circles grid or a letter edited with nodes: the figure joins the outline.
+  joinOutline(normalizePiece({ shape: "poly", mode: polyMode, points: pts, x0: 0, y0: 0, x1: 0, y1: 0, corner: "bl" }));
+}
+
+// Adds (or cuts) a piece or polygon into the letter's outline, with its
+// mirror images when the mirror is on; the letter becomes a node outline.
+function joinOutline(piece) {
+  const g = glyph();
+  const { mode } = piece;
   const commands = outlineToCommands(editableOutline());
-  if (polyMode === "cut" && !commands.length) {
+  if (mode === "cut" && !commands.length) {
     render(null);
     toast("«Recortar» quita tinta, y esta letra está vacía. Usa «Agregar».");
     return;
   }
   checkpoint();
   const [lo, hi] = axisRows(font.view.mirrorAxis, font.metrics, font.active);
-  let figures = [pts];
-  if (font.view.mirrorH) figures = [...figures, ...figures.map((f) => f.map(([x, y]) => [g.cols - x, y]))];
-  if (font.view.mirrorV) figures = [...figures, ...figures.map((f) => f.map(([x, y]) => [x, lo + hi - y]))];
-  const front = figures.map((f) => [
-    { type: "M", x: f[0][0], y: f[0][1] }, ...f.slice(1).map(([x, y]) => ({ type: "L", x, y })), { type: "Z" },
-  ]);
-  const result = polyMode === "cut"
-    ? pathfinder("minusFront", [commands, front])
-    : pathfinder("unite", commands.length ? [commands, front] : [front]);
+  let placed = [piece];
+  if (font.view.mirrorH) placed = [...placed, ...placed.map((p) => mirrorPiece(p, { h: g.cols }))];
+  if (font.view.mirrorV) placed = [...placed, ...placed.map((p) => mirrorPiece(p, { v: lo + hi }))];
+  // One object per figure: a mirrored copy runs the other way round, and
+  // in one object the two would cancel where they overlap.
+  const figures = placed.map((p) => [pieceContour(p)]);
+  const result = mode === "cut"
+    ? figures.reduce((acc, f) => pathfinder("minusFront", [acc, f]), commands)
+    : pathfinder("unite", commands.length ? [commands, ...figures] : figures);
   ensureOutline();
   g.outline = commandsToOutline(result);
   syncToolbar();
@@ -1284,7 +1305,9 @@ function removePiece(index) {
 function drawPieceMarkers(layer) {
   const cu = font.cell;
   if (selectedPiece !== null && selectedPiece >= glyph().pieces.length) selectedPiece = null;
-  glyph().pieces.forEach((p, i) => {
+  // Elsewhere than the square grid, only the piece being dragged shows.
+  const pieces = piecesLive() ? glyph().pieces : [];
+  pieces.forEach((p, i) => {
     const n = normalizePiece(p);
     const selected = i === selectedPiece;
     layer.appendChild(el("rect", {
@@ -1300,7 +1323,7 @@ function drawPieceMarkers(layer) {
     }
   });
   // Draggable nodes, on top.
-  glyph().pieces.forEach((p, i) => {
+  pieces.forEach((p, i) => {
     const selected = i === selectedPiece;
     for (const h of pieceHandles(p)) {
       const size = cu * (selected ? 0.26 : 0.2);
@@ -1599,10 +1622,9 @@ function syncToolbar() {
   const squares = glyphGrid(font, glyph()) === "squares";
   const nodesOnly = !!glyph().outline;
   for (const id of ["toolDraw", "toolSelect"]) $(id).disabled = nodesOnly;
-  if (nodesOnly && tool !== "nodes" && tool !== "corner" && tool !== "poly") setTool("nodes");
+  if (nodesOnly && !["nodes", "corner", "poly", "piece"].includes(tool)) setTool("nodes");
   $("toolCorner").disabled = !squares && !nodesOnly;
-  $("toolPiece").disabled = !squares || nodesOnly;
-  if (!squares && !nodesOnly && (tool === "corner" || tool === "piece")) setTool("draw");
+  if (!squares && !nodesOnly && tool === "corner") setTool("draw");
   const bold = master === "bold";
   $("masterRegular").classList.toggle("active", !bold);
   $("masterBold").classList.toggle("active", bold);

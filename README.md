@@ -150,10 +150,13 @@ grilla:
     se siguen dibujando y sus puntos se pueden arrastrar con la misma
     herramienta. En la grilla de círculos (o en una letra con nodos) la figura
     se suma al contorno de la letra, que pasa a editarse con nodos.
-- **Piezas (P)** (grilla de puntos): piezas geométricas que **agregan** o
+- **Piezas (P):** piezas geométricas que **agregan** (por defecto) o
   **recortan** tinta encima de las celdas, para diagonales y curvas que la
   grilla sola no permite. Arrastra de un punto de la grilla a otro: la pieza
   ocupa ese rectángulo y nace en la esquina donde empezaste.
+  - Como el Polígono, funciona en cualquier grilla: en la de puntos queda
+    como pieza editable; en la de círculos (o en una letra con nodos) se
+    suma al contorno de la letra, que pasa a editarse con nodos.
   - **Triángulo:** ángulo recto en esa esquina; recortado a los lados de un
     bloque da diagonales de cualquier inclinación (una "A" trapezoidal).
   - **Cuarto de elipse:** centrado en esa esquina (panzas, brazos redondos,
