@@ -242,13 +242,20 @@ export const KERN_COLOR = "#ff52a9";
 // and placed with <use>. Options: size (em in px), ink, paper,
 // pair ({ line, index } of the left character of the selected pair).
 // Returns the layout so the caller can map clicks to characters.
-export function drawText(svg, font, text, { size, ink, paper, pair = null, metrics = false }) {
+// `weighted(char)`, when given, returns the letter at another weight:
+// { contours (cells), advance, lsb } (see masters.js atWeight).
+export function drawText(svg, font, text, { size, ink, paper, pair = null, metrics = false, weighted = null }) {
   const cu = font.cell;
   const m = font.metrics;
   const asc = m.ascender * cu, desc = m.descender * cu;
   const lineHeight = Math.round((asc - desc) * 1.15);
   const pad = cu;
-  const layout = layoutText(font, text);
+  const atWeight = new Map();
+  const weightedOf = (char) => {
+    if (!atWeight.has(char)) atWeight.set(char, weighted(char));
+    return atWeight.get(char);
+  };
+  const layout = layoutText(font, text, weighted ? (char) => weightedOf(char).advance : null);
   const w = Math.max(layout.width, cu) + pad * 2;
   const h = layout.lines * lineHeight + pad;
   const top = -asc - pad / 2;
@@ -266,8 +273,14 @@ export function drawText(svg, font, text, { size, ink, paper, pair = null, metri
     if (!glyph || ids.has(char)) continue;
     const id = `t${ids.size}`;
     ids.set(char, id);
-    const cells = resolvedCells(font, glyph);
-    const shapes = drawShapes(font, cells, glyphShape(font, glyph), ink, { lo: -1e6, hi: 1e6, cols: glyph.cols });
+    let shapes;
+    if (weighted) {
+      shapes = el("g", { fill: ink });
+      shapes.appendChild(el("path", { d: contoursToPath(weightedOf(char).contours, cu), "fill-rule": "nonzero" }));
+    } else {
+      const cells = resolvedCells(font, glyph);
+      shapes = drawShapes(font, cells, glyphShape(font, glyph), ink, { lo: -1e6, hi: 1e6, cols: glyph.cols });
+    }
     shapes.setAttribute("id", id);
     defs.appendChild(shapes);
   }
@@ -291,7 +304,8 @@ export function drawText(svg, font, text, { size, ink, paper, pair = null, metri
   for (const item of layout.items) {
     const y = lineY(item.line);
     if (item.glyph) {
-      const use = el("use", { href: `#${ids.get(item.char)}`, x: item.x + item.glyph.lsb, y });
+      const lsb = weighted ? weightedOf(item.char).lsb : item.glyph.lsb;
+      const use = el("use", { href: `#${ids.get(item.char)}`, x: item.x + lsb, y });
       // xlink:href too, for Illustrator and other older SVG readers.
       use.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", `#${ids.get(item.char)}`);
       svg.appendChild(use);

@@ -47,7 +47,7 @@ const SAMPLE_A = [
 export function createGlyph({
   cols = 8, cells = [], curve = null, metrics = DEFAULT_METRICS,
   lsb = 50, rsb = 50, components = [], grid = null, rounding = null, corners = {}, pieces = [],
-  outline = null,
+  outline = null, bold = null,
 } = {}) {
   return {
     cols, cells: [...cells], curve, metrics: { ...metrics }, lsb, rsb, grid, rounding,
@@ -58,6 +58,12 @@ export function createGlyph({
     // Edited node by node ("Nodos"): replaces the glyph's own grid drawing.
     outline: Array.isArray(outline) ? cloneOutline(outline) : null,
     components: components.map((c) => ({ glyph: c.glyph, dx: c.dx ?? 0, dy: c.dy ?? 0 })),
+    // The bold master (see masters.js): an outline with its own width and
+    // sidebearings, or null while it is generated automatically.
+    bold: bold && Array.isArray(bold.outline) ? {
+      ...createGlyph({ cols: bold.cols, lsb: bold.lsb, rsb: bold.rsb, metrics, outline: bold.outline, rounding: 0 }),
+      auto: !!bold.auto, source: bold.source ?? null,
+    } : null,
   };
 }
 
@@ -118,6 +124,9 @@ export function createFont() {
       test: { text: "hamburgefonstiv", size: 72, inverted: false },
     },
     kerning: {},
+    // Weight axis: Regular and bold master weights, and how much the
+    // automatic bold master thickens (units per side). See masters.js.
+    axis: { min: 400, max: 800, thicken: 20 },
     active: "a",
     glyphs: { a: createGlyph({ cells: SAMPLE_A }) },
     drafts: [],
@@ -177,6 +186,7 @@ export function normalizeFont(data) {
     join: { ...base.join, ...data.join },
     view: { ...base.view, ...data.view, test: { ...base.view.test, ...data.view?.test } },
     kerning: { ...data.kerning },
+    axis: { ...base.axis, ...data.axis },
     glyphs: { ...data.glyphs },
     drafts: [...(data.drafts ?? [])],
   };
@@ -446,7 +456,8 @@ export const missingAdvance = (font) => Math.round(font.upm / 2);
 // Places each character of `text` using advance widths, sidebearings and
 // kerning. Returns one item per character: { char, line, index, x, advance,
 // glyph, kern } where `kern` is the kerning applied after it.
-export function layoutText(font, text) {
+// `advanceOf(char, glyph)` can give other widths (e.g. at another weight).
+export function layoutText(font, text, advanceOf = null) {
   const items = [];
   const lines = text.split("\n");
   let width = 0;
@@ -455,7 +466,7 @@ export function layoutText(font, text) {
     let x = 0;
     chars.forEach((char, i) => {
       const glyph = font.glyphs[char] ?? null;
-      const advance = glyph ? advanceWidth(font, glyph) : missingAdvance(font);
+      const advance = glyph ? (advanceOf ? advanceOf(char, glyph) : advanceWidth(font, glyph)) : missingAdvance(font);
       const kern = i + 1 < chars.length ? kerningValue(font, char, chars[i + 1]) : 0;
       items.push({ char, line: li, index: i, x, advance, glyph, kern });
       x += advance + kern;

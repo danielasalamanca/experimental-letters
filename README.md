@@ -261,6 +261,34 @@ grilla:
   lienzo la muestra mientras dibujas, así lo que ves es lo que se exporta.
 - Colores de tinta y fondo.
 
+### Pesos y fuente variable
+Como en Glyphs, una tipografía tiene **dos másteres**: el **Regular**, que es
+el dibujo, y uno **grueso** (ExtraBold por defecto). Los pesos intermedios
+(Medium, SemiBold, Bold…) se calculan entre los dos, punto por punto.
+- **Máster** (junto a las herramientas, o tecla **M**): cambia entre el
+  Regular y el grueso. En el máster grueso la letra se ajusta solo con
+  **Nodos**: arrastra puntos y manijas (o muévelos con las flechas) mientras
+  el Regular se ve detrás como referencia. Los márgenes laterales del máster
+  grueso se cambian en el panel Letra.
+- **Automático:** cada letra empieza con un máster grueso hecho engrosando su
+  Regular (**Engrosar**, en unidades por lado). Mientras no lo toques, sigue
+  al Regular: si cambias el dibujo, se vuelve a engrosar solo. Cuando mueves
+  un punto pasa a ser tuyo; **Regenerar esta letra** vuelve al automático.
+- **Compatibles:** para interpolar, los dos másteres deben tener los mismos
+  contornos con los mismos puntos. Por eso en el máster grueso no se agregan
+  ni quitan puntos. Si cambias el Regular de una letra cuyo máster grueso
+  ajustaste a mano, puede dejar de ser compatible: la barra lo avisa, la letra
+  lleva un punto rojo y el panel **Pesos** la lista; esas letras quedan iguales
+  en todos los pesos hasta que las regeneres.
+- Las letras con tilde (á, ñ…) arman su máster grueso con los de sus partes.
+- **Panel Pesos (fuente variable):** el peso del Regular (400), cuál es el
+  máster grueso (de Medium a Black) y cuánto engrosa el automático.
+- **Probar:** el control **Peso** muestra el texto en cualquier peso.
+- **Exportar:** en el panel Exportar eliges qué fuente descarga **Exportar
+  fuente**: un peso (Regular, Medium, SemiBold, Bold, ExtraBold…) como .otf
+  estática, o la **fuente variable (.ttf)** con todos los pesos en un solo
+  archivo, con sus nombres (eje de peso `wght`).
+
 ### Mis tipografías, proyecto y exportación
 - **Tipografía** (arriba del panel Fuente): lista de tus tipografías
   guardadas en este navegador; elige una para abrirla.
@@ -317,6 +345,12 @@ aparecen en "Borradores".
   "á"), de modo que los cambios se propagan.
 - **Kerning:** ajuste del espacio entre un par concreto de letras, por
   ejemplo "AV" o "To".
+- **Máster:** una versión completa de la tipografía en un extremo de un eje,
+  como el Regular y el ExtraBold. Los pesos intermedios se interpolan.
+- **Fuente variable:** un solo archivo que contiene todos los pesos entre los
+  másteres; los programas muestran un deslizador de peso.
+- **Compatibles:** dos másteres de una letra con los mismos contornos y puntos,
+  en el mismo orden; es lo que permite interpolarlos.
 
 ## Desarrollo
 

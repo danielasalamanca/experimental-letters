@@ -4,30 +4,37 @@
 import { glyphFinalContours } from "./shapes.js";
 import { CHARSET, glyphName } from "./charset.js";
 import { advanceWidth } from "./model.js";
+import { atWeight, normalizeAxis, weightName } from "./masters.js";
 
 const loadOpentype = () => import("./vendor/opentype.min.js");
 
 // mode: "join" = with the minimum join (as on the canvas), "raw" = as is.
-export async function buildOtf(font, { mode = "join" } = {}) {
+// weight: a weight between the two masters (see masters.js); the Regular
+// master when left out.
+export async function buildOtf(font, { mode = "join", weight = null } = {}) {
   const opentype = await loadOpentype();
   const cu = font.cell;
   const meta = font.meta;
+  const axis = normalizeAxis(font.axis);
+  const instance = weight !== null && weight !== axis.min;
 
   const glyphs = [new opentype.Glyph({ name: ".notdef", advanceWidth: Math.round(font.upm / 2), path: new opentype.Path() })];
   const chars = [...new Set([...CHARSET, ...Object.keys(font.glyphs)])].filter((c) => font.glyphs[c]);
   for (const char of chars) {
     const g = font.glyphs[char];
+    const at = instance ? atWeight(font, char, weight) : null;
     glyphs.push(new opentype.Glyph({
       name: glyphName(char),
       unicode: char.codePointAt(0),
-      advanceWidth: Math.round(advanceWidth(font, g)),
-      path: glyphPath(opentype, font, g, mode),
+      advanceWidth: Math.round(at ? at.advance : advanceWidth(font, g)),
+      path: at ? contoursPath(opentype, at.contours, at.lsb, cu) : glyphPath(opentype, font, g, mode),
     }));
   }
 
   const otf = new opentype.Font({
     familyName: meta.family.trim() || "Letras Experimentales",
-    styleName: meta.style.trim() || "Regular",
+    styleName: instance ? weightName(weight) : meta.style.trim() || "Regular",
+    weightClass: instance ? weight : axis.min,
     designer: meta.designer.trim() || undefined,
     version: `Version ${meta.version.trim() || "1.000"}`,
     unitsPerEm: font.upm,
@@ -51,11 +58,15 @@ export async function buildOtf(font, { mode = "join" } = {}) {
 // The glyph's ink as closed contours, in font units (origin at the left
 // sidebearing). Only the columns visible on the canvas are exported.
 export function glyphPath(opentype, font, glyph, mode) {
-  const cu = font.cell;
+  return contoursPath(opentype, glyphFinalContours(font, glyph, { mode }), glyph.lsb, font.cell);
+}
+
+// Contours in cells as an opentype.js path in units, `lsb` units from the origin.
+function contoursPath(opentype, contours, lsb, cu) {
   const path = new opentype.Path();
-  const X = (x) => Math.round(glyph.lsb + x * cu);
+  const X = (x) => Math.round(lsb + x * cu);
   const Y = (y) => Math.round(y * cu);
-  for (const contour of glyphFinalContours(font, glyph, { mode })) {
+  for (const contour of contours) {
     let last = null;
     for (const c of contour) {
       if (c.type === "M") { path.moveTo(X(c.x), Y(c.y)); last = [X(c.x), Y(c.y)]; }
@@ -117,33 +128,47 @@ export function gposKerning(pairs) {
   return w.bytes();
 }
 
-class Writer {
+export class Writer {
   constructor() { this.data = []; }
   get length() { return this.data.length; }
   u16(v) { this.data.push((v >> 8) & 0xff, v & 0xff); }
   i16(v) { this.u16(v < 0 ? v + 0x10000 : v); }
   u32(v) { this.u16((v >>> 16) & 0xffff); this.u16(v & 0xffff); }
   tag(t) { for (const ch of t) this.data.push(ch.charCodeAt(0)); }
+  i8(v) { this.data.push(v < 0 ? v + 0x100 : v); }
+  u8(v) { this.data.push(v & 0xff); }
+  fixed(v) { this.u32(Math.round(v * 65536) >>> 0); }
+  bytesOf(arr) { for (const b of arr) this.data.push(b); }
+  pad(n = 4) { while (this.data.length % n) this.data.push(0); }
   bytes() { return new Uint8Array(this.data); }
 }
 
 // Adds (or replaces) a table in an sfnt font, rebuilding the table
 // directory, checksums and head.checkSumAdjustment.
 export function addTable(buffer, tag, data) {
+  const { flavor, tables } = readSfnt(buffer);
+  tables.set(tag, data);
+  return writeSfnt(flavor, tables);
+}
+
+// The tables of an sfnt font: { flavor, tables: Map(tag -> bytes) }.
+export function readSfnt(buffer) {
   const view = new DataView(buffer);
-  const flavor = view.getUint32(0);
   const count = view.getUint16(4);
-  const tables = [];
+  const tables = new Map();
   for (let i = 0; i < count; i++) {
     const at = 12 + i * 16;
-    const t = String.fromCharCode(...new Uint8Array(buffer, at, 4));
-    if (t === tag) continue;
+    const tag = String.fromCharCode(...new Uint8Array(buffer, at, 4));
     const offset = view.getUint32(at + 8), length = view.getUint32(at + 12);
-    tables.push({ tag: t, data: new Uint8Array(buffer, offset, length).slice() });
+    tables.set(tag, new Uint8Array(buffer, offset, length).slice());
   }
-  tables.push({ tag, data });
-  tables.sort((a, b) => (a.tag < b.tag ? -1 : 1));
+  return { flavor: view.getUint32(0), tables };
+}
 
+// An sfnt font from its tables (Map tag -> bytes), with checksums and
+// head.checkSumAdjustment.
+export function writeSfnt(flavor, tableMap) {
+  const tables = [...tableMap].map(([tag, data]) => ({ tag, data })).sort((a, b) => (a.tag < b.tag ? -1 : 1));
   const n = tables.length;
   const pad = (len) => (len + 3) & ~3;
   let size = 12 + 16 * n;

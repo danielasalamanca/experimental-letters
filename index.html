@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
   <link rel="preload" href="fonts/Letritas-Regular.otf" as="font" type="font/otf" crossorigin>
-  <link rel="stylesheet" href="style.css?v=32">
+  <link rel="stylesheet" href="style.css?v=34">
 </head>
 <body>
   <header class="topbar">
@@ -54,6 +54,13 @@
           <button id="toolPiece" type="button" class="tool" title="Piezas (P): arrastra de un punto a otro para agregar o recortar triángulos y curvas"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h14L5 5z"/></svg><span>Piezas</span></button>
           <button id="toolPoly" type="button" class="tool" title="Polígono (G): haz clic en puntos de la grilla para unirlos y formar una figura; luego redondea sus vértices con Esquinas"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18L8 5l11 5-4 9z"/><circle cx="5" cy="18" r="1.6" fill="currentColor"/><circle cx="8" cy="5" r="1.6" fill="currentColor"/><circle cx="19" cy="10" r="1.6" fill="currentColor"/><circle cx="15" cy="19" r="1.6" fill="currentColor"/></svg><span>Polígono</span></button>
         </div>
+        <div class="master-switch" role="group" aria-label="Máster">
+          <span class="master-label" title="Una fuente variable tiene dos másteres: el Regular y uno grueso. Los pesos intermedios se calculan entre ambos.">Máster</span>
+          <span class="segmented">
+            <button id="masterRegular" type="button" class="chip" title="Dibuja el máster Regular (M alterna)">Regular</button>
+            <button id="masterBold" type="button" class="chip" title="Ajusta el máster grueso con Nodos (M alterna)">ExtraBold</button>
+          </span>
+        </div>
         <div class="view-tools">
           <button id="mirrorH" type="button" class="icon-btn" title="Simetría al dibujar: lo que dibujas se repite a la izquierda y a la derecha" aria-label="Simetría izquierda–derecha al dibujar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16" stroke-dasharray="2 2.5"/><path d="M9 8L4 12l5 4z"/><path d="M15 8l5 4-5 4z"/></svg></button>
           <button id="mirrorV" type="button" class="icon-btn" title="Simetría al dibujar: lo que dibujas se repite arriba y abajo" aria-label="Simetría arriba–abajo al dibujar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16" stroke-dasharray="2 2.5"/><path d="M8 9l4-5 4 5z"/><path d="M8 15l4 5 4-5z"/></svg></button>
@@ -69,6 +76,13 @@
       </div>
 
       <div class="context-bar">
+        <div class="tool-group" id="boldGroup" hidden>
+          <span class="group-label">Máster <span class="bold-name">ExtraBold</span></span>
+          <span id="boldStatus" class="bold-status"></span>
+          <label class="inline" title="Cuánto se engrosa el Regular para crear el máster grueso automático, en unidades por lado">Engrosar <input type="number" class="thicken" min="1" max="400" step="1"> u</label>
+          <button id="boldRegen" type="button" class="chip" title="Vuelve a crear el máster grueso de esta letra engrosando el Regular">Regenerar esta letra</button>
+          <span class="hint-inline" id="boldHint"></span>
+        </div>
         <div class="tool-group" id="transformGroup" hidden>
           <span class="group-label" title="Gira o espeja lo seleccionado, con sus esquinas y piezas. Sin selección, toda la letra.">Transformar</span>
           <button id="rotCcw" type="button" class="icon-btn" title="Girar 90° a la izquierda (Shift + R)" aria-label="Girar 90° a la izquierda"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9a8 8 0 1 1 1 7"/><path d="M5 4v5h5"/></svg></button>
@@ -144,33 +158,33 @@
             <span id="glyphChar" class="glyph-char"></span>
             <span><strong id="glyphName"></strong><br><small id="glyphCode"></small></span>
           </div>
-          <label>Ancho (columnas) <output id="colsOut"></output>
+          <label class="regular-only">Ancho (columnas) <output id="colsOut"></output>
             <input type="range" id="cols" min="1" max="24">
           </label>
           <label class="row"><span><i class="swatch sb"></i>Margen izquierdo (u)</span> <input type="number" id="lsb" step="1"></label>
           <label class="row"><span><i class="swatch sb"></i>Margen derecho (u)</span> <input type="number" id="rsb" step="1"></label>
           <p class="info" id="advanceInfo"></p>
-          <div class="buttons three">
+          <div class="buttons three regular-only">
             <button id="invert" type="button" class="ghost" title="Rellena lo vacío y vacía lo relleno">Invertir</button>
             <button id="clear" type="button" class="ghost" title="Borra el dibujo de esta letra">Limpiar</button>
             <button id="save" type="button" class="ghost" title="Guarda una copia en Borradores (abajo a la izquierda)">Borrador</button>
           </div>
-          <button id="resetGlyph" type="button" class="ghost danger wide" title="Vuelve esta letra a como empieza en una tipografía nueva: sin dibujo, nodos, esquinas ni piezas, con ancho y márgenes por defecto">Reiniciar letra (partir de cero)</button>
-          <div class="sub">
+          <button id="resetGlyph" type="button" class="ghost danger wide regular-only" title="Vuelve esta letra a como empieza en una tipografía nueva: sin dibujo, nodos, esquinas ni piezas, con ancho y márgenes por defecto">Reiniciar letra (partir de cero)</button>
+          <div class="sub regular-only">
             <h4>Nodos</h4>
             <p class="info" id="nodeInfo"></p>
             <button id="editNodes" type="button" class="ghost wide">Editar con nodos</button>
             <button id="backToGrid" type="button" class="ghost wide" hidden>Volver a la grilla</button>
           </div>
-          <div class="sub" id="pieceListBox" hidden>
+          <div class="sub regular-only" id="pieceListBox" hidden>
             <h4>Piezas</h4>
             <div id="pieceList"></div>
           </div>
-          <details class="sub-details">
+          <details class="sub-details regular-only">
             <summary>Grilla de esta letra</summary>
             <label class="row">Grilla <select id="glyphGrid"></select></label>
           </details>
-          <details class="sub-details">
+          <details class="sub-details regular-only">
             <summary>Componentes</summary>
             <div id="componentList"></div>
             <div class="add-component">
@@ -179,7 +193,7 @@
             </div>
             <button id="decompose" type="button" class="ghost wide">Descomponer (copiar al dibujo propio)</button>
           </details>
-          <details class="sub-details">
+          <details class="sub-details regular-only">
             <summary>Copiar desde otra letra</summary>
             <div class="add-component">
               <select id="copySource" aria-label="Glifo de origen"></select>
@@ -190,7 +204,7 @@
         </div>
       </details>
 
-      <details class="panel" open>
+      <details class="panel regular-only" open>
         <summary>Forma</summary>
         <div class="panel-body">
           <label><span id="curveLabel">Curvatura global</span> <output id="curveOut"></output>
@@ -280,6 +294,19 @@
         </div>
       </details>
 
+      <details class="panel" id="weightsPanel">
+        <summary>Pesos (fuente variable)</summary>
+        <div class="panel-body">
+          <p class="info">Como en Glyphs: dibujas un máster <strong>Regular</strong> y ajustas uno <strong>grueso</strong>; los pesos intermedios (Medium, SemiBold, Bold…) se calculan entre los dos.</p>
+          <label class="row">Peso del Regular <input type="number" id="axisMin" min="1" max="999" step="10"></label>
+          <label class="row">Máster grueso <select id="axisMax"></select></label>
+          <label class="row" title="Cuánto se engrosa el Regular para crear el máster grueso automático, en unidades por lado">Engrosar automático (u) <input type="number" class="thicken" min="1" max="400" step="1"></label>
+          <p class="info" id="mastersInfo"></p>
+          <div id="mastersBad" class="bad-list"></div>
+          <button id="editBold" type="button" class="ghost wide">Editar el máster <span class="bold-name">ExtraBold</span></button>
+        </div>
+      </details>
+
       <details class="panel">
         <summary>Exportar</summary>
         <div class="panel-body">
@@ -289,7 +316,8 @@
               <option value="raw">Tal cual</option>
             </select>
           </label>
-          <p class="info">La fuente se descarga con <strong>Exportar fuente</strong>, arriba a la derecha.</p>
+          <label class="row">Fuente <select id="exportKind"></select></label>
+          <p class="info" id="exportKindInfo">La fuente se descarga con <strong>Exportar fuente</strong>, arriba a la derecha.</p>
           <label class="row">Imagen de
             <select id="exportTarget">
               <option value="glyph">la letra</option>
@@ -320,6 +348,7 @@
         <button type="button" class="chip" data-size="72">M</button>
         <button type="button" class="chip" data-size="160">L</button>
       </div>
+      <label class="test-weight" title="Peso del texto de prueba, entre los dos másteres">Peso <input type="range" id="testWeight" step="1"> <output id="testWeightOut"></output></label>
       <button id="testInvert" type="button" class="chip" aria-pressed="false">Invertir</button>
       <div class="kern" id="kernBox">
         <span class="kern-label">Kerning</span>
@@ -350,6 +379,7 @@
         <dt>B · V · A · E · P · G</dt><dd>Dibujar · Seleccionar · Nodos · Esquinas · Piezas · Polígono</dd>
         <dt>R · Shift + R</dt><dd>Girar 90° a la derecha · a la izquierda (lo seleccionado o toda la letra)</dd>
         <dt>Shift + H · Shift + V</dt><dd>Espejar izquierda–derecha · arriba–abajo</dd>
+        <dt>M</dt><dd>Cambiar entre el máster Regular y el grueso</dd>
         <dt>L · T</dt><dd>Mostrar u ocultar el panel de letras · la prueba de texto</dd>
         <dt>Espacio (mantener)</dt><dd>Ver solo la letra · con arrastre, desplazar</dd>
         <dt>Cmd/Ctrl + rueda</dt><dd>Zoom · también + y −, y 0 para ajustar</dd>
@@ -404,22 +434,22 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=32",
-        "./js/geometry.js": "./js/geometry.js?v=32",
-        "./js/model.js": "./js/model.js?v=32",
-        "./js/render.js": "./js/render.js?v=32",
-        "./js/tools.js": "./js/tools.js?v=32",
-        "./js/library.js": "./js/library.js?v=32",
-        "./js/pieces.js": "./js/pieces.js?v=32",
-        "./js/nodes.js": "./js/nodes.js?v=32",
-        "./js/shapes.js": "./js/shapes.js?v=32",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=32",
-        "./js/outline.js": "./js/outline.js?v=32",
-        "./js/otf.js": "./js/otf.js?v=32",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=32"
+        "./js/charset.js": "./js/charset.js?v=34",
+        "./js/geometry.js": "./js/geometry.js?v=34",
+        "./js/model.js": "./js/model.js?v=34",
+        "./js/render.js": "./js/render.js?v=34",
+        "./js/tools.js": "./js/tools.js?v=34",
+        "./js/library.js": "./js/library.js?v=34",
+        "./js/pieces.js": "./js/pieces.js?v=34",
+        "./js/nodes.js": "./js/nodes.js?v=34",
+        "./js/shapes.js": "./js/shapes.js?v=34",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=34",
+        "./js/outline.js": "./js/outline.js?v=34",
+        "./js/otf.js": "./js/otf.js?v=34",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=34"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=32"></script>
+  <script type="module" src="js/main.js?v=34"></script>
 </body>
 </html>

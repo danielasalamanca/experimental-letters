@@ -22,6 +22,10 @@ import {
 } from "./nodes.js";
 import { ownContours, glyphRawContours } from "./shapes.js";
 import {
+  refreshBold, makeBold, masterPair, pureComposite, boldGlyph, normalizeAxis, instances, weightName,
+  mastersReport, WEIGHTS, atWeight,
+} from "./masters.js";
+import {
   pieceContour, normalizePiece, mirrorPiece, PIECE_SHAPES, pieceGlyphCorners, cornerKey,
   pieceHandles, movePieceHandle, contourCorners, contourObjects, pathfinder, polygonArea,
 } from "./pieces.js";
@@ -45,7 +49,27 @@ const storage = (() => {
 const opened = openLibrary(storage);
 let library = opened.index;
 let font = normalizeFont(opened.data);
-const glyph = () => font.glyphs[font.active];
+// --- Masters: the Regular (the drawing) or the bold one (see masters.js) ---
+let master = "regular";
+let boldView = null; // read-only bold master of a letter made of components
+const glyph = () => (master === "bold" ? boldOf(font.active) : font.glyphs[font.active]);
+const boldName = () => weightName(normalizeAxis(font.axis).max);
+
+function boldOf(char) {
+  const g = font.glyphs[char];
+  if (!pureComposite(g)) return g.bold ?? refreshBold(font, char);
+  if (boldView?.char !== char) {
+    // Built from the bold masters of its parts, so it can't be edited here.
+    const pair = masterPair(font, char);
+    const growth = pair.advance[1] - pair.advance[0] - (pair.lsb[1] - pair.lsb[0]);
+    boldView = boldGlyph(font, g, {
+      outline: commandsToOutline(pair.bold ?? pair.regular),
+      cols: g.cols + growth / font.cell, lsb: pair.lsb[1], rsb: g.rsb,
+    });
+    Object.assign(boldView, { char, readOnly: true, composite: true });
+  }
+  return boldView;
+}
 
 // --- Storage: the open font is saved to the library on every change ---
 let lastSaved = null, saveFailed = false;
@@ -72,6 +96,9 @@ function checkpoint(tag = null) {
   undoStack.push(JSON.stringify(font));
   if (undoStack.length > 200) undoStack.shift();
   redoStack.length = 0;
+  // Any change made on the bold master makes it hand-edited: it no longer
+  // follows the Regular by itself.
+  if (master === "bold" && font.glyphs[font.active]?.bold) font.glyphs[font.active].bold.auto = false;
 }
 
 function restore(from, to) {
@@ -80,6 +107,8 @@ function restore(from, to) {
   to.push(JSON.stringify(font));
   font = normalizeFont(JSON.parse(snap));
   lastTag = null;
+  boldView = null;
+  if (master === "bold") refreshBold(font, font.active);
   refreshAll();
 }
 const undo = () => restore(undoStack, redoStack);
@@ -95,13 +124,15 @@ let zoomBox = null;      // explicit viewBox while zoomed or panned; null = fit
 // "glyph" = the active glyph and the composites using it, "font" = all.
 function render(scope = "glyph") {
   const bgChar = font.view.background;
+  if (glyph().readOnly) boldView = null;
   bounds = drawGlyph(board, font, glyph(), {
     guides: font.view.guides,
     metrics: font.view.metrics,
     labels: true,
     components: true,
     bounds: frozenBounds,
-    background: bgChar && bgChar !== font.active ? font.glyphs[bgChar] : null,
+    // On the bold master the Regular shows behind, as a reference.
+    background: master === "bold" ? font.glyphs[font.active] : bgChar && bgChar !== font.active ? font.glyphs[bgChar] : null,
     preview: spaceDown,
   });
   const vb = board.viewBox.baseVal;
@@ -113,6 +144,8 @@ function render(scope = "glyph") {
   if (scope === "font") renderCharmap();
   else if (scope === "glyph") dependents(font, font.active).forEach(updateThumb);
   if (scope) scheduleTest();
+  if (master === "bold") syncBoldBar();
+  scheduleWeights();
   persist();
 }
 
@@ -225,6 +258,10 @@ function updateThumb(char) {
   if (g.grid != null) cell.appendChild(marker("grid-mark", `Grilla propia: ${GRIDS[g.grid]}`));
   if (g.outline) cell.appendChild(marker("node-mark", "Editada con nodos"));
   if (g.components.length) cell.appendChild(marker("comp-mark", "Compuesto con componentes"));
+  // Only hand-edited bold masters can stop matching the Regular.
+  if (g.bold && !g.bold.auto && masterPair(font, char).status === "incompatible") {
+    cell.appendChild(marker("bold-mark", `El máster ${boldName()} no es compatible con el Regular`));
+  }
   cell.classList.toggle("empty", empty);
   cell.classList.toggle("active", char === font.active);
   cell.title = `${glyphName(char)} · ${codepoint(char)}`;
@@ -244,6 +281,8 @@ function selectGlyph(char) {
   polyDraft = null;
   nodeSel.clear();
   font.active = char;
+  boldView = null;
+  if (master === "bold") refreshBold(font, char);
   updateThumb(prev);
   updateThumb(char);
   thumbs.get(char)?.scrollIntoView({ block: "nearest" });
@@ -291,6 +330,10 @@ let spaceDown = false;
 function setTool(next) {
   floating = null;
   polyDraft = null;
+  if (master === "bold" && next !== "nodes") {
+    if (tool === "nodes") toast(`En el máster ${boldName()} los puntos se ajustan con Nodos.`);
+    next = "nodes";
+  }
   // A glyph edited with nodes has no grid drawing to work on.
   if (glyph().outline && ["draw", "select", "piece"].includes(next)) {
     if (tool === "nodes") toast("Esta letra se edita con nodos. Para dibujar en la grilla, usa «Volver a la grilla» en el panel Glifo.");
@@ -320,6 +363,9 @@ function setTool(next) {
   $("toolCorner").classList.toggle("active", tool === "corner");
   $("cornerGroup").hidden = tool !== "corner";
   $("transformGroup").hidden = tool !== "select" && tool !== "nodes";
+  // The bold master only moves points and handles, so it stays compatible.
+  if (master === "bold") ["nodeGroup", "pathfinderGroup", "transformGroup"].forEach((id) => { $(id).hidden = true; });
+  $("boldGroup").hidden = master !== "bold";
   board.dataset.tool = tool;
   render(null);
 }
@@ -367,6 +413,10 @@ board.addEventListener("pointerdown", (evt) => {
     return;
   }
   if (evt.button !== 0) return;
+  if (glyph().readOnly) {
+    toast(`Esta letra se arma con componentes: su máster ${boldName()} sale de las letras que la componen.`);
+    return;
+  }
   frozenBounds = bounds;
   const metric = evt.target.closest?.(".metric-label.draggable");
   const side = evt.target.closest?.(".sb-label");
@@ -638,6 +688,7 @@ function nodePartners(outline, keys) {
 let nodeAddMode = false;
 
 function setNodeAdd(on) {
+  if (on && structureLocked()) return;
   nodeAddMode = on;
   if (on) setShapeMode(null);
   $("nodeAdd").classList.toggle("active", on);
@@ -845,7 +896,15 @@ function constrain([dx, dy]) {
 }
 
 // Double-click: on a node, corner ↔ smooth; on a segment, a new node.
+const LOCKED = () => `En el máster ${boldName()} solo se mueven puntos y manijas: así sigue siendo compatible con el Regular.`;
+const structureLocked = () => {
+  if (master !== "bold") return false;
+  toast(LOCKED());
+  return true;
+};
+
 function nodeDoubleClick(evt) {
+  if (structureLocked()) return;
   const p = toCells(evt);
   const tol = pxToCells(8);
   const preview = editableOutline();
@@ -870,6 +929,7 @@ function nodeDoubleClick(evt) {
 }
 
 function deleteSelectedNodes() {
+  if (structureLocked()) return;
   if (!nodeSel.size) return;
   checkpoint();
   const g = glyph();
@@ -932,6 +992,7 @@ function shapeContour(mode, { x0, y0, x1, y1 }) {
 // node, or on all of them; with a single shape selected, on all of them
 // with that one on top. The result replaces them and stays selected.
 function runPathfinder(op) {
+  if (structureLocked()) return;
   const preview = editableOutline();
   const objects = contourObjects(outlineToCommands(preview));
   const picked = new Set([...nodeSel].map((k) => +k.split(":")[0]));
@@ -1524,6 +1585,13 @@ function syncToolbar() {
   $("toolCorner").disabled = !squares && !nodesOnly;
   $("toolPiece").disabled = !squares || nodesOnly;
   if (!squares && !nodesOnly && (tool === "corner" || tool === "piece")) setTool("draw");
+  const bold = master === "bold";
+  if (bold) ["toolDraw", "toolSelect", "toolCorner", "toolPiece"].forEach((id) => { $(id).disabled = true; });
+  $("toolPoly").disabled = bold;
+  $("masterRegular").classList.toggle("active", !bold);
+  $("masterBold").classList.toggle("active", bold);
+  $("masterBold").textContent = boldName();
+  document.querySelectorAll(".bold-name").forEach((n) => { n.textContent = boldName(); });
   $("pieceAdd").classList.toggle("active", pieceMode === "add");
   $("pieceCut").classList.toggle("active", pieceMode === "cut");
   $("mirrorH").classList.toggle("active", font.view.mirrorH);
@@ -1644,6 +1712,7 @@ function paste() {
 const TRANSFORM_NAMES = { cw: "Girado 90° a la derecha", ccw: "Girado 90° a la izquierda", h: "Espejado izquierda–derecha", v: "Espejado arriba–abajo" };
 
 function transformShape(kind) {
+  if (structureLocked()) return;
   const g = glyph();
   if (tool === "nodes" || g.outline) return transformOutline(kind);
   const whole = !selection.size;
@@ -1726,6 +1795,7 @@ function copyNodes() {
 }
 
 function pasteNodes() {
+  if (structureLocked()) return;
   if (!nodeClipboard?.length) return;
   checkpoint();
   const outline = ensureOutline();
@@ -1738,6 +1808,7 @@ function pasteNodes() {
 }
 
 function cutNodes() {
+  if (structureLocked()) return;
   const picked = copyNodes();
   if (!picked.length) return;
   checkpoint();
@@ -1799,6 +1870,7 @@ window.addEventListener("keydown", (e) => {
   else if (k === "a") setTool("nodes");
   else if (k === "r") transformShape(e.shiftKey ? "ccw" : "cw");
   else if (e.shiftKey && k === "h") transformShape("h");
+  else if (k === "m") setMaster(master === "bold" ? "regular" : "bold");
   else if (k === "l") toggleLetters();
   else if (k === "t") toggleTestbar();
   else if (e.key === "?") $("helpDialog").showModal();
@@ -2100,6 +2172,7 @@ function syncControls() {
   syncMetricInputs();
   syncToolbar();
   syncMeta();
+  syncWeights();
 }
 
 function updateInfo() {
@@ -2280,8 +2353,11 @@ function renderTest() {
       kernPair = { left: kernPair.left, right: kernPair.right };
     }
   }
+  const axis = normalizeAxis(font.axis);
+  const weight = Math.min(axis.max, Math.max(axis.min, t.weight ?? axis.min));
   testLayout = drawText($("testSvg"), font, t.text, {
     size: t.size, ink, paper, pair: kernPair?.line != null ? kernPair : null,
+    weighted: weight > axis.min ? (char) => atWeight(font, char, weight) : null,
   });
   $("testView").style.background = paper;
   syncTestControls();
@@ -2390,6 +2466,14 @@ document.querySelectorAll(".segmented [data-size]").forEach((b) => {
   });
 });
 
+$("testWeight").addEventListener("input", (e) => {
+  font.view.test.weight = +e.target.value;
+  const named = instances(font.axis).find((i) => i.weight === +e.target.value);
+  $("testWeightOut").textContent = named ? named.name : e.target.value;
+  renderTest();
+  persist();
+});
+
 $("testInvert").addEventListener("click", () => {
   font.view.test.inverted = !font.view.test.inverted;
   renderTest();
@@ -2420,9 +2504,10 @@ function syncMeta() {
 }
 
 // File-name-safe "Familia-Estilo".
-function baseName() {
+function baseName(withStyle = true) {
   const clean = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9]+/g, "");
-  return [clean(font.meta.family) || "LetrasExperimentales", clean(font.meta.style) || "Regular"].join("-");
+  const family = clean(font.meta.family) || "LetrasExperimentales";
+  return withStyle ? [family, clean(font.meta.style) || "Regular"].join("-") : family;
 }
 
 function downloadBlob(blob, name) {
@@ -2464,10 +2549,22 @@ $("exportOtf").addEventListener("click", async () => {
   const label = button.innerHTML;
   button.textContent = "Generando…";
   try {
-    const { buildOtf } = await import("./otf.js");
-    const buffer = await buildOtf(font, { mode: $("otfMode").value });
-    downloadBlob(new Blob([buffer], { type: "font/otf" }), `${baseName()}.otf`);
-    toast("Fuente exportada. Instálala con doble clic para usarla en Illustrator o InDesign.");
+    const kind = $("exportKind").value;
+    if (kind === "variable") {
+      const { buildVariableTtf } = await import("./variable.js");
+      const buffer = await buildVariableTtf(font);
+      downloadBlob(new Blob([buffer], { type: "font/ttf" }), `${baseName(false)}-Variable.ttf`);
+      const bad = mastersReport(font, Object.keys(font.glyphs)).incompatible;
+      toast("Fuente variable exportada." + (bad.length ? ` ${bad.length} letra(s) no compatibles quedan iguales en todos los pesos: ${bad.join(" ")}` : ""));
+    } else {
+      const weight = +kind.split(":")[1];
+      const axis = normalizeAxis(font.axis);
+      const { buildOtf } = await import("./otf.js");
+      const buffer = await buildOtf(font, { mode: $("otfMode").value, weight });
+      const name = weight === axis.min ? baseName() : `${baseName(false)}-${weightName(weight)}`;
+      downloadBlob(new Blob([buffer], { type: "font/otf" }), `${name}.otf`);
+      toast("Fuente exportada. Instálala con doble clic para usarla en Illustrator o InDesign.");
+    }
   } catch (err) {
     console.error(err);
     toast(`No se pudo exportar la fuente: ${err.message}`);
@@ -2503,6 +2600,163 @@ $("helpBtn").addEventListener("click", () => $("helpDialog").showModal());
 
 for (const [id, kind] of [["rotCcw", "ccw"], ["rotCw", "cw"], ["flipH", "h"], ["flipV", "v"]]) {
   $(id).addEventListener("click", () => transformShape(kind));
+}
+
+// --- Masters and weights ---
+function setMaster(next) {
+  if (next === master) return;
+  master = next;
+  boldView = null;
+  nodeSel.clear();
+  document.body.classList.toggle("master-bold", master === "bold");
+  if (master === "bold") {
+    refreshBold(font, font.active);
+    setTool("nodes");
+    toast(`Máster ${boldName()}: ajusta los puntos con Nodos. El Regular se ve detrás.`);
+  } else {
+    setTool("draw");
+  }
+  syncControls();
+  render(null);
+}
+
+$("masterRegular").addEventListener("click", () => setMaster("regular"));
+$("masterBold").addEventListener("click", () => setMaster("bold"));
+$("editBold").addEventListener("click", () => setMaster("bold"));
+
+// The bold master's status in the context bar.
+function syncBoldBar() {
+  const g = font.glyphs[font.active];
+  const status = $("boldStatus");
+  const pair = masterPair(font, font.active);
+  let text, kind;
+  if (pureComposite(g)) {
+    text = pair.status === "incompatible" ? `⚠ ${pair.reason}` : "Se arma con sus componentes";
+    kind = pair.status === "incompatible" ? "bad" : "auto";
+  } else if (pair.status === "incompatible") {
+    text = `⚠ No compatible: ${pair.reason}`;
+    kind = "bad";
+  } else if (g.bold?.auto) {
+    text = "Automático: sigue al Regular";
+    kind = "auto";
+  } else {
+    text = "✓ Compatible con el Regular";
+    kind = "ok";
+  }
+  status.textContent = text;
+  status.className = `bold-status ${kind}`;
+  $("boldRegen").hidden = pureComposite(g);
+  $("boldHint").textContent = pureComposite(g)
+    ? "Edita las letras que la componen."
+    : "Arrastra puntos y manijas con Nodos (flechas: ¼ de celda). No agregues ni quites puntos.";
+}
+
+$("boldRegen").addEventListener("click", async () => {
+  const g = font.glyphs[font.active];
+  if (g.bold && !g.bold.auto) {
+    const ok = await confirmAction({
+      title: "Regenerar el máster",
+      message: `Se perderán los ajustes hechos a mano en el máster ${boldName()} de esta letra (se puede deshacer).`,
+      ok: "Regenerar",
+    });
+    if (!ok) return;
+  }
+  checkpoint();
+  g.bold = makeBold(font, g);
+  nodeSel.clear();
+  render();
+});
+
+// "Engrosar": regenerates every automatic bold master.
+document.querySelectorAll("input.thicken").forEach((input) => input.addEventListener("change", () => {
+  const b = font.glyphs[font.active]?.bold;
+  const wasAuto = b?.auto;
+  checkpoint("thicken");
+  if (b) b.auto = wasAuto;
+  font.axis = normalizeAxis({ ...font.axis, thicken: +input.value });
+  if (master === "bold") refreshBold(font, font.active);
+  syncWeights();
+  render("font");
+}));
+
+$("axisMin").addEventListener("change", (e) => {
+  checkpoint("axis");
+  font.axis = normalizeAxis({ ...font.axis, min: +e.target.value });
+  syncWeights();
+  syncToolbar();
+  render(null);
+});
+
+$("axisMax").addEventListener("change", (e) => {
+  checkpoint("axis");
+  font.axis = normalizeAxis({ ...font.axis, max: +e.target.value });
+  syncWeights();
+  syncToolbar();
+  render(null);
+});
+
+function syncWeights() {
+  const axis = normalizeAxis(font.axis);
+  $("axisMin").value = axis.min;
+  const maxSelect = $("axisMax");
+  const options = WEIGHTS.filter(([w]) => w > axis.min);
+  if (!options.some(([w]) => w === axis.max)) options.push([axis.max, weightName(axis.max)]);
+  maxSelect.replaceChildren(...options.sort((a, b) => a[0] - b[0]).map(([w, name]) => new Option(`${name} (${w})`, w)));
+  maxSelect.value = axis.max;
+  document.querySelectorAll("input.thicken").forEach((i) => { i.value = axis.thicken; });
+  const range = $("testWeight");
+  range.min = axis.min;
+  range.max = axis.max;
+  const weight = Math.min(axis.max, Math.max(axis.min, font.view.test.weight ?? axis.min));
+  range.value = weight;
+  const named = instances(axis).find((i) => i.weight === weight);
+  $("testWeightOut").textContent = named ? named.name : String(weight);
+  // Export choices: every named weight as a static font, and the variable one.
+  const kind = $("exportKind");
+  const current = kind.value;
+  kind.replaceChildren(
+    ...instances(axis).map((i) => new Option(`${i.name} (.otf)`, `static:${i.weight}`)),
+    new Option("Variable, todos los pesos (.ttf)", "variable"),
+  );
+  kind.value = [...kind.options].some((o) => o.value === current) ? current : `static:${axis.min}`;
+  syncExportInfo();
+}
+
+function syncExportInfo() {
+  $("exportKindInfo").innerHTML = $("exportKind").value === "variable"
+    ? "Una sola fuente con todos los pesos entre los dos másteres. Se descarga con <strong>Exportar fuente</strong>, arriba a la derecha."
+    : "La fuente se descarga con <strong>Exportar fuente</strong>, arriba a la derecha.";
+}
+$("exportKind").addEventListener("change", syncExportInfo);
+
+// Summary of the bold master, recomputed a moment after changes while the
+// panel is open.
+let weightsTimer = 0;
+function scheduleWeights() {
+  if (!$("weightsPanel").open) return;
+  clearTimeout(weightsTimer);
+  weightsTimer = setTimeout(syncMastersInfo, 400);
+}
+$("weightsPanel").addEventListener("toggle", () => { if ($("weightsPanel").open) syncMastersInfo(); });
+
+function syncMastersInfo() {
+  const chars = Object.keys(font.glyphs);
+  const report = mastersReport(font, chars);
+  const name = boldName();
+  const drawn = report.ok.length + report.incompatible.length;
+  $("mastersInfo").textContent = !drawn
+    ? `Dibuja letras en el Regular: su máster ${name} se crea solo, engrosándolas.`
+    : `${drawn} letra(s) con dibujo: ${report.edited.length} con el ${name} ajustado a mano, ` +
+      `${report.ok.length - report.edited.length} automáticas` +
+      (report.incompatible.length ? ` y ${report.incompatible.length} no compatibles (no cambiarán de peso):` : ".");
+  $("mastersBad").replaceChildren(...report.incompatible.map((char) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = char;
+    b.title = masterPair(font, char).reason;
+    b.addEventListener("click", () => { selectGlyph(char); setMaster("bold"); });
+    return b;
+  }));
 }
 
 // --- Collapsible letters panel ---
