@@ -4,11 +4,14 @@
 // must be "compatible": the same contours, with the same points, in the
 // same order.
 //
-// The bold master of a letter lives in `glyph.bold`: an outline edited with
-// nodes, plus its own width and sidebearings. It starts as the Regular
-// thickened by `font.axis.thicken` units on every side, which keeps it
-// compatible; afterwards its points are moved by hand. While it is still
-// `auto` (never edited) it follows the Regular when that changes.
+// The bold master of a letter lives in `glyph.bold`: a glyph of its own,
+// with its own width in columns, drawn on the grid or edited with nodes. It
+// starts as the Regular thickened by `font.axis.thicken` units on every side
+// (an outline); it can also start as a copy of the Regular's grid drawing,
+// to redraw it wider. While it is still `auto` (never edited) it follows the
+// Regular when that changes. Contours and start points are matched to the
+// Regular's automatically, so only the number of contours and points (and
+// which sides are curved) has to agree.
 
 import { glyphFinalContours } from "./shapes.js";
 import { commandsToOutline, outlineToCommands, cloneOutline } from "./nodes.js";
@@ -209,6 +212,73 @@ export function thickenOutline(outline, d) {
   });
 }
 
+// --- Matching the bold master to the Regular ---
+// Contours drawn separately (e.g. both masters on the grid) can come out in
+// another order, start at another point or run the other way. Each Regular
+// contour gets the bold contour, start point and direction that fits it best
+// (comparing positions within each master's bounding box).
+
+const segmentKinds = (contour) => contour.nodes.map((a, i) => {
+  const b = contour.nodes[(i + 1) % contour.nodes.length];
+  return a.out || b.in ? "C" : "L";
+}).join("");
+
+const reversed = (c) => ({ ...c, nodes: [...c.nodes].reverse().map((n) => ({ ...n, in: n.out, out: n.in })) });
+const rotated = (c, r) => ({ ...c, nodes: [...c.nodes.slice(r), ...c.nodes.slice(0, r)] });
+
+function unitBox(outline) {
+  const xs = outline.flatMap((c) => c.nodes.map((n) => n.x)), ys = outline.flatMap((c) => c.nodes.map((n) => n.y));
+  const x0 = Math.min(...xs), y0 = Math.min(...ys);
+  const w = Math.max(...xs) - x0 || 1, h = Math.max(...ys) - y0 || 1;
+  return (n) => [(n.x - x0) / w, (n.y - y0) / h];
+}
+
+export function matchOutline(regular, bold, boldName = "el máster grueso") {
+  if (regular.length !== bold.length) {
+    return { reason: `Regular tiene ${regular.length} contorno(s) y ${boldName}, ${bold.length}.` };
+  }
+  const nr = unitBox(regular), nb = unitBox(bold);
+  const used = new Set();
+  const out = [];
+  for (const [i, rc] of regular.entries()) {
+    const kinds = segmentKinds(rc);
+    let best = null;
+    for (const [j, bc] of bold.entries()) {
+      if (used.has(j) || bc.nodes.length !== rc.nodes.length) continue;
+      for (const dir of [bc, reversed(bc)]) {
+        for (let r = 0; r < dir.nodes.length; r++) {
+          const cand = rotated(dir, r);
+          if (segmentKinds(cand) !== kinds) continue;
+          let cost = 0;
+          cand.nodes.forEach((n, k) => {
+            const [ax, ay] = nr(rc.nodes[k]), [bx, by] = nb(n);
+            cost += (ax - bx) ** 2 + (ay - by) ** 2;
+          });
+          if (!best || cost < best.cost) best = { j, cand, cost };
+        }
+      }
+    }
+    if (!best) {
+      const sizes = bold.filter((_, j) => !used.has(j)).map((c) => c.nodes.length);
+      return {
+        reason: sizes.includes(rc.nodes.length)
+          ? `En el contorno ${i + 1}, las esquinas redondeadas (o las curvas) no coinciden con ${boldName}: redondea las mismas esquinas en los dos másteres.`
+          : `El contorno ${i + 1} del Regular tiene ${rc.nodes.length} punto(s); en ${boldName} ningún contorno tiene esa cantidad (${sizes.join(", ")}).`,
+      };
+    }
+    used.add(best.j);
+    out.push(best.cand);
+  }
+  return { outline: out };
+}
+
+// The bold master's own contours, as a node outline.
+function boldOutline(font, bold) {
+  const plain = !bold.cells.length && !(bold.pieces ?? []).length && !Object.keys(bold.corners ?? {}).length;
+  if (plain) return cloneOutline(bold.outline ?? []);
+  return commandsToOutline(glyphFinalContours(font, bold));
+}
+
 // --- Masters of a letter ---
 
 // A letter made only of components (á = a + ´): its masters are built from
@@ -240,6 +310,13 @@ export function boldGlyph(font, glyph, { outline, cols, lsb = glyph.lsb, rsb = g
   };
 }
 
+// A bold master that starts as a copy of the Regular's drawing (cells,
+// corners, pieces or nodes), to redraw it on the grid, wider or thicker.
+export function copyRegular(font, glyph) {
+  const copy = JSON.parse(JSON.stringify({ ...glyph, components: [], bold: null }));
+  return { ...copy, metrics: { ...font.metrics }, auto: false, source: null };
+}
+
 // The bold master kept in the letter, regenerated if it is automatic and the
 // Regular changed. Returns it (or null for pure composites).
 export function refreshBold(font, char) {
@@ -260,15 +337,17 @@ export function masterPair(font, char, seen = new Set()) {
   const glyph = font.glyphs[char];
   const regAdvance = advanceWidth(font, glyph);
   if (pureComposite(glyph)) return compositePair(font, char, glyph, seen);
-  const regular = normalizeContours(glyphFinalContours(font, glyph));
+  const regOutline = commandsToOutline(glyphFinalContours(font, glyph));
+  const regular = outlineToCommands(regOutline);
   // Letters whose bold master was never opened get the automatic one.
   let bold = glyph.bold;
   if (!bold || (bold.auto && bold.source !== signature(regular))) bold = makeBold(font, glyph);
-  const boldContours = outlineToCommands(bold.outline);
-  const pair = { regular, bold: boldContours, advance: [regAdvance, advanceWidth(font, bold)], lsb: [glyph.lsb, bold.lsb] };
-  if (!regular.length && !boldContours.length) return { ...pair, status: "empty" };
-  const reason = incompatibility(regular, boldContours, weightName(normalizeAxis(font.axis).max));
-  return reason ? { ...pair, status: "incompatible", reason } : { ...pair, status: "ok" };
+  const own = boldOutline(font, bold);
+  const pair = { regular, bold: outlineToCommands(own), advance: [regAdvance, advanceWidth(font, bold)], lsb: [glyph.lsb, bold.lsb] };
+  if (!regular.length && !own.length) return { ...pair, status: "empty" };
+  const match = matchOutline(regOutline, own, weightName(normalizeAxis(font.axis).max));
+  if (match.reason) return { ...pair, status: "incompatible", reason: match.reason };
+  return { ...pair, bold: outlineToCommands(match.outline), status: "ok" };
 }
 
 function compositePair(font, char, glyph, seen) {

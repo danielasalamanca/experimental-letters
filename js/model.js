@@ -58,10 +58,10 @@ export function createGlyph({
     // Edited node by node ("Nodos"): replaces the glyph's own grid drawing.
     outline: Array.isArray(outline) ? cloneOutline(outline) : null,
     components: components.map((c) => ({ glyph: c.glyph, dx: c.dx ?? 0, dy: c.dy ?? 0 })),
-    // The bold master (see masters.js): an outline with its own width and
-    // sidebearings, or null while it is generated automatically.
-    bold: bold && Array.isArray(bold.outline) ? {
-      ...createGlyph({ cols: bold.cols, lsb: bold.lsb, rsb: bold.rsb, metrics, outline: bold.outline, rounding: 0 }),
+    // The bold master (see masters.js): a glyph of its own (grid drawing or
+    // nodes, width, sidebearings), or null while it is generated automatically.
+    bold: bold && typeof bold === "object" ? {
+      ...createGlyph({ ...bold, metrics, components: [], bold: null }),
       auto: !!bold.auto, source: bold.source ?? null,
     } : null,
   };

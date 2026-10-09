@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
   <link rel="preload" href="fonts/Letritas-Regular.otf" as="font" type="font/otf" crossorigin>
-  <link rel="stylesheet" href="style.css?v=34">
+  <link rel="stylesheet" href="style.css?v=36">
 </head>
 <body>
   <header class="topbar">
@@ -80,7 +80,8 @@
           <span class="group-label">Máster <span class="bold-name">ExtraBold</span></span>
           <span id="boldStatus" class="bold-status"></span>
           <label class="inline" title="Cuánto se engrosa el Regular para crear el máster grueso automático, en unidades por lado">Engrosar <input type="number" class="thicken" min="1" max="400" step="1"> u</label>
-          <button id="boldRegen" type="button" class="chip" title="Vuelve a crear el máster grueso de esta letra engrosando el Regular">Regenerar esta letra</button>
+          <button id="boldGrid" type="button" class="chip" title="Copia el dibujo del Regular (celdas, esquinas, piezas) para redibujarlo en la grilla: más columnas, trazos más gruesos">▦ Dibujar en la grilla</button>
+          <button id="boldRegen" type="button" class="chip" title="Vuelve a crear el máster grueso de esta letra engrosando el Regular">Engrosar automático</button>
           <span class="hint-inline" id="boldHint"></span>
         </div>
         <div class="tool-group" id="transformGroup" hidden>
@@ -158,29 +159,29 @@
             <span id="glyphChar" class="glyph-char"></span>
             <span><strong id="glyphName"></strong><br><small id="glyphCode"></small></span>
           </div>
-          <label class="regular-only">Ancho (columnas) <output id="colsOut"></output>
+          <label>Ancho (columnas) <output id="colsOut"></output>
             <input type="range" id="cols" min="1" max="24">
           </label>
           <label class="row"><span><i class="swatch sb"></i>Margen izquierdo (u)</span> <input type="number" id="lsb" step="1"></label>
           <label class="row"><span><i class="swatch sb"></i>Margen derecho (u)</span> <input type="number" id="rsb" step="1"></label>
           <p class="info" id="advanceInfo"></p>
-          <div class="buttons three regular-only">
+          <div class="buttons three">
             <button id="invert" type="button" class="ghost" title="Rellena lo vacío y vacía lo relleno">Invertir</button>
             <button id="clear" type="button" class="ghost" title="Borra el dibujo de esta letra">Limpiar</button>
             <button id="save" type="button" class="ghost" title="Guarda una copia en Borradores (abajo a la izquierda)">Borrador</button>
           </div>
           <button id="resetGlyph" type="button" class="ghost danger wide regular-only" title="Vuelve esta letra a como empieza en una tipografía nueva: sin dibujo, nodos, esquinas ni piezas, con ancho y márgenes por defecto">Reiniciar letra (partir de cero)</button>
-          <div class="sub regular-only">
+          <div class="sub">
             <h4>Nodos</h4>
             <p class="info" id="nodeInfo"></p>
             <button id="editNodes" type="button" class="ghost wide">Editar con nodos</button>
-            <button id="backToGrid" type="button" class="ghost wide" hidden>Volver a la grilla</button>
+            <button id="backToGrid" type="button" class="ghost wide regular-only" hidden>Volver a la grilla</button>
           </div>
-          <div class="sub regular-only" id="pieceListBox" hidden>
+          <div class="sub" id="pieceListBox" hidden>
             <h4>Piezas</h4>
             <div id="pieceList"></div>
           </div>
-          <details class="sub-details regular-only">
+          <details class="sub-details">
             <summary>Grilla de esta letra</summary>
             <label class="row">Grilla <select id="glyphGrid"></select></label>
           </details>
@@ -204,7 +205,7 @@
         </div>
       </details>
 
-      <details class="panel regular-only" open>
+      <details class="panel" open>
         <summary>Forma</summary>
         <div class="panel-body">
           <label><span id="curveLabel">Curvatura global</span> <output id="curveOut"></output>
@@ -434,22 +435,22 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=34",
-        "./js/geometry.js": "./js/geometry.js?v=34",
-        "./js/model.js": "./js/model.js?v=34",
-        "./js/render.js": "./js/render.js?v=34",
-        "./js/tools.js": "./js/tools.js?v=34",
-        "./js/library.js": "./js/library.js?v=34",
-        "./js/pieces.js": "./js/pieces.js?v=34",
-        "./js/nodes.js": "./js/nodes.js?v=34",
-        "./js/shapes.js": "./js/shapes.js?v=34",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=34",
-        "./js/outline.js": "./js/outline.js?v=34",
-        "./js/otf.js": "./js/otf.js?v=34",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=34"
+        "./js/charset.js": "./js/charset.js?v=36",
+        "./js/geometry.js": "./js/geometry.js?v=36",
+        "./js/model.js": "./js/model.js?v=36",
+        "./js/render.js": "./js/render.js?v=36",
+        "./js/tools.js": "./js/tools.js?v=36",
+        "./js/library.js": "./js/library.js?v=36",
+        "./js/pieces.js": "./js/pieces.js?v=36",
+        "./js/nodes.js": "./js/nodes.js?v=36",
+        "./js/shapes.js": "./js/shapes.js?v=36",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=36",
+        "./js/outline.js": "./js/outline.js?v=36",
+        "./js/otf.js": "./js/otf.js?v=36",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=36"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=34"></script>
+  <script type="module" src="js/main.js?v=36"></script>
 </body>
 </html>

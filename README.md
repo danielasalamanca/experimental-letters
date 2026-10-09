@@ -266,20 +266,24 @@ Como en Glyphs, una tipografía tiene **dos másteres**: el **Regular**, que es
 el dibujo, y uno **grueso** (ExtraBold por defecto). Los pesos intermedios
 (Medium, SemiBold, Bold…) se calculan entre los dos, punto por punto.
 - **Máster** (junto a las herramientas, o tecla **M**): cambia entre el
-  Regular y el grueso. En el máster grueso la letra se ajusta solo con
-  **Nodos**: arrastra puntos y manijas (o muévelos con las flechas) mientras
-  el Regular se ve detrás como referencia. Los márgenes laterales del máster
-  grueso se cambian en el panel Letra.
+  Regular y el grueso. El máster grueso se edita con las mismas herramientas,
+  mientras el Regular se ve detrás como referencia; su ancho en columnas y sus
+  márgenes se cambian en el panel Letra.
+- **Dibujar en la grilla:** copia el dibujo del Regular (celdas, esquinas y
+  piezas) al máster grueso para redibujarlo con su propia grilla: por ejemplo,
+  una "n" de 9 columnas en Regular y de 13 en ExtraBold, con trazos más
+  gruesos. Las esquinas redondeadas se copian en su lugar original: si
+  ensanchas la letra, redondea de nuevo las que se movieron.
 - **Automático:** cada letra empieza con un máster grueso hecho engrosando su
   Regular (**Engrosar**, en unidades por lado). Mientras no lo toques, sigue
   al Regular: si cambias el dibujo, se vuelve a engrosar solo. Cuando mueves
-  un punto pasa a ser tuyo; **Regenerar esta letra** vuelve al automático.
-- **Compatibles:** para interpolar, los dos másteres deben tener los mismos
-  contornos con los mismos puntos. Por eso en el máster grueso no se agregan
-  ni quitan puntos. Si cambias el Regular de una letra cuyo máster grueso
-  ajustaste a mano, puede dejar de ser compatible: la barra lo avisa, la letra
-  lleva un punto rojo y el panel **Pesos** la lista; esas letras quedan iguales
-  en todos los pesos hasta que las regeneres.
+  un punto pasa a ser tuyo; **Engrosar automático** vuelve a él.
+- **Compatibles:** para interpolar, los dos másteres deben tener la misma
+  cantidad de contornos y de puntos, con las curvas en los mismos tramos (las
+  mismas esquinas redondeadas). El orden de los contornos y dónde empieza cada
+  uno se emparejan solos. Si no coinciden, la barra lo avisa con el motivo, la
+  letra lleva un punto rojo y el panel **Pesos** la lista; esas letras quedan
+  iguales en todos los pesos hasta que las arregles o las regeneres.
 - Las letras con tilde (á, ñ…) arman su máster grueso con los de sus partes.
 - **Panel Pesos (fuente variable):** el peso del Regular (400), cuál es el
   máster grueso (de Medium a Black) y cuánto engrosa el automático.

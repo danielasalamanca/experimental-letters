@@ -126,3 +126,49 @@ test("bold masters survive saving", () => {
   assert.deepEqual(again.axis, { min: 400, max: 800, thicken: 20 });
   assert.equal(makeBold(f, f.glyphs.l).auto, true);
 });
+
+import { copyRegular, matchOutline } from "../js/masters.js";
+
+// An "n" on the dot grid: two stems joined by a bar at the top.
+function nCells(cols, stem, height = 9, bar = 2) {
+  const cells = [];
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < cols; c++) {
+      const inStem = c < stem || c >= cols - stem;
+      if (inStem || r >= height - bar) cells.push(`${c},${r}`);
+    }
+  }
+  return cells;
+}
+
+test("a bold master drawn on the grid, wider, interpolates with the Regular", () => {
+  const f = font();
+  f.glyphs.n.cells = nCells(9, 1);
+  f.glyphs.n.cols = 9;
+  const bold = copyRegular(f, f.glyphs.n);
+  bold.cells = nCells(13, 3, 9, 3);
+  bold.cols = 13;
+  f.glyphs.n.bold = bold;
+  const again = normalizeFont(JSON.parse(JSON.stringify(f)));
+  assert.equal(again.glyphs.n.bold.cols, 13);
+  const pair = masterPair(again, "n");
+  assert.equal(pair.status, "ok");
+  assert.equal(pair.advance[1] - pair.advance[0], 4 * 50);
+  const mid = atWeight(again, "n", 600);
+  const xs = mid.contours.flat().filter((c) => c.type !== "Z").map((c) => c.x);
+  assert.equal(Math.max(...xs), 11); // halfway between 9 and 13 columns
+});
+
+test("contours are matched whatever their order, start point and direction", () => {
+  const sq = (x0, y0, x1, y1) => commandsToOutline([square(x0, y0, x1, y1)])[0];
+  const regular = [sq(0, 0, 1, 1), sq(3, 0, 4, 1)];
+  const turned = (c, r) => ({ ...c, nodes: [...c.nodes.slice(r), ...c.nodes.slice(0, r)] });
+  const back = (c) => ({ ...c, nodes: [...c.nodes].reverse() });
+  const bold = [back(turned(sq(5, 0, 7, 2), 2)), turned(sq(0, 0, 2, 2), 1)];
+  const { outline, reason } = matchOutline(regular, bold);
+  assert.equal(reason, undefined);
+  assert.deepEqual(outline[0].nodes.map((n) => [n.x, n.y]), [[0, 0], [2, 0], [2, 2], [0, 2]]);
+  assert.deepEqual(outline[1].nodes.map((n) => [n.x, n.y]), [[5, 0], [7, 0], [7, 2], [5, 2]]);
+  const tri = commandsToOutline([[{ type: "M", x: 0, y: 0 }, { type: "L", x: 1, y: 0 }, { type: "L", x: 0, y: 1 }, { type: "Z" }]])[0];
+  assert.match(matchOutline(regular, [tri, bold[1]]).reason, /4 punto/);
+});

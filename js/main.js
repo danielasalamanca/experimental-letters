@@ -22,7 +22,7 @@ import {
 } from "./nodes.js";
 import { ownContours, glyphRawContours } from "./shapes.js";
 import {
-  refreshBold, makeBold, masterPair, pureComposite, boldGlyph, normalizeAxis, instances, weightName,
+  refreshBold, makeBold, copyRegular, masterPair, pureComposite, boldGlyph, normalizeAxis, instances, weightName,
   mastersReport, WEIGHTS, atWeight,
 } from "./masters.js";
 import {
@@ -330,13 +330,13 @@ let spaceDown = false;
 function setTool(next) {
   floating = null;
   polyDraft = null;
-  if (master === "bold" && next !== "nodes") {
-    if (tool === "nodes") toast(`En el máster ${boldName()} los puntos se ajustan con Nodos.`);
-    next = "nodes";
-  }
   // A glyph edited with nodes has no grid drawing to work on.
   if (glyph().outline && ["draw", "select", "piece"].includes(next)) {
-    if (tool === "nodes") toast("Esta letra se edita con nodos. Para dibujar en la grilla, usa «Volver a la grilla» en el panel Glifo.");
+    if (tool === "nodes") {
+      toast(master === "bold"
+        ? `Este máster ${boldName()} está en nodos. Para dibujarlo en la grilla usa «Dibujar en la grilla», arriba.`
+        : "Esta letra se edita con nodos. Para dibujar en la grilla, usa «Volver a la grilla» en el panel Glifo.");
+    }
     next = "nodes";
   }
   // Corners and pieces only exist on the square grid.
@@ -363,8 +363,6 @@ function setTool(next) {
   $("toolCorner").classList.toggle("active", tool === "corner");
   $("cornerGroup").hidden = tool !== "corner";
   $("transformGroup").hidden = tool !== "select" && tool !== "nodes";
-  // The bold master only moves points and handles, so it stays compatible.
-  if (master === "bold") ["nodeGroup", "pathfinderGroup", "transformGroup"].forEach((id) => { $(id).hidden = true; });
   $("boldGroup").hidden = master !== "bold";
   board.dataset.tool = tool;
   render(null);
@@ -688,7 +686,6 @@ function nodePartners(outline, keys) {
 let nodeAddMode = false;
 
 function setNodeAdd(on) {
-  if (on && structureLocked()) return;
   nodeAddMode = on;
   if (on) setShapeMode(null);
   $("nodeAdd").classList.toggle("active", on);
@@ -896,15 +893,7 @@ function constrain([dx, dy]) {
 }
 
 // Double-click: on a node, corner ↔ smooth; on a segment, a new node.
-const LOCKED = () => `En el máster ${boldName()} solo se mueven puntos y manijas: así sigue siendo compatible con el Regular.`;
-const structureLocked = () => {
-  if (master !== "bold") return false;
-  toast(LOCKED());
-  return true;
-};
-
 function nodeDoubleClick(evt) {
-  if (structureLocked()) return;
   const p = toCells(evt);
   const tol = pxToCells(8);
   const preview = editableOutline();
@@ -929,7 +918,6 @@ function nodeDoubleClick(evt) {
 }
 
 function deleteSelectedNodes() {
-  if (structureLocked()) return;
   if (!nodeSel.size) return;
   checkpoint();
   const g = glyph();
@@ -992,7 +980,6 @@ function shapeContour(mode, { x0, y0, x1, y1 }) {
 // node, or on all of them; with a single shape selected, on all of them
 // with that one on top. The result replaces them and stays selected.
 function runPathfinder(op) {
-  if (structureLocked()) return;
   const preview = editableOutline();
   const objects = contourObjects(outlineToCommands(preview));
   const picked = new Set([...nodeSel].map((k) => +k.split(":")[0]));
@@ -1586,8 +1573,6 @@ function syncToolbar() {
   $("toolPiece").disabled = !squares || nodesOnly;
   if (!squares && !nodesOnly && (tool === "corner" || tool === "piece")) setTool("draw");
   const bold = master === "bold";
-  if (bold) ["toolDraw", "toolSelect", "toolCorner", "toolPiece"].forEach((id) => { $(id).disabled = true; });
-  $("toolPoly").disabled = bold;
   $("masterRegular").classList.toggle("active", !bold);
   $("masterBold").classList.toggle("active", bold);
   $("masterBold").textContent = boldName();
@@ -1712,7 +1697,6 @@ function paste() {
 const TRANSFORM_NAMES = { cw: "Girado 90° a la derecha", ccw: "Girado 90° a la izquierda", h: "Espejado izquierda–derecha", v: "Espejado arriba–abajo" };
 
 function transformShape(kind) {
-  if (structureLocked()) return;
   const g = glyph();
   if (tool === "nodes" || g.outline) return transformOutline(kind);
   const whole = !selection.size;
@@ -1795,7 +1779,6 @@ function copyNodes() {
 }
 
 function pasteNodes() {
-  if (structureLocked()) return;
   if (!nodeClipboard?.length) return;
   checkpoint();
   const outline = ensureOutline();
@@ -1808,7 +1791,6 @@ function pasteNodes() {
 }
 
 function cutNodes() {
-  if (structureLocked()) return;
   const picked = copyNodes();
   if (!picked.length) return;
   checkpoint();
@@ -2611,10 +2593,10 @@ function setMaster(next) {
   document.body.classList.toggle("master-bold", master === "bold");
   if (master === "bold") {
     refreshBold(font, font.active);
-    setTool("nodes");
-    toast(`Máster ${boldName()}: ajusta los puntos con Nodos. El Regular se ve detrás.`);
+    setTool(glyph().outline ? "nodes" : tool);
+    toast(`Máster ${boldName()}: el Regular se ve detrás como referencia.`);
   } else {
-    setTool("draw");
+    setTool(glyph().outline ? "nodes" : "draw");
   }
   syncControls();
   render(null);
@@ -2645,11 +2627,33 @@ function syncBoldBar() {
   }
   status.textContent = text;
   status.className = `bold-status ${kind}`;
-  $("boldRegen").hidden = pureComposite(g);
+  $("boldRegen").hidden = $("boldGrid").hidden = pureComposite(g);
+  const onGrid = g.bold && !g.bold.outline;
   $("boldHint").textContent = pureComposite(g)
     ? "Edita las letras que la componen."
-    : "Arrastra puntos y manijas con Nodos (flechas: ¼ de celda). No agregues ni quites puntos.";
+    : onGrid
+      ? "Dibuja con cualquier herramienta y cambia el ancho en columnas. Para interpolar, necesita los mismos contornos y puntos que el Regular."
+      : "Ajusta los puntos con Nodos, o usa «Dibujar en la grilla» para redibujarlo con más columnas.";
 }
+
+$("boldGrid").addEventListener("click", async () => {
+  const g = font.glyphs[font.active];
+  if (g.bold && !g.bold.auto) {
+    const ok = await confirmAction({
+      title: "Dibujar en la grilla",
+      message: `El máster ${boldName()} de esta letra se reemplaza por una copia del dibujo del Regular, para redibujarlo (se puede deshacer).`,
+      ok: "Copiar el Regular",
+    });
+    if (!ok) return;
+  }
+  checkpoint();
+  g.bold = copyRegular(font, g);
+  nodeSel.clear();
+  setTool(g.bold.outline ? "nodes" : "draw");
+  syncControls();
+  render();
+  toast("Ahora cambia el ancho (columnas) en el panel Letra y redibuja los trazos más gruesos.");
+});
 
 $("boldRegen").addEventListener("click", async () => {
   const g = font.glyphs[font.active];
@@ -2664,6 +2668,8 @@ $("boldRegen").addEventListener("click", async () => {
   checkpoint();
   g.bold = makeBold(font, g);
   nodeSel.clear();
+  setTool("nodes");
+  syncControls();
   render();
 });
 
