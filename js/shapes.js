@@ -19,7 +19,9 @@ export function glyphFinalContours(font, glyph, options = {}) {
 }
 
 // The grid drawing (already rounded) plus the node outlines as they are.
-export function glyphRawContours(font, glyph, { mode = "join" } = {}) {
+// `sharp`: the corners pieces make on the circle grid left unrounded (for
+// the corner tool, which rounds them itself).
+export function glyphRawContours(font, glyph, { mode = "join", sharp = false } = {}) {
   const cu = font.cell;
   const cells = resolvedCells(font, glyph).filter((k) => {
     const [c] = parseKey(k);
@@ -34,7 +36,7 @@ export function glyphRawContours(font, glyph, { mode = "join" } = {}) {
       stroke: font.style === "outline" ? font.stroke / cu : 0,
     })
     : shape.pieces.length
-      ? contoursWithPieces(glyphContours(cells, { curve: shape.curve, joinWidth }), shape.pieces)
+      ? contoursWithPieces(glyphContours(cells, { curve: shape.curve, joinWidth }), shape.pieces, { corners: sharp ? {} : shape.corners })
       : glyphContours(cells, { curve: shape.curve, joinWidth });
   return [...contours, ...outlineToCommands(shape.outline)];
 }

@@ -126,7 +126,8 @@ grilla:
   queda elegido para moverlo.
 - **Copiar dibujo desde otro glifo** (panel Glifo): por ejemplo, de la "n" a
   la "h" como punto de partida.
-- **Esquinas (E)** (grilla de puntos): muestra las esquinas de la letra como
+- **Esquinas (E)** (grilla de puntos; en la de círculos, las esquinas de
+  piezas y polígonos): muestra las esquinas de la letra como
   puntos. **Arrastra** una esquina hacia adentro para elegir su radio (en
   medias celdas), o haz **clic** para aplicarle el radio del control **Radio**
   (de ½ a 12 celdas; al máximo, que es el valor inicial, se redondea todo lo

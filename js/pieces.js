@@ -220,10 +220,12 @@ function buildShape(cells, pieces) {
 }
 
 // Any grid drawing (like the stars of the circle grid) with pieces on top,
-// cleaned of overlaps, curves kept.
-export function contoursWithPieces(contours, pieces) {
+// cleaned of overlaps, curves kept. `corners` rounds the corners the pieces
+// make (radius per corner key), as the corner tool does on squares.
+export function contoursWithPieces(contours, pieces, { corners: cornerRadii = {} } = {}) {
   const book = new CurveBook();
-  const shape = applyPieces(book, unionPaths(book.paths(contours)), pieces);
+  let shape = applyPieces(book, unionPaths(book.paths(contours)), pieces);
+  if (Object.keys(cornerRadii).length) shape = roundCorners(book, shape, findCorners(book, shape), 0, cornerRadii).shape;
   return shape.map((path) => book.refit(path));
 }
 

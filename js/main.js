@@ -123,6 +123,8 @@ let zoomBox = null;      // explicit viewBox while zoomed or panned; null = fit
 // Redraws the canvas. `scope` says which thumbnails are stale:
 // "glyph" = the active glyph and the composites using it, "font" = all.
 function render(scope = "glyph") {
+  // Placing or deleting the first piece turns the corner tool on or off.
+  $("toolCorner").disabled = !cornersAvailable();
   const bgChar = font.view.background;
   if (glyph().readOnly) boldView = null;
   bounds = drawGlyph(board, font, glyph(), {
@@ -353,11 +355,8 @@ function setTool(next) {
     }
     next = "nodes";
   }
-  // Corners only exist on the square grid (or on node outlines). Pieces
-  // work everywhere: elsewhere they join the outline, like the polygon.
-  const cornersOk = next === "corner" && glyph().outline;
-  if (!cornersOk && next === "corner" && glyphGrid(font, glyph()) !== "squares") {
-    toast("La herramienta Esquinas funciona con la grilla de puntos (cuadrados).");
+  if (next === "corner" && !cornersAvailable()) {
+    toast("En la grilla de círculos, Esquinas redondea las esquinas de piezas y polígonos. Esta letra no tiene ninguno.");
     next = tool === "corner" ? "draw" : tool;
   }
   tool = next;
@@ -1397,6 +1396,14 @@ function outlineCorners() {
     }
     return out;
   }
+  if (shape.pieces.length && shape.grid !== "squares") {
+    // Circle grid: only the corners the pieces make (star tips are curves;
+    // without the "unión mínima", whose bridges would add theirs).
+    for (const c of contourCorners(glyphRawContours(font, g, { sharp: true, mode: "raw" }), { corners: shape.corners })) {
+      out.set(c.key, { x: c.x, y: c.y, back: [-c.din[0], -c.din[1]], fwd: c.dout, radius: c.radius });
+    }
+    return out;
+  }
   if (shape.pieces.length) {
     for (const c of pieceGlyphCorners(cells, { rounding: shape.rounding, corners: shape.corners, pieces: shape.pieces })) {
       out.set(c.key, { x: c.x, y: c.y, back: [-c.din[0], -c.din[1]], fwd: c.dout, radius: c.radius });
@@ -1619,13 +1626,17 @@ function buildToolbar() {
   }
 }
 
+// Corners exist on the square grid, on node outlines and, on the circle
+// grid, where pieces make them.
+const cornersAvailable = () =>
+  glyphGrid(font, glyph()) === "squares" || !!glyph().outline || resolvedPieces(font, glyph()).length > 0;
+
 function syncToolbar() {
-  const squares = glyphGrid(font, glyph()) === "squares";
   const nodesOnly = !!glyph().outline;
   for (const id of ["toolDraw", "toolSelect"]) $(id).disabled = nodesOnly;
   if (nodesOnly && !["nodes", "corner", "poly", "piece"].includes(tool)) setTool("nodes");
-  $("toolCorner").disabled = !squares && !nodesOnly;
-  if (!squares && !nodesOnly && tool === "corner") setTool("draw");
+  $("toolCorner").disabled = !cornersAvailable();
+  if (tool === "corner" && !cornersAvailable()) setTool("draw");
   const bold = master === "bold";
   $("masterRegular").classList.toggle("active", !bold);
   $("masterBold").classList.toggle("active", bold);

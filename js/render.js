@@ -265,7 +265,7 @@ export function drawShapes(font, cellList, { grid, curve, rounding, corners = {}
   // Circle grid with pieces: the stars (and bridges) merged with them.
   if (pieces.length) {
     const joinWidth = font.join.enabled ? font.join.width / cu : 0;
-    g.appendChild(el("path", { d: contoursToPath(contoursWithPieces(glyphContours(cells, { curve, joinWidth }), pieces), cu) }));
+    g.appendChild(el("path", { d: contoursToPath(contoursWithPieces(glyphContours(cells, { curve, joinWidth }), pieces, { corners }), cu) }));
     return g;
   }
   for (const k of cells) {
