@@ -470,7 +470,7 @@ board.addEventListener("pointerdown", (evt) => {
     if (node) {
       checkpoint();
       selectedPiece = node.index;
-      action = { type: "node", ...node, shift: evt.shiftKey };
+      action = { type: "node", ...node, shift: evt.shiftKey, ...nodeOrigin() };
       syncPieceList();
       return;
     }
@@ -555,7 +555,7 @@ window.addEventListener("pointermove", (evt) => {
       if (action.node && Math.hypot(evt.clientX - action.sx, evt.clientY - action.sy) > 4) {
         checkpoint();
         selectedPiece = action.node.index;
-        action = { type: "node", ...action.node, shift: evt.shiftKey };
+        action = { type: "node", ...action.node, shift: evt.shiftKey, ...nodeOrigin() };
         dragNode(evt);
       }
       break;
@@ -1291,7 +1291,31 @@ function dragNode(evt) {
   if (JSON.stringify(moved) === before || partners.some(([, q]) => !q)) return;
   g.pieces[action.index] = moved;
   for (const [j, q] of partners) g.pieces[j] = q;
+  carryCorners(g, [[action.index, at], ...action.partners.map((p) => [p.index, p.map(at)])]);
   render();
+}
+
+// What a piece node drag starts from: the pieces and rounded corners.
+const nodeOrigin = () => ({ origPieces: structuredClone(glyph().pieces), origCorners: { ...glyph().corners } });
+
+// A rounded corner travels with the piece node on it (like with the Nodos
+// tool), so pushing two rounded figures together keeps their rounding. It
+// stays behind too if another piece still has a node there.
+function carryCorners(g, movedNodes) {
+  if (!action.origCorners) return;
+  g.corners = { ...action.origCorners };
+  const handleAt = (index) => pieceHandles(action.origPieces[index]).find((h) => h.id === action.id);
+  const carried = [];
+  for (const [index, to] of movedNodes) {
+    const from = handleAt(index);
+    if (!from) continue;
+    const k = cornerKey(from.x, from.y);
+    if (!(k in action.origCorners)) continue;
+    const shared = action.origPieces.some((p, j) => j !== index && pieceHandles(p).some((h) => cornerKey(h.x, h.y) === k));
+    if (!shared) delete g.corners[k];
+    carried.push([cornerKey(to[0], to[1]), action.origCorners[k]]);
+  }
+  for (const [k, v] of carried) g.corners[k] = v;
 }
 
 function removePiece(index) {
