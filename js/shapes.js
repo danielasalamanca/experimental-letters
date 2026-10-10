@@ -4,7 +4,7 @@
 // into an editable outline.
 
 import { glyphContours } from "./outline.js";
-import { squareGlyphContours, roundedContours } from "./pieces.js";
+import { squareGlyphContours, roundedContours, contoursWithPieces } from "./pieces.js";
 import { outlineToCommands } from "./nodes.js";
 import { resolvedCells, glyphShape } from "./model.js";
 import { parseKey } from "./geometry.js";
@@ -27,12 +27,15 @@ export function glyphRawContours(font, glyph, { mode = "join" } = {}) {
   });
   const shape = glyphShape(font, glyph);
   const joinWidth = mode === "join" && font.join.enabled ? font.join.width / cu : 0;
-  const contours = !cells.length ? [] : shape.grid === "squares"
+  // Pieces are drawn on either grid, even on a letter without cells.
+  const contours = !cells.length && !shape.pieces.length ? [] : shape.grid === "squares"
     ? squareGlyphContours(cells, {
       rounding: shape.rounding, corners: shape.corners, pieces: shape.pieces,
       stroke: font.style === "outline" ? font.stroke / cu : 0,
     })
-    : glyphContours(cells, { curve: shape.curve, joinWidth });
+    : shape.pieces.length
+      ? contoursWithPieces(glyphContours(cells, { curve: shape.curve, joinWidth }), shape.pieces)
+      : glyphContours(cells, { curve: shape.curve, joinWidth });
   return [...contours, ...outlineToCommands(shape.outline)];
 }
 

@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { squareGlyphContours, pieceContour, normalizePiece, mirrorPiece } from "../js/pieces.js";
+import { squareGlyphContours, pieceContour, normalizePiece, mirrorPiece, contoursWithPieces } from "../js/pieces.js";
+import { glyphContours } from "../js/outline.js";
+import { normalizeFont } from "../js/model.js";
+import { glyphFinalContours } from "../js/shapes.js";
 
 function flatten(contours) {
   return contours.map((cmds) => {
@@ -150,6 +153,33 @@ test("a capsule added on top is a stroke with round ends", () => {
   const contours = squareGlyphContours([], { pieces });
   assert.equal(contours.length, 1);
   assert.ok(Math.abs(area(flatten(contours)) - (12 + Math.PI)) < 0.01);
+});
+
+test("pieces draw on the circle grid too: a disc on its own, a dot cut from stars", () => {
+  const disc = contoursWithPieces([], [{ x0: 0, y0: 0, x1: 4, y1: 4, corner: "bl", shape: "ellipse", mode: "add" }]);
+  assert.equal(disc.length, 1);
+  assert.ok(Math.abs(area(flatten(disc)) - 4 * Math.PI) < 0.01);
+  const stars = glyphContours(block(0, 0, 6, 6), { curve: 0.5, joinWidth: 0.2 });
+  const before = area(flatten(contoursWithPieces(stars, [])));
+  const holed = contoursWithPieces(stars, [{ x0: 2, y0: 2, x1: 4, y1: 4, corner: "bl", shape: "ellipse", mode: "cut" }]);
+  const polys = flatten(holed);
+  assert.equal(winding(polys, [3, 3]), 0, "the dot is a hole");
+  assert.ok(area(polys) < before - 1, "the dot takes ink away");
+  for (let i = 0; i < 1500; i++) {
+    const p = [((i * 0.6180339887) % 1) * 7 - 0.5, ((i * 0.7548776662 + 0.1) % 1) * 7 - 0.5];
+    const w = winding(polys, p);
+    assert.ok(w === 0 || w === 1, `superposición en ${p}`);
+  }
+});
+
+test("a letter with only pieces and no cells has ink, on either grid", () => {
+  const font = normalizeFont(null);
+  for (const grid of ["squares", "circles"]) {
+    const g = { ...font.glyphs.O, grid, cells: [], pieces: [{ x0: 0, y0: 0, x1: 4, y1: 4, corner: "bl", shape: "pill", mode: "add" }] };
+    const contours = glyphFinalContours(font, g);
+    assert.equal(contours.length, 1, grid);
+    assert.ok(Math.abs(area(flatten(contours)) - 4 * Math.PI) < 0.01, grid);
+  }
 });
 
 test("pieces apply in order", () => {

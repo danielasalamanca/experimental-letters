@@ -227,7 +227,8 @@ function toast(message) {
 }
 
 // A glyph with nothing drawn: no cells and no node outline (own or from components).
-const isEmptyGlyph = (g) => resolvedCells(font, g).length === 0 && resolvedOutline(font, g).length === 0;
+const isEmptyGlyph = (g) => resolvedCells(font, g).length === 0 && resolvedOutline(font, g).length === 0
+  && !resolvedPieces(font, g).some((p) => p.mode !== "cut");
 
 // --- Character map ---
 const thumbs = new Map(); // char -> cell element
@@ -1110,9 +1111,9 @@ function endPiece(done) {
   placePiece(piece);
 }
 
-// Pieces stay editable pieces on the square grid; on the circles grid or
-// in a letter edited with nodes they join the outline instead.
-const piecesLive = () => !glyph().outline && glyphGrid(font, glyph()) === "squares";
+// Pieces are part of the grid drawing, on either grid, and stay editable;
+// only in a letter edited with nodes do they join the outline instead.
+const piecesLive = () => !glyph().outline;
 
 // Adds a piece (and its mirror images, with the mirror on) and selects it.
 function placePiece(piece) {
@@ -1162,13 +1163,13 @@ function finishPoly() {
     return;
   }
   const g = glyph();
-  if (!g.outline && glyphGrid(font, g) === "squares") {
+  if (!g.outline) {
     checkpoint();
     placePiece(normalizePiece({ shape: "poly", mode: polyMode, points: pts, x0: 0, y0: 0, x1: 0, y1: 0, corner: "bl" }));
     if (polyMode === "cut" && !g.cells.length) toast("«Recortar» quita tinta: en una letra vacía no se ve. Usa «Agregar».");
     return;
   }
-  // Circles grid or a letter edited with nodes: the figure joins the outline.
+  // A letter edited with nodes: the figure joins the outline.
   joinOutline(normalizePiece({ shape: "poly", mode: polyMode, points: pts, x0: 0, y0: 0, x1: 0, y1: 0, corner: "bl" }));
 }
 

@@ -2,9 +2,10 @@
 // Font units have y up; SVG has y down, so every y is negated here.
 
 import { starPath, joinBridges, parseKey } from "./geometry.js";
-import { squareGlyphContours, roundedContours } from "./pieces.js";
+import { squareGlyphContours, roundedContours, contoursWithPieces } from "./pieces.js";
 import { METRICS, glyphShape, glyphGrid, resolvedCells, resolvedOutline, advanceWidth, layoutText } from "./model.js";
 import { outlineToCommands } from "./nodes.js";
+import { glyphContours } from "./outline.js";
 
 export const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -258,7 +259,13 @@ export function drawShapes(font, cellList, { grid, curve, rounding, corners = {}
   }
   if (grid === "squares") {
     const stroke = font.style === "outline" ? font.stroke / cu : 0;
-    if (cells.length) g.appendChild(el("path", { d: contoursToPath(squareGlyphContours(cells, { rounding, stroke, corners, pieces }), cu) }));
+    if (cells.length || pieces.length) g.appendChild(el("path", { d: contoursToPath(squareGlyphContours(cells, { rounding, stroke, corners, pieces }), cu) }));
+    return g;
+  }
+  // Circle grid with pieces: the stars (and bridges) merged with them.
+  if (pieces.length) {
+    const joinWidth = font.join.enabled ? font.join.width / cu : 0;
+    g.appendChild(el("path", { d: contoursToPath(contoursWithPieces(glyphContours(cells, { curve, joinWidth }), pieces), cu) }));
     return g;
   }
   for (const k of cells) {

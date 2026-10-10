@@ -215,13 +215,25 @@ export function pieceGlyphCorners(cells, { rounding = 0, corners: cornerRadii = 
 
 function buildShape(cells, pieces) {
   const book = new CurveBook();
-  let shape = book.paths(squareContours(cells, { rounding: 0 }));
+  const shape = applyPieces(book, book.paths(squareContours(cells, { rounding: 0 })), pieces);
+  return { book, shape };
+}
+
+// Any grid drawing (like the stars of the circle grid) with pieces on top,
+// cleaned of overlaps, curves kept.
+export function contoursWithPieces(contours, pieces) {
+  const book = new CurveBook();
+  const shape = applyPieces(book, unionPaths(book.paths(contours)), pieces);
+  return shape.map((path) => book.refit(path));
+}
+
+function applyPieces(book, shape, pieces) {
   for (const piece of pieces) {
     const clip = orient(book.paths([pieceContour(piece)])).filter((q) => Math.abs(ClipperLib.Clipper.Area(q)) > 1);
     if (!clip.length) continue;
     shape = clipperOp(piece.mode === "cut" ? ClipperLib.ClipType.ctDifference : ClipperLib.ClipType.ctUnion, shape, clip);
   }
-  return { book, shape };
+  return shape;
 }
 
 // Corner positions are keyed like lattice points ("3,14"), with up to three

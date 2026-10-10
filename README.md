@@ -146,17 +146,19 @@ grilla:
   **Recortar** la quita: por ejemplo, un bloque con dos cuñas recortadas que
   llegan al borde forma una "S". Después, con **Esquinas**, se redondean sus
   vértices (también las puntas de las cuñas).
-  - En la grilla de puntos la figura queda como una pieza, así que las celdas
-    se siguen dibujando y sus puntos se pueden arrastrar con la misma
-    herramienta. En la grilla de círculos (o en una letra con nodos) la figura
-    se suma al contorno de la letra, que pasa a editarse con nodos.
+  - En cualquier grilla la figura queda como una pieza del dibujo, así que
+    las celdas se siguen dibujando y sus puntos se pueden arrastrar con la
+    misma herramienta. Solo en una letra con nodos la figura se suma al
+    contorno de la letra.
 - **Piezas (P):** piezas geométricas que **agregan** (por defecto) o
   **recortan** tinta encima de las celdas, para diagonales y curvas que la
   grilla sola no permite. Arrastra de un punto de la grilla a otro: la pieza
   ocupa ese rectángulo y nace en la esquina donde empezaste.
-  - Como el Polígono, funciona en cualquier grilla: en la de puntos queda
-    como pieza editable; en la de círculos (o en una letra con nodos) se
-    suma al contorno de la letra, que pasa a editarse con nodos.
+  - Dibuja como **Dibujar**, en cualquier grilla: la forma queda en el
+    dibujo de la letra (también en una letra vacía y sobre las estrellas de
+    la grilla de círculos), la letra no pasa a nodos y puedes seguir
+    rellenando celdas con Dibujar. Solo en una letra que ya se edita con
+    nodos la forma se suma a su contorno.
   - **Triángulo:** ángulo recto en esa esquina; recortado a los lados de un
     bloque da diagonales de cualquier inclinación (una "A" trapezoidal).
   - **Cuarto de elipse:** centrado en esa esquina (panzas, brazos redondos,
