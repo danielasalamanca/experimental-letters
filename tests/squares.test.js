@@ -63,15 +63,20 @@ function insideRounded(set, rounding, [x, y]) {
   const cx = sx > 0 ? px : px - 1, cy = sy > 0 ? py : py - 1;
   const horiz = has(cx - sx, cy), vert = has(cx, cy - sy);
   const outsideFillet = Math.hypot(Math.abs(dx) - r, Math.abs(dy) - r) > r;
-  if (filled && !horiz && !vert) return !outsideFillet || (Math.abs(dx) >= r || Math.abs(dy) >= r); // outer corner
-  if (!filled && horiz && vert && has(cx - sx, cy - sy)) return outsideFillet && Math.abs(dx) < r && Math.abs(dy) < r;        // inner corner
+  if (filled && !horiz && !vert && !(joined && has(cx - sx, cy - sy))) return !outsideFillet || (Math.abs(dx) >= r || Math.abs(dy) >= r); // outer corner
+  if (!filled && horiz && vert && (has(cx - sx, cy - sy) || joined)) return outsideFillet && Math.abs(dx) < r && Math.abs(dy) < r; // inner corner
   return filled;
 }
 
+// Cells touching only at a corner are joined there (two inner corners),
+// except as an outline.
+let joined = true;
+
 function check(cells, rounding, stroke) {
+  joined = stroke === 0;
   const set = new Set(cells);
   const polys = flatten(squareContours(cells, { rounding, stroke }));
-  const fillPolys = flatten(squareContours(cells, { rounding, stroke: 0 }));
+  const fillPolys = flatten(squareContours(cells, { rounding, stroke: 0, join: joined }));
   let checked = 0;
   for (let i = 0; i < 5000; i++) {
     const p = [((i * 0.6180339887) % 1) * 8 - 1, ((i * 0.7548776662 + 0.1) % 1) * 8 - 1];

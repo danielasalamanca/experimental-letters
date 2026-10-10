@@ -191,7 +191,8 @@ function roundBox({ x0, y0, x1, y1, shape }, M, L, arc) {
 export function squareGlyphContours(cells, { rounding = 0, corners: cornerRadii = {}, stroke = 0, pieces = [] }) {
   if (!pieces.length) return squareContours(cells, { rounding, corners: cornerRadii, stroke });
   const { book, shape: raw } = buildShape(cells, pieces);
-  let shape = roundCorners(book, raw, findCorners(book, raw), rounding / 2, cornerRadii).shape;
+  // As an outline, cells touching at a corner stay apart (like without pieces).
+  let shape = roundCorners(book, raw, findCorners(book, raw), rounding / 2, cornerRadii, stroke === 0).shape;
   if (stroke > 0) {
     // As an outline: the shape minus a copy inset by the stroke.
     const off = new ClipperLib.ClipperOffset(2, 0.001 * SCALE);
@@ -208,9 +209,8 @@ export function squareGlyphContours(cells, { rounding = 0, corners: cornerRadii 
 // holds the radius each one really gets.
 export function pieceGlyphCorners(cells, { rounding = 0, corners: cornerRadii = {}, pieces = [] }) {
   const { book, shape } = buildShape(cells, pieces);
-  const found = findCorners(book, shape);
-  const { radii } = roundCorners(book, shape, found, rounding / 2, cornerRadii);
-  return found.map((c, i) => ({ key: c.key, x: c.x, y: c.y, turn: c.turn, din: c.a, dout: c.b, radius: radii[i] }));
+  const { radii, corners } = roundCorners(book, shape, findCorners(book, shape), rounding / 2, cornerRadii);
+  return corners.map((c, i) => ({ key: c.key, x: c.x, y: c.y, turn: c.turn, din: c.a, dout: c.b, radius: radii[i] }));
 }
 
 function buildShape(cells, pieces) {
@@ -274,12 +274,13 @@ function findCorners(book, shape) {
 // corner and the arc, an inner one gains it. A radius is shrunk until that
 // bit is all ink (outer) or all empty (inner), so it never eats a counter or
 // fills another part of the letter.
-function roundCorners(book, shape, found, base, wanted) {
+function roundCorners(book, shape, found, base, wanted, join = true) {
   const want = found.map((c) => {
     const w = wanted[c.key];
     const r = w === undefined ? base : w === "max" ? MAX_RADIUS : +w || 0;
     return Math.min(Math.max(r, 0), MAX_RADIUS);
   });
+  if (join) found = joinTouchingCorners(shape, found, want);
   // Distance from the corner to where the arc starts, per unit of radius.
   const per = found.map((c) => {
     const cos = Math.min(1, Math.max(-1, c.a[0] * c.b[0] + c.a[1] * c.b[1]));
@@ -293,8 +294,7 @@ function roundCorners(book, shape, found, base, wanted) {
   const byPos = new Map(found.map((c, i) => [`${c.path}:${c.index}`, i]));
   for (let pass = 0; pass < 2; pass++) {
     found.forEach((c, i) => {
-      const n = shape[c.path].length;
-      const j = byPos.get(`${c.path}:${(c.index + 1) % n}`);
+      const j = byPos.get(c.next ?? `${c.path}:${(c.index + 1) % shape[c.path].length}`);
       if (j === undefined) return;
       const L = c.lb;
       if (d[i] + d[j] <= L + 1e-9) return;
@@ -330,7 +330,31 @@ function roundCorners(book, shape, found, base, wanted) {
   let rounded = shape;
   if (outer.length) rounded = clipperOp(ClipperLib.ClipType.ctDifference, rounded, outer);
   if (inner.length) rounded = clipperOp(ClipperLib.ClipType.ctUnion, rounded, inner);
-  return { shape: rounded, radii };
+  return { shape: rounded, radii, corners: found };
+}
+
+// Two cells touching only at a corner leave two outer corners on the same
+// point, facing opposite ways. When that point is rounded they are joined
+// instead: the outline runs from one cell into the other, turning into two
+// inner corners whose fillets make a neck between the cells (as on squares
+// without pieces). Each new corner keeps its incoming edge and takes the
+// other one's outgoing edge.
+function joinTouchingCorners(shape, found, want) {
+  const out = found.slice();
+  const opposite = (u, v) => Math.abs(u[0] + v[0]) < 1e-6 && Math.abs(u[1] + v[1]) < 1e-6;
+  const nextOf = (c) => `${c.path}:${(c.index + 1) % shape[c.path].length}`;
+  for (let i = 0; i < found.length; i++) {
+    const c = found[i];
+    if (c.turn !== 1 || want[i] <= 0 || out[i] !== c) continue;
+    for (let j = i + 1; j < found.length; j++) {
+      const d = found[j];
+      if (d.turn !== 1 || d.key !== c.key || out[j] !== d || !opposite(c.a, d.a) || !opposite(c.b, d.b)) continue;
+      out[i] = { ...c, turn: 3, b: d.b, lb: d.lb, nextCorner: d.nextCorner, next: nextOf(d) };
+      out[j] = { ...d, turn: 3, b: c.b, lb: c.lb, nextCorner: c.nextCorner, next: nextOf(c) };
+      break;
+    }
+  }
+  return out;
 }
 
 // The bit between a corner and its fillet arc of radius r, as a contour.
@@ -651,9 +675,8 @@ export function roundedContours(contours, { rounding = 0, corners: cornerRadii =
 export function contourCorners(contours, { rounding = 0, corners: cornerRadii = {} } = {}) {
   const book = new CurveBook();
   const shape = unionPaths(book.paths(contours));
-  const found = findCorners(book, shape);
-  const { radii } = roundCorners(book, shape, found, rounding / 2, cornerRadii);
-  return found.map((c, i) => ({ key: c.key, x: c.x, y: c.y, turn: c.turn, din: c.a, dout: c.b, radius: radii[i] }));
+  const { radii, corners } = roundCorners(book, shape, findCorners(book, shape), rounding / 2, cornerRadii);
+  return corners.map((c, i) => ({ key: c.key, x: c.x, y: c.y, turn: c.turn, din: c.a, dout: c.b, radius: radii[i] }));
 }
 
 // Groups contours into objects, like shapes in Illustrator: each outer

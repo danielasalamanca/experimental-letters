@@ -62,8 +62,11 @@ export function glyphContours(cells, { curve, joinWidth = 0 }) {
 }
 
 // Outlines of the union of filled squares, as lists of lattice vertices
-// with the direction the outline arrives and leaves by.
-function traceLoops(set, has) {
+// with the direction the outline arrives and leaves by. Where two cells
+// only touch at a corner, the outlines are split there, unless `join(x, y)`
+// says to run from one cell into the other: the point then becomes two
+// inner corners, whose fillets join the cells with a neck.
+function traceLoops(set, has, join = () => false) {
   const edges = new Map(); // start point -> edges leaving it
   const add = (x, y, dir) => {
     const k = key(x, y);
@@ -89,9 +92,10 @@ function traceLoops(set, has) {
         const x = edge.x + DIRS[edge.dir][0], y = edge.y + DIRS[edge.dir][1];
         const out = edges.get(key(x, y)) ?? [];
         // Prefer turning left, then straight, then right: keeps the ink on
-        // the left and splits outlines that only touch at a corner.
+        // the left and splits outlines that only touch at a corner (turning
+        // right first joins them instead; elsewhere there is only one way on).
         let next = null;
-        for (const turn of [1, 0, 3]) {
+        for (const turn of join(x, y) ? [3, 0, 1] : [1, 0, 3]) {
           next = out.find((e) => (e === first || !e.used) && e.dir === (edge.dir + turn) % 4) ?? null;
           if (next) break;
         }
@@ -260,18 +264,23 @@ export function effectiveRadii(cells, options) {
   return out;
 }
 
-function resolveCorners(cells, { rounding = 0, stroke = 0, corners = {} }) {
+function resolveCorners(cells, { rounding = 0, stroke = 0, corners = {}, join: joinCorners = true }) {
   const set = new Set(cells);
   const has = (c, r) => set.has(key(c, r));
   const base = Math.min(Math.max(rounding, 0), 1) / 2;
   const t = Math.min(Math.max(stroke, 0), MAX_STROKE);
-  return traceLoops(set, has).map((loop) => {
+  const wanted = (x, y) => {
+    const want = corners[key(x, y)];
+    return want === undefined ? base : want === "max" ? MAX_RADIUS : Math.min(Math.max(+want || 0, 0), MAX_RADIUS);
+  };
+  // Cells touching at a rounded corner are joined there, so the rounding
+  // fills the notch between them instead of pulling them apart. As an
+  // outline they stay apart: the neck would be thinner than two strokes.
+  const join = (x, y) => joinCorners && t === 0 && wanted(x, y) > 0;
+  return traceLoops(set, has, join).map((loop) => {
     const turns = cornerList(loop);
     // As an outline, walls must stay at least two strokes wide.
-    const radii = cornerRadii(turns, has, 2 * t, (v) => {
-      const want = corners[key(v.x, v.y)];
-      return want === undefined ? base : want === "max" ? MAX_RADIUS : Math.min(Math.max(+want || 0, 0), MAX_RADIUS);
-    });
+    const radii = cornerRadii(turns, has, 2 * t, (v) => wanted(v.x, v.y));
     return { turns, radii };
   });
 }

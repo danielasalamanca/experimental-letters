@@ -403,3 +403,17 @@ test("the vertices of a polygon cut can be rounded", () => {
   assert.equal(rounded.length, 1);
   assert.ok(rounded[0].filter((c) => c.type === "C").length >= 10);
 });
+
+test("pieces: cells touching at a rounded corner are joined, as without pieces", () => {
+  const cells = ["1,1", "2,2"];
+  const far = { x0: 5, y0: 5, x1: 6, y1: 6, corner: "bl", shape: "tri", mode: "add" };
+  for (const pieces of [[], [far]]) {
+    const polys = flatten(squareGlyphContours(cells, { pieces, rounding: 0.6 }));
+    // The notches beside the touching corner are filled; the far corners are rounded.
+    for (const p of [[1.95, 2.05], [2.05, 1.95]]) assert.equal(winding(polys, p), 1, `sin unión en ${p}`);
+    assert.equal(winding(polys, [1.02, 1.02]), 0);
+    // As an outline they stay apart.
+    const outline = flatten(squareGlyphContours(cells, { pieces, rounding: 0.6, stroke: 0.1 }));
+    assert.equal(winding(outline, [1.98, 2.02]), 0);
+  }
+});
