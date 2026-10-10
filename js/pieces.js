@@ -228,21 +228,44 @@ function buildShape(cells, pieces, cornerRadii = {}) {
 // as in Illustrator. `hidden` lists those corners, for the corner tool.
 function piecesOn(book, base, pieces, cornerRadii) {
   const shape = applyPieces(book, base, pieces);
-  const rounded = Object.keys(cornerRadii).filter((k) => cornerRadii[k] === "max" || +cornerRadii[k] > 0);
-  if (!rounded.length) return { shape, hidden: [] };
-  const present = new Set(findCorners(book, shape).map((c) => c.key));
-  const swallowed = new Set(rounded.filter((k) => !present.has(k)));
+  const swallowed = swallowedCorners(book, shape, cornerRadii);
   if (!swallowed.size) return { shape, hidden: [] };
   const hidden = new Map();
-  const own = (clip) => {
-    const found = findCorners(book, clip).filter((c) => swallowed.has(c.key));
-    if (!found.length) return clip;
-    const { shape: done, radii, corners } = roundCorners(book, clip, found, 0, cornerRadii);
-    corners.forEach((c, i) => hidden.set(c.key, { key: c.key, x: c.x, y: c.y, turn: c.turn, din: c.a, dout: c.b, radius: radii[i] }));
-    return done;
-  };
+  const own = (clip) => roundOnly(book, clip, swallowed, cornerRadii, hidden);
   return { shape: applyPieces(book, base, pieces, own), hidden: [...hidden.values()] };
 }
+
+// Keys of the rounded corners (radius > 0) that are not corners of `shape`.
+function swallowedCorners(book, shape, cornerRadii) {
+  const rounded = Object.keys(cornerRadii).filter((k) => cornerRadii[k] === "max" || +cornerRadii[k] > 0);
+  if (!rounded.length) return new Set();
+  const present = new Set(findCorners(book, shape).map((c) => c.key));
+  return new Set(rounded.filter((k) => !present.has(k)));
+}
+
+// `shape` with only the corners at `keys` rounded; adds them to `hidden`.
+function roundOnly(book, shape, keys, cornerRadii, hidden) {
+  const found = findCorners(book, shape).filter((c) => keys.has(c.key));
+  if (!found.length) return shape;
+  const { shape: done, radii, corners } = roundCorners(book, shape, found, 0, cornerRadii);
+  corners.forEach((c, i) => hidden.set(c.key, { key: c.key, x: c.x, y: c.y, turn: c.turn, din: c.a, dout: c.b, radius: radii[i] }));
+  return done;
+}
+
+// Separate shapes (objects: an outer contour with its holes) joined into
+// one, keeping the rounding of corners the join swallows: each object is
+// rounded there on its own first.
+function joinObjects(book, objects, cornerRadii) {
+  const shape = unionPaths(objects.flat());
+  const swallowed = swallowedCorners(book, shape, cornerRadii);
+  if (!swallowed.size) return { shape, hidden: [] };
+  const hidden = new Map();
+  const rounded = objects.map((obj) => roundOnly(book, obj, swallowed, cornerRadii, hidden));
+  return { shape: unionPaths(rounded.flat()), hidden: [...hidden.values()] };
+}
+
+const objectPaths = (book, contours) =>
+  contourObjects(contours).map((obj) => unionPaths(book.paths(obj.map((ci) => contours[ci]))));
 
 // Any grid drawing (like the stars of the circle grid) with pieces on top,
 // cleaned of overlaps, curves kept. `corners` rounds the corners the pieces
@@ -692,7 +715,7 @@ function unionPaths(paths) {
 // rounding stays live while the nodes keep their sharp positions.
 export function roundedContours(contours, { rounding = 0, corners: cornerRadii = {} } = {}) {
   const book = new CurveBook();
-  const shape = unionPaths(book.paths(contours));
+  const { shape } = joinObjects(book, objectPaths(book, contours), cornerRadii);
   const rounded = Object.keys(cornerRadii).length || rounding > 0
     ? roundCorners(book, shape, findCorners(book, shape), rounding / 2, cornerRadii).shape
     : shape;
@@ -702,9 +725,9 @@ export function roundedContours(contours, { rounding = 0, corners: cornerRadii =
 // Corners of any contours, for the corner tool (like pieceGlyphCorners).
 export function contourCorners(contours, { rounding = 0, corners: cornerRadii = {} } = {}) {
   const book = new CurveBook();
-  const shape = unionPaths(book.paths(contours));
+  const { shape, hidden } = joinObjects(book, objectPaths(book, contours), cornerRadii);
   const { radii, corners } = roundCorners(book, shape, findCorners(book, shape), rounding / 2, cornerRadii);
-  return corners.map((c, i) => ({ key: c.key, x: c.x, y: c.y, turn: c.turn, din: c.a, dout: c.b, radius: radii[i] }));
+  return [...corners.map((c, i) => ({ key: c.key, x: c.x, y: c.y, turn: c.turn, din: c.a, dout: c.b, radius: radii[i] })), ...hidden];
 }
 
 // Groups contours into objects, like shapes in Illustrator: each outer
@@ -730,18 +753,31 @@ export function contourObjects(contours) {
 // Pathfinder on objects (lists of contours), like Illustrator:
 //   unite – all of them together      minusFront – the top one cuts the rest
 //   intersect – only what all share   exclude – overlaps removed
-export function pathfinder(op, objects) {
+//
+// With `corners` (radius per corner key, the glyph's live rounding), a
+// rounded corner the operation swallows is baked into the shapes first, so
+// it keeps its curve; its key is added to `baked`, as it no longer applies.
+export function pathfinder(op, objects, { corners: cornerRadii = {}, baked = [] } = {}) {
   const book = new CurveBook();
-  const regions = objects.map((contours) => unionPaths(book.paths(contours)));
-  let result;
-  if (op === "unite") {
-    result = unionPaths(regions.flat());
-  } else if (op === "minusFront") {
-    const front = regions[regions.length - 1];
-    result = clipperOp(ClipperLib.ClipType.ctDifference, unionPaths(regions.slice(0, -1).flat()), front);
-  } else {
+  let regions = objects.map((contours) => unionPaths(book.paths(contours)));
+  const run = () => {
+    if (op === "unite") return unionPaths(regions.flat());
+    if (op === "minusFront") {
+      const front = regions[regions.length - 1];
+      return clipperOp(ClipperLib.ClipType.ctDifference, unionPaths(regions.slice(0, -1).flat()), front);
+    }
     const type = op === "intersect" ? ClipperLib.ClipType.ctIntersection : ClipperLib.ClipType.ctXor;
-    result = regions.slice(1).reduce((acc, r) => clipperOp(type, acc, r), regions[0]);
+    return regions.slice(1).reduce((acc, r) => clipperOp(type, acc, r), regions[0]);
+  };
+  let result = run();
+  const swallowed = swallowedCorners(book, result, cornerRadii);
+  if (swallowed.size) {
+    const hidden = new Map();
+    regions = regions.map((r) => roundOnly(book, r, swallowed, cornerRadii, hidden));
+    if (hidden.size) {
+      result = run();
+      baked.push(...hidden.keys());
+    }
   }
   return result.map((path) => book.refit(path));
 }

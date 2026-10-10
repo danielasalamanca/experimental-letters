@@ -1002,6 +1002,15 @@ function shapeContour(mode, { x0, y0, x1, y1 }) {
 // Works on the shapes (outer contour + its holes) that have a selected
 // node, or on all of them; with a single shape selected, on all of them
 // with that one on top. The result replaces them and stays selected.
+// Pathfinder options that keep the live rounding of corners an operation
+// swallows: they are baked into the outline (see dropBaked).
+const keepRounding = () => ({ corners: glyph().corners, baked: [] });
+
+// Baked corners are curves now: their keys no longer apply.
+function dropBaked({ baked }) {
+  for (const k of baked) delete glyph().corners[k];
+}
+
 function runPathfinder(op) {
   const preview = editableOutline();
   const objects = contourObjects(outlineToCommands(preview));
@@ -1019,7 +1028,9 @@ function runPathfinder(op) {
   checkpoint();
   const outline = ensureOutline();
   const commands = outlineToCommands(outline);
-  const result = pathfinder(op, chosen.map((obj) => obj.map((ci) => commands[ci])));
+  const keep = keepRounding();
+  const result = pathfinder(op, chosen.map((obj) => obj.map((ci) => commands[ci])), keep);
+  dropBaked(keep);
   const used = new Set(chosen.flat());
   const at = Math.min(...used);
   const kept = outline.filter((_, ci) => !used.has(ci));
@@ -1191,9 +1202,11 @@ function joinOutline(piece) {
   // One object per figure: a mirrored copy runs the other way round, and
   // in one object the two would cancel where they overlap.
   const figures = placed.map((p) => [pieceContour(p)]);
+  const keep = keepRounding();
   const result = mode === "cut"
-    ? figures.reduce((acc, f) => pathfinder("minusFront", [acc, f]), commands)
-    : pathfinder("unite", commands.length ? [commands, ...figures] : figures);
+    ? figures.reduce((acc, f) => pathfinder("minusFront", [acc, f], keep), commands)
+    : pathfinder("unite", commands.length ? [commands, ...figures] : figures, keep);
+  dropBaked(keep);
   ensureOutline();
   g.outline = commandsToOutline(result);
   syncToolbar();

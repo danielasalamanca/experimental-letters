@@ -433,3 +433,25 @@ test("pieces: a rounded corner keeps its rounding when another figure is pushed 
   const found = pieceGlyphCorners([], { pieces, corners }).find((c) => c.key === "6,2");
   assert.ok(found && Math.abs(found.radius - 2) < 1e-6);
 });
+
+import { roundedContours, pathfinder, contourCorners as outlineCorners } from "../js/pieces.js";
+
+test("outlines: rounded corners survive when shapes are joined", () => {
+  const box = (y0, y1) => [{ type: "M", x: 0, y: y0 }, { type: "L", x: 6, y: y0 }, { type: "L", x: 6, y: y1 }, { type: "L", x: 0, y: y1 }, { type: "Z" }];
+  const corners = { "6,2": 2 };
+  // Live rounding of node outlines pushed together.
+  const live = flatten(roundedContours([box(2, 4), box(0, 2)], { corners }));
+  assert.equal(winding(live, [5.5, 2]), 0, "la esquina redondeada desapareció");
+  assert.equal(winding(live, [3, 2]), 1);
+  assert.ok(outlineCorners([box(2, 4), box(0, 2)], { corners }).some((c) => c.key === "6,2" && Math.abs(c.radius - 2) < 1e-6));
+  // Unite: the rounding is baked into the result and its key reported.
+  const baked = [];
+  const united = flatten(pathfinder("unite", [[box(2, 4)], [box(0, 2)]], { corners, baked }));
+  assert.equal(winding(united, [5.5, 2]), 0);
+  assert.equal(winding(united, [3, 2]), 1);
+  assert.deepEqual(baked, ["6,2"]);
+  // Nothing swallowed: nothing baked.
+  const none = [];
+  pathfinder("unite", [[box(0, 2)], [box(4, 6)]], { corners, baked: none });
+  assert.deepEqual(none, []);
+});
