@@ -417,3 +417,19 @@ test("pieces: cells touching at a rounded corner are joined, as without pieces",
     assert.equal(winding(outline, [1.98, 2.02]), 0);
   }
 });
+
+test("pieces: a rounded corner keeps its rounding when another figure is pushed against it", () => {
+  const rect = (y0, y1) => normalizePiece({ shape: "poly", mode: "add", points: [[0, y0], [6, y0], [6, y1], [0, y1]], x0: 0, y0: 0, x1: 0, y1: 0, corner: "bl" });
+  const pieces = [rect(2, 4), rect(0, 2)];
+  const corners = { "6,2": 2 };
+  for (const contours of [squareGlyphContours([], { pieces, corners }), contoursWithPieces([], pieces, { corners })]) {
+    const polys = flatten(contours);
+    // The two fillets leave a notch where the figures meet.
+    assert.equal(winding(polys, [5.5, 2]), 0, "la esquina redondeada desapareció");
+    assert.equal(winding(polys, [3, 2]), 1);
+    assert.equal(winding(polys, [5.9, 0.1]), 1);
+  }
+  // The swallowed corner is still offered to the corner tool, with its radius.
+  const found = pieceGlyphCorners([], { pieces, corners }).find((c) => c.key === "6,2");
+  assert.ok(found && Math.abs(found.radius - 2) < 1e-6);
+});

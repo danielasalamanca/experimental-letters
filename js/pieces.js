@@ -190,7 +190,7 @@ function roundBox({ x0, y0, x1, y1, shape }, M, L, arc) {
 // never sits where a piece has moved the outline.
 export function squareGlyphContours(cells, { rounding = 0, corners: cornerRadii = {}, stroke = 0, pieces = [] }) {
   if (!pieces.length) return squareContours(cells, { rounding, corners: cornerRadii, stroke });
-  const { book, shape: raw } = buildShape(cells, pieces);
+  const { book, shape: raw } = buildShape(cells, pieces, cornerRadii);
   // As an outline, cells touching at a corner stay apart (like without pieces).
   let shape = roundCorners(book, raw, findCorners(book, raw), rounding / 2, cornerRadii, stroke === 0).shape;
   if (stroke > 0) {
@@ -208,15 +208,40 @@ export function squareGlyphContours(cells, { rounding = 0, corners: cornerRadii 
 // corner tool: { key, x, y, turn } with turn 1 outer, 3 inner. `radii`
 // holds the radius each one really gets.
 export function pieceGlyphCorners(cells, { rounding = 0, corners: cornerRadii = {}, pieces = [] }) {
-  const { book, shape } = buildShape(cells, pieces);
+  const { book, shape, hidden } = buildShape(cells, pieces, cornerRadii);
   const { radii, corners } = roundCorners(book, shape, findCorners(book, shape), rounding / 2, cornerRadii);
-  return corners.map((c, i) => ({ key: c.key, x: c.x, y: c.y, turn: c.turn, din: c.a, dout: c.b, radius: radii[i] }));
+  return [
+    ...corners.map((c, i) => ({ key: c.key, x: c.x, y: c.y, turn: c.turn, din: c.a, dout: c.b, radius: radii[i] })),
+    ...hidden,
+  ];
 }
 
-function buildShape(cells, pieces) {
+function buildShape(cells, pieces, cornerRadii = {}) {
   const book = new CurveBook();
-  const shape = applyPieces(book, book.paths(squareContours(cells, { rounding: 0 })), pieces);
-  return { book, shape };
+  return { book, ...piecesOn(book, book.paths(squareContours(cells, { rounding: 0 })), pieces, cornerRadii) };
+}
+
+// Pieces on top of a drawing. Corners are rounded on the final shape, but a
+// rounded corner of a piece that the union swallows (two figures pushed
+// together, so the point ends up on a straight edge) would lose its
+// rounding: those pieces are rounded on their own before they are joined,
+// as in Illustrator. `hidden` lists those corners, for the corner tool.
+function piecesOn(book, base, pieces, cornerRadii) {
+  const shape = applyPieces(book, base, pieces);
+  const rounded = Object.keys(cornerRadii).filter((k) => cornerRadii[k] === "max" || +cornerRadii[k] > 0);
+  if (!rounded.length) return { shape, hidden: [] };
+  const present = new Set(findCorners(book, shape).map((c) => c.key));
+  const swallowed = new Set(rounded.filter((k) => !present.has(k)));
+  if (!swallowed.size) return { shape, hidden: [] };
+  const hidden = new Map();
+  const own = (clip) => {
+    const found = findCorners(book, clip).filter((c) => swallowed.has(c.key));
+    if (!found.length) return clip;
+    const { shape: done, radii, corners } = roundCorners(book, clip, found, 0, cornerRadii);
+    corners.forEach((c, i) => hidden.set(c.key, { key: c.key, x: c.x, y: c.y, turn: c.turn, din: c.a, dout: c.b, radius: radii[i] }));
+    return done;
+  };
+  return { shape: applyPieces(book, base, pieces, own), hidden: [...hidden.values()] };
 }
 
 // Any grid drawing (like the stars of the circle grid) with pieces on top,
@@ -224,15 +249,16 @@ function buildShape(cells, pieces) {
 // make (radius per corner key), as the corner tool does on squares.
 export function contoursWithPieces(contours, pieces, { corners: cornerRadii = {} } = {}) {
   const book = new CurveBook();
-  let shape = applyPieces(book, unionPaths(book.paths(contours)), pieces);
+  let { shape } = piecesOn(book, unionPaths(book.paths(contours)), pieces, cornerRadii);
   if (Object.keys(cornerRadii).length) shape = roundCorners(book, shape, findCorners(book, shape), 0, cornerRadii).shape;
   return shape.map((path) => book.refit(path));
 }
 
-function applyPieces(book, shape, pieces) {
+function applyPieces(book, shape, pieces, own = (clip) => clip) {
   for (const piece of pieces) {
-    const clip = orient(book.paths([pieceContour(piece)])).filter((q) => Math.abs(ClipperLib.Clipper.Area(q)) > 1);
+    let clip = orient(book.paths([pieceContour(piece)])).filter((q) => Math.abs(ClipperLib.Clipper.Area(q)) > 1);
     if (!clip.length) continue;
+    clip = own(clip);
     shape = clipperOp(piece.mode === "cut" ? ClipperLib.ClipType.ctDifference : ClipperLib.ClipType.ctUnion, shape, clip);
   }
   return shape;
