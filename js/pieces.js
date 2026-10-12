@@ -252,16 +252,34 @@ function roundOnly(book, shape, keys, cornerRadii, hidden) {
   return done;
 }
 
-// Separate shapes (objects: an outer contour with its holes) joined into
-// one, keeping the rounding of corners the join swallows: each object is
-// rounded there on its own first.
-function joinObjects(book, objects, cornerRadii) {
-  const shape = unionPaths(objects.flat());
-  const swallowed = swallowedCorners(book, shape, cornerRadii);
-  if (!swallowed.size) return { shape, hidden: [] };
-  const hidden = new Map();
-  const rounded = objects.map((obj) => roundOnly(book, obj, swallowed, cornerRadii, hidden));
-  return { shape: unionPaths(rounded.flat()), hidden: [...hidden.values()] };
+// Separate shapes (objects: an outer contour with its holes) keep their own
+// rounded corners, like live corners in Illustrator: each one is rounded on
+// its own and only then joined, so a shape drawn over another never changes
+// the other's rounding. Only the pathfinder makes them one shape.
+// `corners` lists every object's corners with the radius it really gets,
+// except those buried inside another object, where a rounding is not seen.
+function roundObjects(book, objects, base, cornerRadii) {
+  const parts = objects.map((obj) => roundCorners(book, obj, findCorners(book, obj), base, cornerRadii));
+  const corners = [];
+  parts.forEach(({ radii, corners: found }, i) => {
+    const others = objects.filter((_, j) => j !== i).flat();
+    found.forEach((c, k) => {
+      if (!buried(others, c)) corners.push({ key: c.key, x: c.x, y: c.y, turn: c.turn, din: c.a, dout: c.b, radius: radii[k] });
+    });
+  });
+  return { shape: unionPaths(parts.flatMap((p) => p.shape)), corners };
+}
+
+// True if the point is strictly inside the ink of `paths` (nonzero).
+function buried(paths, { x, y }) {
+  const pt = { X: Math.round(x * SCALE), Y: Math.round(y * SCALE) };
+  let w = 0;
+  for (const p of paths) {
+    const at = ClipperLib.Clipper.PointInPolygon(pt, p);
+    if (at === -1) return false; // on an edge: still part of the outline
+    if (at === 1) w += ClipperLib.Clipper.Orientation(p) ? 1 : -1;
+  }
+  return w !== 0;
 }
 
 const objectPaths = (book, contours) =>
@@ -712,22 +730,21 @@ function unionPaths(paths) {
 
 // Any contours with rounded corners on top (radius per corner key, plus
 // the global `rounding`), cleaned of overlaps. Used for node outlines, so
-// rounding stays live while the nodes keep their sharp positions.
+// rounding stays live while the nodes keep their sharp positions. Each
+// shape is rounded on its own (see roundObjects).
 export function roundedContours(contours, { rounding = 0, corners: cornerRadii = {} } = {}) {
   const book = new CurveBook();
-  const { shape } = joinObjects(book, objectPaths(book, contours), cornerRadii);
-  const rounded = Object.keys(cornerRadii).length || rounding > 0
-    ? roundCorners(book, shape, findCorners(book, shape), rounding / 2, cornerRadii).shape
-    : shape;
-  return rounded.map((path) => book.refit(path));
+  const objects = objectPaths(book, contours);
+  const shape = Object.keys(cornerRadii).length || rounding > 0
+    ? roundObjects(book, objects, rounding / 2, cornerRadii).shape
+    : unionPaths(objects.flat());
+  return shape.map((path) => book.refit(path));
 }
 
 // Corners of any contours, for the corner tool (like pieceGlyphCorners).
 export function contourCorners(contours, { rounding = 0, corners: cornerRadii = {} } = {}) {
   const book = new CurveBook();
-  const { shape, hidden } = joinObjects(book, objectPaths(book, contours), cornerRadii);
-  const { radii, corners } = roundCorners(book, shape, findCorners(book, shape), rounding / 2, cornerRadii);
-  return [...corners.map((c, i) => ({ key: c.key, x: c.x, y: c.y, turn: c.turn, din: c.a, dout: c.b, radius: radii[i] })), ...hidden];
+  return roundObjects(book, objectPaths(book, contours), rounding / 2, cornerRadii).corners;
 }
 
 // Groups contours into objects, like shapes in Illustrator: each outer

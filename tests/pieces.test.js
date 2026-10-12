@@ -455,3 +455,38 @@ test("outlines: rounded corners survive when shapes are joined", () => {
   pathfinder("unite", [[box(0, 2)], [box(4, 6)]], { corners, baked: none });
   assert.deepEqual(none, []);
 });
+
+test("outlines: a shape drawn over another (not united) leaves its rounding alone", () => {
+  const box = (x0, y0, x1, y1) => [{ type: "M", x: x0, y: y0 }, { type: "L", x: x1, y: y0 }, { type: "L", x: x1, y: y1 }, { type: "L", x: x0, y: y1 }, { type: "Z" }];
+  const hole = (x0, y0, x1, y1) => [{ type: "M", x: x0, y: y0 }, { type: "L", x: x0, y: y1 }, { type: "L", x: x1, y: y1 }, { type: "L", x: x1, y: y0 }, { type: "Z" }];
+  // An O (block with a counter) and a bar crossing its right stem, as in a Q.
+  const o = [box(0, 0, 7, 14), hole(1, 1, 6, 13)];
+  const bar = box(5, 3, 9, 4);
+  const corners = { "7,0": 3.5, "6,1": 2.5 };
+  const alone = flatten(roundedContours(o, { corners }));
+  const withBar = flatten(roundedContours([...o, bar], { corners }));
+  // Points of the O away from the bar look the same with and without it.
+  for (const pt of [[6.9, 0.1], [6.5, 0.6], [4, 1.05], [5.95, 2.5], [5.6, 1.4], [6.9, 2.9]]) {
+    assert.equal(winding(withBar, pt), winding(alone, pt), `cambió en ${pt}`);
+  }
+  // The bar is there and its own corners stay sharp.
+  assert.equal(winding(withBar, [8.95, 3.05]), 1);
+  assert.equal(winding(withBar, [5.05, 3.95]), 1);
+  // The corner tool gives the O's corners the radius they had without the
+  // bar, and the corners where the bar crosses the stem are not corners of
+  // any shape.
+  const radius = (list, k) => list.find((c) => c.key === k)?.radius;
+  const before = outlineCorners(o, { corners });
+  const found = outlineCorners([...o, bar], { corners });
+  for (const k of ["7,0", "6,1"]) assert.ok(Math.abs(radius(found, k) - radius(before, k)) < 1e-9, `cambió el radio de ${k}`);
+  assert.ok(Math.abs(radius(found, "6,1") - 2.5) < 1e-6);
+  assert.ok(found.some((c) => c.key === "9,3"));
+  assert.ok(!found.some((c) => c.key === "7,3" || c.key === "6,4"));
+});
+
+test("outlines: corners buried inside another shape are not offered", () => {
+  const box = (x0, y0, x1, y1) => [{ type: "M", x: x0, y: y0 }, { type: "L", x: x1, y: y0 }, { type: "L", x: x1, y: y1 }, { type: "L", x: x0, y: y1 }, { type: "Z" }];
+  const found = outlineCorners([box(0, 0, 6, 6), box(2, 2, 8, 4)], {}).map((c) => c.key);
+  assert.ok(!found.includes("2,2") && !found.includes("2,4"));
+  assert.ok(found.includes("8,2") && found.includes("6,6"));
+});
