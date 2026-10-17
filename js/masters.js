@@ -15,7 +15,7 @@
 
 import { glyphFinalContours } from "./shapes.js";
 import { commandsToOutline, outlineToCommands, cloneOutline } from "./nodes.js";
-import { advanceWidth } from "./model.js";
+import { advanceWidth, componentEdited } from "./model.js";
 
 export const WEIGHTS = [
   [100, "Thin"], [200, "ExtraLight"], [300, "Light"], [400, "Regular"], [500, "Medium"],
@@ -282,9 +282,11 @@ function boldOutline(font, bold) {
 // --- Masters of a letter ---
 
 // A letter made only of components (á = a + ´): its masters are built from
-// the masters of its parts.
+// the masters of its parts. One that erased part of a component (the dot
+// of the i in í) gets a bold master of its own, like any other letter.
 export const pureComposite = (glyph) =>
-  glyph.components.length > 0 && !glyph.cells.length && !glyph.outline && !(glyph.pieces ?? []).length;
+  glyph.components.length > 0 && !glyph.cells.length && !glyph.outline && !(glyph.pieces ?? []).length &&
+  !glyph.components.some(componentEdited);
 
 const cellsOf = (font, units) => units / font.cell;
 

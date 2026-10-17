@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
   <link rel="preload" href="fonts/Letritas-Regular.otf" as="font" type="font/otf" crossorigin>
-  <link rel="stylesheet" href="style.css?v=47">
+  <link rel="stylesheet" href="style.css?v=49">
 </head>
 <body>
   <header class="topbar">
@@ -173,6 +173,13 @@
             <button id="save" type="button" class="ghost" title="Guarda una copia en Borradores (abajo a la izquierda)">Borrador</button>
           </div>
           <button id="resetGlyph" type="button" class="ghost danger wide regular-only" title="Vuelve esta letra a como empieza en una tipografía nueva: sin dibujo, nodos, esquinas ni piezas, con ancho y márgenes por defecto">Reiniciar letra (partir de cero)</button>
+          <div class="sub regular-only">
+            <h4>Alternativas</h4>
+            <div id="altList" class="alt-list"></div>
+            <p class="info" id="altInfo"></p>
+            <button id="addAlt" type="button" class="ghost wide">Crear alternativa</button>
+            <button id="removeAlt" type="button" class="ghost danger wide" hidden>Eliminar esta alternativa</button>
+          </div>
           <div class="sub">
             <h4>Nodos</h4>
             <p class="info" id="nodeInfo"></p>
@@ -187,7 +194,7 @@
             <summary>Grilla de esta letra</summary>
             <label class="row">Grilla <select id="glyphGrid"></select></label>
           </details>
-          <details class="sub-details regular-only">
+          <details class="sub-details regular-only" id="componentsBox">
             <summary>Componentes</summary>
             <div id="componentList"></div>
             <div class="add-component">
@@ -437,22 +444,22 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=47",
-        "./js/geometry.js": "./js/geometry.js?v=47",
-        "./js/model.js": "./js/model.js?v=47",
-        "./js/render.js": "./js/render.js?v=47",
-        "./js/tools.js": "./js/tools.js?v=47",
-        "./js/library.js": "./js/library.js?v=47",
-        "./js/pieces.js": "./js/pieces.js?v=47",
-        "./js/nodes.js": "./js/nodes.js?v=47",
-        "./js/shapes.js": "./js/shapes.js?v=47",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=47",
-        "./js/outline.js": "./js/outline.js?v=47",
-        "./js/otf.js": "./js/otf.js?v=47",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=47"
+        "./js/charset.js": "./js/charset.js?v=49",
+        "./js/geometry.js": "./js/geometry.js?v=49",
+        "./js/model.js": "./js/model.js?v=49",
+        "./js/render.js": "./js/render.js?v=49",
+        "./js/tools.js": "./js/tools.js?v=49",
+        "./js/library.js": "./js/library.js?v=49",
+        "./js/pieces.js": "./js/pieces.js?v=49",
+        "./js/nodes.js": "./js/nodes.js?v=49",
+        "./js/shapes.js": "./js/shapes.js?v=49",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=49",
+        "./js/outline.js": "./js/outline.js?v=49",
+        "./js/otf.js": "./js/otf.js?v=49",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=49"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=47"></script>
+  <script type="module" src="js/main.js?v=49"></script>
 </body>
 </html>

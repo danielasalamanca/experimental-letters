@@ -1,9 +1,10 @@
 // Font export: builds an OpenType (CFF) font with opentype.js, then adds a
-// GPOS table with the kerning pairs, which opentype.js cannot write.
+// GPOS table with the kerning pairs and a GSUB table with the alternates,
+// which opentype.js cannot write.
 
 import { glyphFinalContours } from "./shapes.js";
-import { CHARSET, glyphName } from "./charset.js";
-import { advanceWidth } from "./model.js";
+import { glyphName, alternateOf } from "./charset.js";
+import { advanceWidth, allChars } from "./model.js";
 import { atWeight, normalizeAxis, weightName } from "./masters.js";
 
 const loadOpentype = () => import("./vendor/opentype.min.js");
@@ -19,13 +20,13 @@ export async function buildOtf(font, { mode = "join", weight = null } = {}) {
   const instance = weight !== null && weight !== axis.min;
 
   const glyphs = [new opentype.Glyph({ name: ".notdef", advanceWidth: Math.round(font.upm / 2), path: new opentype.Path() })];
-  const chars = [...new Set([...CHARSET, ...Object.keys(font.glyphs)])].filter((c) => font.glyphs[c]);
+  const chars = allChars(font);
   for (const char of chars) {
     const g = font.glyphs[char];
     const at = instance ? atWeight(font, char, weight) : null;
     glyphs.push(new opentype.Glyph({
       name: glyphName(char),
-      unicode: char.codePointAt(0),
+      unicode: glyphUnicode(char),
       advanceWidth: Math.round(at ? at.advance : advanceWidth(font, g)),
       path: at ? contoursPath(opentype, at.contours, at.lsb, cu) : glyphPath(opentype, font, g, mode),
     }));
@@ -51,8 +52,27 @@ export async function buildOtf(font, { mode = "join", weight = null } = {}) {
     })
     .filter(([l, r, v]) => l && r && v);
 
-  const buffer = otf.toArrayBuffer();
-  return pairs.length ? addTable(buffer, "GPOS", gposKerning(pairs)) : buffer;
+  let buffer = otf.toArrayBuffer();
+  if (pairs.length) buffer = addTable(buffer, "GPOS", gposKerning(pairs));
+  const alts = alternateGroups(chars, index);
+  if (alts.length) buffer = addTable(buffer, "GSUB", gsubAlternates(alts));
+  return buffer;
+}
+
+// Alternates have no code point: they are reached through the GSUB table.
+export const glyphUnicode = (char) => (alternateOf(char) ? undefined : char.codePointAt(0));
+
+// [[glyph, [alternate 1, alternate 2…]]] by glyph index, for gsubAlternates.
+// Alternate n keeps its place even if an earlier one was deleted.
+export function alternateGroups(chars, index) {
+  const groups = new Map();
+  for (const char of chars) {
+    const alt = alternateOf(char);
+    if (!alt || !index.has(alt.base)) continue;
+    if (!groups.has(alt.base)) groups.set(alt.base, []);
+    groups.get(alt.base).push([alt.n, index.get(char)]);
+  }
+  return [...groups].map(([base, list]) => [index.get(base), list.sort((a, b) => a[0] - b[0])]);
 }
 
 // The glyph's ink as closed contours, in font units (origin at the left
@@ -126,6 +146,91 @@ export function gposKerning(pairs) {
   firsts.forEach((f) => w.u16(f));
   if (w.length - pairPos > 0xffff) throw new Error("Demasiados pares de kerning.");
   return w.bytes();
+}
+
+// --- GSUB: the alternates of each glyph, so design apps list them (in
+// Illustrator, the Glyphs panel's "Alternates for Current Selection"):
+//   aalt – every alternate of a glyph (alternate substitution)
+//   salt – the first alternate         ss01…ss20 – alternate n
+// groups: [[glyph, [[n, alternate]…]]] (see alternateGroups).
+export function gsubAlternates(groups) {
+  const sorted = [...groups].sort((a, b) => a[0] - b[0]);
+  const maxN = Math.min(20, Math.max(...sorted.flatMap(([, list]) => list.map(([n]) => n))));
+  const lookups = [alternateSubst(sorted.map(([g, list]) => [g, list.map(([, a]) => a)]))];
+  const features = [["aalt", 0]];
+  const single = new Map(); // n -> lookup index
+  for (let n = 1; n <= maxN; n++) {
+    const pairs = sorted.flatMap(([g, list]) => list.filter(([m]) => m === n).map(([, a]) => [g, a]));
+    if (!pairs.length) continue;
+    single.set(n, lookups.push(singleSubst(pairs)) - 1);
+  }
+  if (single.has(1)) features.push(["salt", single.get(1)]);
+  for (const [n, li] of single) features.push([`ss${String(n).padStart(2, "0")}`, li]);
+  return layoutTable(features, lookups.map((sub, i) => ({ type: i === 0 ? 3 : 1, sub })));
+}
+
+// GSUB/GPOS-style table: header, ScriptList (DFLT and latn, every feature
+// on), FeatureList (tags sorted, one lookup each) and LookupList.
+function layoutTable(features, lookups) {
+  features = [...features].sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  const F = features.length;
+  const scriptList = new Writer();
+  scriptList.u16(2);
+  scriptList.tag("DFLT"); scriptList.u16(14);
+  scriptList.tag("latn"); scriptList.u16(14);
+  scriptList.u16(4); scriptList.u16(0);
+  scriptList.u16(0); scriptList.u16(0xffff); scriptList.u16(F);
+  features.forEach((_, i) => scriptList.u16(i));
+
+  const featureList = new Writer();
+  featureList.u16(F);
+  features.forEach(([tag], i) => { featureList.tag(tag); featureList.u16(2 + 6 * F + 6 * i); });
+  features.forEach(([, lookup]) => { featureList.u16(0); featureList.u16(1); featureList.u16(lookup); });
+
+  const lookupList = new Writer();
+  lookupList.u16(lookups.length);
+  let offset = 2 + 2 * lookups.length;
+  lookups.forEach(({ sub }) => { lookupList.u16(offset); offset += 8 + sub.length; });
+  for (const { type, sub } of lookups) {
+    lookupList.u16(type); lookupList.u16(0); lookupList.u16(1); lookupList.u16(8);
+    lookupList.bytesOf(sub);
+  }
+
+  const w = new Writer();
+  const scriptAt = 10, featureAt = scriptAt + scriptList.length, lookupAt = featureAt + featureList.length;
+  if (lookupAt > 0xffff) throw new Error("Demasiadas alternativas.");
+  w.u32(0x00010000); w.u16(scriptAt); w.u16(featureAt); w.u16(lookupAt);
+  w.bytesOf(scriptList.data); w.bytesOf(featureList.data); w.bytesOf(lookupList.data);
+  return w.bytes();
+}
+
+function coverage(glyphs) {
+  const w = new Writer();
+  w.u16(1); w.u16(glyphs.length);
+  glyphs.forEach((g) => w.u16(g));
+  return w.data;
+}
+
+// SingleSubstFormat2. pairs: [[glyph, substitute]], sorted by glyph.
+function singleSubst(pairs) {
+  const w = new Writer();
+  w.u16(2); w.u16(6 + 2 * pairs.length); w.u16(pairs.length);
+  pairs.forEach(([, s]) => w.u16(s));
+  w.bytesOf(coverage(pairs.map(([g]) => g)));
+  return w.data;
+}
+
+// AlternateSubstFormat1. sets: [[glyph, [alternates]]], sorted by glyph.
+function alternateSubst(sets) {
+  const w = new Writer();
+  const head = 6 + 2 * sets.length;
+  const sizes = sets.map(([, alts]) => 2 + 2 * alts.length);
+  w.u16(1); w.u16(head + sizes.reduce((a, b) => a + b, 0)); w.u16(sets.length);
+  let offset = head;
+  sizes.forEach((size) => { w.u16(offset); offset += size; });
+  for (const [, alts] of sets) { w.u16(alts.length); alts.forEach((a) => w.u16(a)); }
+  w.bytesOf(coverage(sets.map(([g]) => g)));
+  return w.data;
 }
 
 export class Writer {
