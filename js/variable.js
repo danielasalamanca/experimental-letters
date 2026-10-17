@@ -6,9 +6,10 @@
 // OS/2, hhea, post…); the rest is written here. Both masters are turned into
 // quadratic curves the same way, so they keep the same points.
 
-import { CHARSET, glyphName } from "./charset.js";
+import { glyphName } from "./charset.js";
+import { allChars } from "./model.js";
 import { masterPair, normalizeAxis, instances } from "./masters.js";
-import { gposKerning, readSfnt, writeSfnt, Writer } from "./otf.js";
+import { gposKerning, gsubAlternates, alternateGroups, glyphUnicode, readSfnt, writeSfnt, Writer } from "./otf.js";
 
 const loadOpentype = () => import("./vendor/opentype.min.js");
 
@@ -18,7 +19,7 @@ export async function buildVariableTtf(font) {
   const axis = normalizeAxis(font.axis);
   const meta = font.meta;
   const family = meta.family.trim() || "Letras Experimentales";
-  const chars = [...new Set([...CHARSET, ...Object.keys(font.glyphs)])].filter((c) => font.glyphs[c]);
+  const chars = allChars(font);
 
   // Both masters of every glyph, as TrueType points (font units).
   const notdef = { name: ".notdef", unicode: null, regular: emptyGlyph(), bold: emptyGlyph(), advance: [font.upm / 2, font.upm / 2] };
@@ -36,7 +37,7 @@ export async function buildVariableTtf(font) {
     const bold = ok ? units(pair.bold, pair.lsb[1]) : reg;
     const [regular, boldPts] = toQuadratic(reg, bold);
     glyphs.push({
-      name: glyphName(char), unicode: char.codePointAt(0), regular, bold: boldPts,
+      name: glyphName(char), unicode: glyphUnicode(char) ?? null, regular, bold: boldPts,
       advance: [pair.advance[0], ok ? pair.advance[1] : pair.advance[0]].map(Math.round),
     });
   }
@@ -84,6 +85,8 @@ export async function buildVariableTtf(font) {
     })
     .filter(([l, r, v]) => l && r && v);
   if (pairs.length) tables.set("GPOS", gposKerning(pairs));
+  const alts = alternateGroups(chars, index);
+  if (alts.length) tables.set("GSUB", gsubAlternates(alts));
   return writeSfnt(0x00010000, tables);
 }
 

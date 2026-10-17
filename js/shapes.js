@@ -45,3 +45,10 @@ export function glyphRawContours(font, glyph, { mode = "join", sharp = false } =
 // into nodes.
 export const ownContours = (font, glyph) =>
   glyphFinalContours(font, { ...glyph, components: [] });
+
+// Component `index` of the glyph as it is placed in it (moved, with what the
+// glyph erased of it), in the glyph's cells. Used to pick it on the canvas.
+export const componentContours = (font, glyph, index) =>
+  glyphFinalContours(font, {
+    ...glyph, cells: [], outline: null, pieces: [], corners: {}, components: [glyph.components[index]],
+  });

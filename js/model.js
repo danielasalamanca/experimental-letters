@@ -1,9 +1,10 @@
 // Font data model, defaults, migration and metric fitting.
 // Pure functions only (no DOM), so they can be tested with `node --test`.
 
-import { key, parseKey } from "./geometry.js";
-import { CHARSET, COMPOSITES, defaultCols, isCapital } from "./charset.js";
-import { cloneOutline, shiftOutline } from "./nodes.js";
+import { key, parseKey, windingAt } from "./geometry.js";
+import { CHARSET, COMPOSITES, defaultCols, isCapital, alternateOf, alternateKey } from "./charset.js";
+import { cloneOutline, shiftOutline, outlineToCommands } from "./nodes.js";
+import { pieceContour, contourObjects } from "./pieces.js";
 
 export const FORMAT = "experimental-letters";
 export const VERSION = 2;
@@ -57,7 +58,7 @@ export function createGlyph({
     pieces: pieces.map((p) => ({ ...p, ...(p.points ? { points: p.points.map((q) => [...q]) } : {}) })),
     // Edited node by node ("Nodos"): replaces the glyph's own grid drawing.
     outline: Array.isArray(outline) ? cloneOutline(outline) : null,
-    components: components.map((c) => ({ glyph: c.glyph, dx: c.dx ?? 0, dy: c.dy ?? 0 })),
+    components: components.map(cloneComponent),
     // The bold master (see masters.js): a glyph of its own (grid drawing or
     // nodes, width, sidebearings), or null while it is generated automatically.
     bold: bold && typeof bold === "object" ? {
@@ -66,6 +67,21 @@ export function createGlyph({
     } : null,
   };
 }
+
+// A component: another glyph placed at (dx, dy) cells. Its position is this
+// letter's own (each accented letter places its accent). What the letter
+// erases of it is kept here too, in the component's own coordinates, so it
+// moves with it: `erase` lists cells of its drawing, `hide` points on parts
+// of its nodes or pieces (each point hides the part under it).
+function cloneComponent(c) {
+  const out = { glyph: c.glyph, dx: c.dx ?? 0, dy: c.dy ?? 0 };
+  if (c.erase?.length) out.erase = [...c.erase];
+  if (c.hide?.length) out.hide = c.hide.map(([x, y]) => [x, y]);
+  return out;
+}
+
+// True if the letter erased part of the component.
+export const componentEdited = (c) => !!(c.erase?.length || c.hide?.length);
 
 // Empty glyph for a character of the set; accented letters start as
 // base + accent composites, with the accent centered over the base.
@@ -236,6 +252,7 @@ export function resolvedPieces(font, glyph, seen = new Set()) {
     const base = font.glyphs[comp.glyph];
     if (!base || seen.has(comp.glyph)) continue;
     for (const p of resolvedPieces(font, base, new Set([...seen, comp.glyph]))) {
+      if (comp.hide?.length && p.mode !== "cut" && comp.hide.some((pt) => windingAt([pieceContour(p)], pt) !== 0)) continue;
       out.push({
         ...p, x0: p.x0 + comp.dx, x1: p.x1 + comp.dx, y0: p.y0 + comp.dy, y1: p.y1 + comp.dy,
         ...(p.points ? { points: p.points.map(([x, y]) => [x + comp.dx, y + comp.dy]) } : {}),
@@ -271,7 +288,8 @@ export function componentCells(font, glyph, seen = new Set()) {
     const inner = new Set([...seen, comp.glyph]);
     // A component edited with nodes brings its outline instead of cells.
     const own = base.outline ? [] : base.cells.filter((k) => parseKey(k)[0] < base.cols);
-    const cells = [...own, ...componentCells(font, base, inner)];
+    const erased = new Set(comp.erase ?? []);
+    const cells = [...own, ...componentCells(font, base, inner)].filter((k) => !erased.has(k));
     for (const k of cells) {
       const [c, r] = parseKey(k);
       out.add(key(c + comp.dx, r + comp.dy));
@@ -290,9 +308,23 @@ export function resolvedOutline(font, glyph, seen = new Set()) {
   for (const comp of glyph.components) {
     const base = font.glyphs[comp.glyph];
     if (!base || seen.has(comp.glyph)) continue;
-    out.push(...shiftOutline(resolvedOutline(font, base, new Set([...seen, comp.glyph])), comp.dx, comp.dy));
+    const parts = visibleParts(resolvedOutline(font, base, new Set([...seen, comp.glyph])), comp.hide);
+    out.push(...shiftOutline(parts, comp.dx, comp.dy));
   }
   return out;
+}
+
+// The outline without the shapes (an outer contour with its holes) that
+// have a `hide` point in their ink.
+function visibleParts(outline, hide = []) {
+  if (!hide.length) return outline;
+  const kept = outline.filter((c) => c.nodes.length >= 2);
+  const cmds = outlineToCommands(kept);
+  const hidden = new Set();
+  for (const obj of contourObjects(cmds)) {
+    if (hide.some((pt) => windingAt(obj.map((ci) => cmds[ci]), pt) !== 0)) obj.forEach((ci) => hidden.add(ci));
+  }
+  return kept.filter((_, ci) => !hidden.has(ci));
 }
 
 // True if `char`'s glyph uses `target` anywhere in its component tree.
@@ -311,6 +343,49 @@ export const dependents = (font, char) =>
   Object.keys(font.glyphs).filter((k) => k === char || dependsOn(font, k, char));
 
 export const allGlyphs = (font) => [...Object.values(font.glyphs), ...font.drafts];
+
+// --- Alternates ("a.alt1"…) ---
+
+// Alternates of `base`, in order.
+export const alternates = (font, base) =>
+  Object.keys(font.glyphs)
+    .filter((k) => alternateOf(k)?.base === base)
+    .sort((a, b) => alternateOf(a).n - alternateOf(b).n);
+
+// Every glyph of the font: the character set, then the alternates (in the
+// order of their characters).
+export function allChars(font) {
+  const order = new Map(CHARSET.map((c, i) => [c, i]));
+  const extra = Object.keys(font.glyphs).filter((k) => !order.has(k));
+  const rank = (k) => {
+    const alt = alternateOf(k);
+    return alt ? [order.get(alt.base) ?? Infinity, alt.n] : [Infinity, 0];
+  };
+  extra.sort((a, b) => {
+    const [ra, na] = rank(a), [rb, nb] = rank(b);
+    return ra - rb || na - nb || (a < b ? -1 : 1);
+  });
+  return [...CHARSET.filter((c) => font.glyphs[c]), ...extra];
+}
+
+// Adds an alternate of a character, starting as a copy of the drawing of
+// `from` (the character or one of its alternates): cells, nodes, pieces,
+// components, width and sidebearings. Returns its key.
+export function addAlternate(font, from) {
+  const base = alternateOf(from)?.base ?? from;
+  const n = Math.max(0, ...alternates(font, base).map((k) => alternateOf(k).n)) + 1;
+  const k = alternateKey(base, n);
+  const src = font.glyphs[from];
+  font.glyphs[k] = createGlyph(src ? JSON.parse(JSON.stringify(src)) : { metrics: font.metrics });
+  return k;
+}
+
+// Deletes an alternate, and the components that used it.
+export function removeAlternate(font, k) {
+  if (!alternateOf(k) || !font.glyphs[k]) return;
+  delete font.glyphs[k];
+  for (const g of allGlyphs(font)) g.components = g.components.filter((c) => c.glyph !== k);
+}
 
 export const sameMetrics = (a, b) =>
   a.ascender === b.ascender && a.capHeight === b.capHeight &&

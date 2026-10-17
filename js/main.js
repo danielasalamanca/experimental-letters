@@ -1,13 +1,13 @@
 // Editor UI: wires the character map, panels and canvas to the font model.
 
-import { key, parseKey } from "./geometry.js";
+import { key, parseKey, windingAt } from "./geometry.js";
 import {
   METRICS, createGlyph, normalizeFont, createBlankFont, defaultGlyph, setMetric, sameMetrics,
   GRIDS, glyphGrid, shapeKey, hasOwnShape, resolvedCorners, resolvedPieces, resolvedOutline, glyphShape,
   planFit, applyFit, ROW_ZONES, zoneRows, setZoneRows, metricColor, advanceWidth, resolvedCells, canUseComponent, dependents,
-  kerningValue, setKerning, layoutText,
+  kerningValue, setKerning, layoutText, componentEdited, alternates, allChars, addAlternate, removeAlternate,
 } from "./model.js";
-import { GROUPS, CHARSET, glyphName, fileName, codepoint } from "./charset.js";
+import { GROUPS, CHARSET, glyphName, fileName, codepoint, alternateOf, baseChar } from "./charset.js";
 import { drawGlyph, drawText, el, SVG_NS, contoursToPath } from "./render.js";
 import { openLibrary, saveFont, loadFont, deleteFont, newId, fontName } from "./library.js";
 import {
@@ -20,7 +20,7 @@ import {
   commandsToOutline, outlineToCommands, cloneOutline, splitSegment, toggleSmooth, deleteNodes,
   nearestSegment, snapToGrid, isSmooth,
 } from "./nodes.js";
-import { ownContours, glyphRawContours } from "./shapes.js";
+import { ownContours, glyphRawContours, componentContours } from "./shapes.js";
 import {
   refreshBold, makeBold, copyRegular, masterPair, pureComposite, boldGlyph, normalizeAxis, instances, weightName,
   mastersReport, WEIGHTS, atWeight,
@@ -155,10 +155,10 @@ function render(scope = "glyph") {
 // Character shown as the gray reference letter, or null.
 function placeholderChar() {
   const mode = font.view.placeholder;
-  const char = font.active;
+  const char = baseChar(font.active);
   if (mode === "off" || !char.trim()) return null;
   if (mode === "empty") {
-    const g = font.glyphs[char];
+    const g = font.glyphs[font.active];
     if (resolvedCells(font, g).length || resolvedOutline(font, g).length) return null;
   }
   return char;
@@ -168,6 +168,7 @@ function refreshAll() {
   selection.clear();
   floating = null;
   nodeSel.clear();
+  compSel = null;
   syncControls();
   render("font");
   renderGallery();
@@ -207,6 +208,7 @@ function decorate() {
     syncPolyBar();
   }
   if (tool === "nodes") drawNodeMarkers(layer);
+  if (selectedComponent() && (tool === "select" || tool === "nodes")) drawComponentBox(layer);
   if (action?.type === "marquee" && action.moved) {
     const { x0, y0, x1, y1 } = action;
     layer.appendChild(el("rect", {
@@ -255,7 +257,38 @@ function renderCharmap() {
       map.append(h, grid);
     }
   }
-  CHARSET.forEach(updateThumb);
+  syncAlternateGroup();
+  allChars(font).forEach(updateThumb);
+}
+
+// The "Alternativas" group at the end of the map, rebuilt when alternates
+// are added or deleted.
+let alternateSignature = null;
+function syncAlternateGroup() {
+  const keys = allChars(font).filter((k) => alternateOf(k));
+  const signature = keys.join("\u0000");
+  if (signature === alternateSignature) return;
+  alternateSignature = signature;
+  for (const k of [...thumbs.keys()]) if (alternateOf(k)) thumbs.delete(k);
+  $("charmap").querySelector(".cm-alternates")?.remove();
+  if (!keys.length) return;
+  const box = document.createElement("div");
+  box.className = "cm-alternates";
+  const h = document.createElement("h2");
+  h.textContent = "Alternativas";
+  const grid = document.createElement("div");
+  grid.className = "cm-grid";
+  for (const k of keys) {
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "cm-cell";
+    cell.dataset.char = k;
+    cell.addEventListener("click", () => selectGlyph(k));
+    thumbs.set(k, cell);
+    grid.appendChild(cell);
+  }
+  box.append(h, grid);
+  $("charmap").appendChild(box);
 }
 
 function updateThumb(char) {
@@ -268,7 +301,8 @@ function updateThumb(char) {
   drawGlyph(svg, font, g, { frame: "advance" });
   const label = document.createElement("span");
   label.className = "cm-label";
-  label.textContent = char === " " ? "esp" : char;
+  const alt = alternateOf(char);
+  label.textContent = alt ? `${alt.base === " " ? "esp" : alt.base}.${alt.n}` : char === " " ? "esp" : char;
   cell.replaceChildren(svg, label);
   if (hasOwnShape(font, g)) cell.appendChild(marker("own-dot", "Usa curvatura o redondeo propio"));
   if (g.grid != null) cell.appendChild(marker("grid-mark", `Grilla propia: ${GRIDS[g.grid]}`));
@@ -280,7 +314,7 @@ function updateThumb(char) {
   }
   cell.classList.toggle("empty", empty);
   cell.classList.toggle("active", char === font.active);
-  cell.title = `${glyphName(char)} · ${codepoint(char)}`;
+  cell.title = alt ? `${glyphName(char)} · alternativa ${alt.n} de «${alt.base}»` : `${glyphName(char)} · ${codepoint(char)}`;
 }
 
 function marker(className, title) {
@@ -296,6 +330,7 @@ function selectGlyph(char) {
   floating = null;
   polyDraft = null;
   nodeSel.clear();
+  compSel = null;
   font.active = char;
   boldView = null;
   if (master === "bold") refreshBold(font, char);
@@ -414,11 +449,136 @@ function paint(k, adding) {
     rows: axisRows(font.view.mirrorAxis, font.metrics, font.active),
   }).filter((t) => inBounds(...parseKey(t)));
   const cells = new Set(g.cells);
-  const before = cells.size;
-  for (const t of targets) adding ? cells.add(t) : cells.delete(t);
-  if (cells.size === before) return;
+  let changed = false;
+  for (const t of targets) {
+    if (adding) {
+      // Painting where a component was erased brings it back.
+      if (restoreComponentCell(g, t)) changed = true;
+      else if (!cells.has(t)) { cells.add(t); changed = true; }
+    } else {
+      if (cells.delete(t)) changed = true;
+      if (eraseComponentCell(g, t)) changed = true;
+    }
+  }
+  if (!changed) return;
   g.cells = [...cells];
+  if (g.components.some(componentEdited)) syncGlyphPanel();
   render();
+}
+
+// --- Components on the canvas ---
+// A component's position is the letter's own: with Seleccionar or Nodos it
+// is dragged (or moved with the arrows) in this letter only. With Dibujar,
+// clicking its ink erases it here only: cells one by one; parts made of
+// nodes or pieces (like the dot of an i) whole.
+let compSel = null; // index of the selected component of the active glyph
+
+const selectedComponent = () => (compSel === null ? null : glyph().components[compSel] ?? null);
+
+// Where cell key `k` of the glyph falls in the component's own drawing.
+const localKey = (comp, k) => {
+  const [c, r] = parseKey(k);
+  return key(c - comp.dx, r - comp.dy);
+};
+
+// The component's own cells (unmoved, nothing erased).
+const componentOwnCells = (g, comp) =>
+  new Set(resolvedCells(font, { ...g, cells: [], outline: null, components: [{ glyph: comp.glyph, dx: 0, dy: 0 }] }));
+
+function eraseComponentCell(g, k) {
+  let changed = false;
+  for (const comp of g.components) {
+    const local = localKey(comp, k);
+    if (comp.erase?.includes(local) || !componentOwnCells(g, comp).has(local)) continue;
+    (comp.erase ??= []).push(local);
+    changed = true;
+  }
+  return changed;
+}
+
+function restoreComponentCell(g, k) {
+  let changed = false;
+  for (const comp of g.components) {
+    const local = localKey(comp, k);
+    if (!comp.erase?.includes(local)) continue;
+    comp.erase = comp.erase.filter((e) => e !== local);
+    if (!comp.erase.length) delete comp.erase;
+    changed = true;
+  }
+  return changed;
+}
+
+// Topmost component with ink under the point, or null.
+function componentAt(p) {
+  const g = glyph();
+  for (let i = g.components.length - 1; i >= 0; i--) {
+    if (!font.glyphs[g.components[i].glyph]) continue;
+    if (windingAt(componentContours(font, g, i), [p.x, p.y]) !== 0) return i;
+  }
+  return null;
+}
+
+function startComponentDrag(index, p) {
+  const comp = glyph().components[index];
+  compSel = index;
+  action = { type: "component", index, sx: p.x, sy: p.y, dx0: comp.dx, dy0: comp.dy, moved: false };
+  renderComponents();
+  render(null);
+}
+
+function dragComponent(evt) {
+  const comp = glyph().components[action.index];
+  if (!comp) return;
+  const p = toCells(evt);
+  const dx = action.dx0 + Math.round(p.x - action.sx), dy = action.dy0 + Math.round(p.y - action.sy);
+  if (dx === comp.dx && dy === comp.dy) return;
+  if (!action.moved) { checkpoint(); action.moved = true; }
+  comp.dx = dx;
+  comp.dy = dy;
+  render();
+}
+
+function nudgeComponent(dx, dy) {
+  const comp = selectedComponent();
+  if (!comp) return;
+  checkpoint("nudgeComponent");
+  comp.dx += dx;
+  comp.dy += dy;
+  renderComponents();
+  render();
+}
+
+// With Dibujar: hides the part of a component (made of nodes or pieces)
+// under the pointer, in this letter only.
+function hideComponentPart(index, p) {
+  const comp = glyph().components[index];
+  checkpoint();
+  (comp.hide ??= []).push([p.x - comp.dx, p.y - comp.dy]);
+  syncGlyphPanel();
+  render();
+  toast(`Borrado en esta letra · «${comp.glyph}» no cambia (Restaurar en Componentes)`);
+}
+
+function drawComponentBox(layer) {
+  const g = glyph();
+  const contours = componentContours(font, g, compSel);
+  const xs = [], ys = [];
+  for (const cmds of contours) {
+    for (const c of cmds) if (c.type !== "Z") { xs.push(c.x); ys.push(c.y); }
+  }
+  if (!xs.length) return;
+  const cu = font.cell, pad = 0.15;
+  const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
+  layer.appendChild(el("rect", {
+    x: x0 * cu, y: -y1 * cu, width: (x1 - x0) * cu, height: (y1 - y0) * cu,
+    fill: "none", stroke: NODE_COLOR, "stroke-width": 1.5, "stroke-dasharray": "6 4", "vector-effect": "non-scaling-stroke",
+  }));
+  const comp = g.components[compSel];
+  const t = el("text", {
+    x: x0 * cu, y: -y1 * cu - cu * 0.2, fill: NODE_COLOR, "font-size": cu * 0.5, "font-family": "inherit",
+  });
+  t.textContent = `${comp.glyph} · x ${comp.dx}, y ${comp.dy}`;
+  layer.appendChild(t);
 }
 
 board.addEventListener("pointerdown", (evt) => {
@@ -484,10 +644,16 @@ board.addEventListener("pointerdown", (evt) => {
 
   if (tool === "draw") {
     if (!k) { frozenBounds = null; return; }
+    const inked = g.cells.includes(k) || g.components.some((comp) => !comp.erase?.includes(localKey(comp, k)) && componentOwnCells(g, comp).has(localKey(comp, k)));
+    if (!inked && g.components.length) {
+      // A part of a component made of nodes or pieces: erased whole.
+      const ci = componentAt(toCells(evt));
+      if (ci !== null) { frozenBounds = null; hideComponentPart(ci, toCells(evt)); return; }
+    }
     checkpoint();
     // An empty glyph is always drawn against the current metrics.
-    if (g.cells.length === 0) g.metrics = { ...font.metrics };
-    action = { type: "paint", adding: !g.cells.includes(k) };
+    if (g.cells.length === 0 && !g.components.length) g.metrics = { ...font.metrics };
+    action = { type: "paint", adding: !inked };
     paint(k, action.adding);
     return;
   }
@@ -501,6 +667,10 @@ board.addEventListener("pointerdown", (evt) => {
     action = { type: "move", sx: Math.floor(p.x), sy: Math.floor(p.y), dc: 0, dr: 0, lifted };
     return;
   }
+  // A component (not the letter's own cells): drag it in this letter.
+  const ci = k && g.cells.includes(k) ? null : componentAt(p);
+  if (ci !== null && !evt.shiftKey) { startComponentDrag(ci, p); return; }
+  if (compSel !== null) { compSel = null; renderComponents(); }
   action = { type: "marquee", x0: p.x, y0: p.y, x1: p.x, y1: p.y, moved: false, additive: evt.shiftKey, cell: k };
 });
 
@@ -578,6 +748,10 @@ window.addEventListener("pointermove", (evt) => {
       }
       break;
     }
+    case "component": {
+      dragComponent(evt);
+      break;
+    }
     case "paint": {
       const k = cellAt(evt);
       if (k) paint(k, action.adding);
@@ -622,6 +796,7 @@ window.addEventListener("pointerup", () => {
     return;
   }
   if (done.type === "polyPress") { polyAdd(done.at); return; }
+  if (done.type === "component") { renderComponents(); render(done.moved ? "glyph" : null); return; }
   if (done.type === "pan") return;
   if (done.type === "move" && done.lifted === floating && floating) { floating.dc += done.dc; floating.dr += done.dr; }
   if (done.type === "corner") { endCorner(done); return; }
@@ -805,6 +980,12 @@ function startNodeAction(evt) {
     render(null);
     return;
   }
+  // A component, where the letter's own outline has no ink: drag it.
+  if (!evt.shiftKey && windingAt(outlineToCommands(outline), [p.x, p.y]) === 0) {
+    const ci = componentAt(p);
+    if (ci !== null) { startComponentDrag(ci, p); return; }
+  }
+  if (compSel !== null) { compSel = null; renderComponents(); }
   action = { type: "nodeMarquee", x0: p.x, y0: p.y, x1: p.x, y1: p.y, moved: false, additive: evt.shiftKey };
 }
 
@@ -1941,12 +2122,13 @@ window.addEventListener("keydown", (e) => {
   else if (tool === "nodes" && k === "escape") {
     if (nodeAddMode) setNodeAdd(false);
     else if (shapeMode) setShapeMode(null);
-    else { nodeSel.clear(); render(null); }
+    else { nodeSel.clear(); compSel = null; renderComponents(); render(null); }
   }
   else if (arrows[k] && selection.size) { e.preventDefault(); nudge(...arrows[k]); }
+  else if (arrows[k] && selectedComponent() && (tool === "select" || tool === "nodes")) { e.preventDefault(); nudgeComponent(...arrows[k]); }
   else if ((k === "delete" || k === "backspace") && tool === "piece" && selectedPiece !== null) { e.preventDefault(); removePiece(selectedPiece); }
   else if (k === "delete" || k === "backspace") { if (selection.size) { e.preventDefault(); deleteSelection(); } }
-  else if (k === "escape") { selection.clear(); render(null); }
+  else if (k === "escape") { selection.clear(); compSel = null; renderComponents(); render(null); }
   else if (k === "b") setTool("draw");
   else if (e.shiftKey && k === "v") transformShape("v");
   else if (k === "v") setTool("select");
@@ -1988,9 +2170,11 @@ window.addEventListener("blur", endPreview);
 function syncGlyphPanel() {
   const g = glyph();
   const char = font.active;
-  $("glyphChar").textContent = char === " " ? "␣" : char;
+  const alt = alternateOf(char);
+  const shown = baseChar(char);
+  $("glyphChar").textContent = shown === " " ? "␣" : shown;
   $("glyphName").textContent = glyphName(char);
-  $("glyphCode").textContent = codepoint(char);
+  $("glyphCode").textContent = alt ? `Alternativa ${alt.n} de «${alt.base}» · ${codepoint(char)}` : codepoint(char);
   const gridSelect = $("glyphGrid");
   gridSelect.replaceChildren(new Option(`Como la fuente (${GRIDS[font.grid]})`, ""));
   for (const [value, name] of Object.entries(GRIDS)) gridSelect.appendChild(new Option(name, value));
@@ -2002,6 +2186,7 @@ function syncGlyphPanel() {
   $("advanceInfo").textContent =
     `Ancho de avance: ${advanceWidth(font, g)} u = ${g.lsb} + ${g.cols} × ${font.cell} + ${g.rsb}`;
   renderComponents();
+  renderAlternates();
   syncPieceList();
   const edited = !!g.outline;
   $("editNodes").hidden = edited;
@@ -2033,15 +2218,20 @@ function renderComponents() {
   const g = glyph();
   const list = $("componentList");
   list.replaceChildren();
-  if (!g.components.length) {
-    const p = document.createElement("p");
-    p.className = "info";
-    p.textContent = "Sin componentes. Agrega otro glifo para reutilizar su dibujo: si lo editas, este glifo se actualiza.";
-    list.appendChild(p);
+  const p = document.createElement("p");
+  p.className = "info";
+  p.textContent = g.components.length
+    ? "La posición es de esta letra: arrastra el componente en el lienzo con Seleccionar (V) o Nodos (A), o usa las flechas. Con Dibujar (B) borras partes de él solo aquí."
+    : "Sin componentes. Agrega otro glifo para reutilizar su dibujo: si lo editas, este glifo se actualiza.";
+  list.appendChild(p);
+  // Letters made with components open the section, so their accents are easy to place.
+  if (g.components.length && !$("componentsBox").dataset.seen) {
+    $("componentsBox").open = true;
+    $("componentsBox").dataset.seen = "1";
   }
   g.components.forEach((comp, i) => {
     const row = document.createElement("div");
-    row.className = "component";
+    row.className = "component" + (i === compSel ? " selected" : "");
     const name = document.createElement("button");
     name.type = "button";
     name.className = "comp-name";
@@ -2073,16 +2263,37 @@ function renderComponents() {
     remove.addEventListener("click", () => {
       checkpoint();
       g.components.splice(i, 1);
+      compSel = null;
       syncGlyphPanel();
       render();
     });
     row.appendChild(remove);
     list.appendChild(row);
+    if (componentEdited(comp)) {
+      const note = document.createElement("div");
+      note.className = "component-erased";
+      const parts = (comp.erase?.length ?? 0) + (comp.hide?.length ?? 0);
+      note.textContent = `${parts === 1 ? "1 parte borrada" : `${parts} partes borradas`} solo en esta letra`;
+      const restoreBtn = document.createElement("button");
+      restoreBtn.type = "button";
+      restoreBtn.className = "ghost";
+      restoreBtn.textContent = "Restaurar";
+      restoreBtn.title = `Vuelve a mostrar todo «${comp.glyph}» en esta letra`;
+      restoreBtn.addEventListener("click", () => {
+        checkpoint();
+        delete comp.erase;
+        delete comp.hide;
+        syncGlyphPanel();
+        render();
+      });
+      note.appendChild(restoreBtn);
+      list.appendChild(note);
+    }
   });
 
   const select = $("componentSource");
   select.replaceChildren();
-  for (const char of CHARSET) {
+  for (const char of allChars(font)) {
     if (!canUseComponent(font, font.active, char)) continue;
     const opt = document.createElement("option");
     opt.value = char;
@@ -2093,12 +2304,66 @@ function renderComponents() {
 
   const copy = $("copySource");
   copy.replaceChildren();
-  for (const char of CHARSET) {
+  for (const char of allChars(font)) {
     if (char === font.active) continue;
     const empty = isEmptyGlyph(font.glyphs[char]);
     copy.appendChild(new Option(charLabel(char) + (empty ? " (vacío)" : ""), char));
   }
 }
+
+// --- Alternates ---
+// Other versions of a character ("a.alt1"…), made as copies of it. They are
+// listed in the map and exported without a code point, as alternates of the
+// character (aalt, salt, ss01…), so Illustrator offers them for it.
+function renderAlternates() {
+  const char = font.active;
+  const base = baseChar(char);
+  const list = $("altList");
+  list.replaceChildren();
+  const keys = [base, ...alternates(font, base)];
+  if (keys.length > 1) {
+    for (const k of keys) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "alt-chip" + (k === char ? " active" : "");
+      const alt = alternateOf(k);
+      b.textContent = alt ? `${base}.${alt.n}` : base === " " ? "␣" : base;
+      b.title = alt ? `${glyphName(k)} (alternativa ${alt.n})` : `${glyphName(k)} (original)`;
+      b.addEventListener("click", () => selectGlyph(k));
+      list.appendChild(b);
+    }
+  }
+  const alt = alternateOf(char);
+  $("altInfo").textContent = alt
+    ? `Alternativa ${alt.n} de «${base}». Se exporta como «${glyphName(char)}»: en Illustrator aparece entre las alternativas de «${base}» (aalt, ss${String(alt.n).padStart(2, "0")}).`
+    : "Otra versión de esta letra, que empieza como copia de su dibujo. Aparece en «Alternativas» del panel de letras y se exporta como alternativa (Illustrator la muestra en «Alternativas a la selección actual»).";
+  $("addAlt").textContent = alt ? "Crear otra alternativa" : "Crear alternativa";
+  $("removeAlt").hidden = !alt;
+}
+
+$("addAlt").addEventListener("click", () => {
+  checkpoint();
+  const k = addAlternate(font, font.active);
+  renderCharmap();
+  selectGlyph(k);
+  toast(`Creada «${glyphName(k)}»: edítala sin cambiar «${baseChar(k)}»`);
+});
+
+$("removeAlt").addEventListener("click", async () => {
+  const k = font.active;
+  if (!alternateOf(k)) return;
+  const ok = await confirmAction({
+    title: "Eliminar alternativa",
+    message: `Se borra «${glyphName(k)}» y su dibujo (se puede deshacer con Cmd/Ctrl + Z).`,
+    ok: "Eliminar",
+  });
+  if (!ok) return;
+  checkpoint();
+  const base = baseChar(k);
+  removeAlternate(font, k);
+  renderCharmap();
+  selectGlyph(base);
+});
 
 // Copies another glyph's drawing as a starting point (e.g. "n" → "h").
 $("copyFrom").addEventListener("click", () => {
