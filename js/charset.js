@@ -15,7 +15,8 @@ export const GROUPS = [
   { name: "Minúsculas", chars: [...range("a", "z"), "ñ"] },
   { name: "Acentuadas", chars: ["á", "é", "í", "ó", "ú", "Á", "É", "Í", "Ó", "Ú"] },
   { name: "Números", chars: range("0", "9") },
-  { name: "Puntuación", chars: [".", ",", ";", ":", "!", "?", "-", "'", "\"", "(", ")"] },
+  { name: "Puntuación", chars: [".", ",", ";", ":", "!", "¡", "?", "¿", "-", "'", "\"", "(", ")"] },
+  { name: "Símbolos", chars: ["&", "@"] },
   { name: "Acentos (componentes)", chars: [ACUTE, TILDE] },
   { name: "Espacio", chars: [" "] },
 ];
@@ -26,7 +27,9 @@ const DIGITS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "
 
 const NAMES = {
   ".": "period", ",": "comma", ";": "semicolon", ":": "colon", "!": "exclam",
-  "?": "question", "-": "hyphen", "'": "quotesingle", "\"": "quotedbl",
+  "?": "question", "¡": "exclamdown", "¿": "questiondown",
+  "-": "hyphen", "'": "quotesingle", "\"": "quotedbl",
+  "&": "ampersand", "@": "at",
   "(": "parenleft", ")": "parenright", " ": "space",
   [ACUTE]: "acute", [TILDE]: "tilde",
   "á": "aacute", "é": "eacute", "í": "iacute", "ó": "oacute", "ú": "uacute",
@@ -71,6 +74,8 @@ export const COMPOSITES = {
   "Á": ["A", ACUTE], "É": ["E", ACUTE], "Í": ["I", ACUTE], "Ó": ["O", ACUTE], "Ú": ["U", ACUTE],
 };
 
+export const INVERTED_PUNCTUATION = { "¡": "!", "¿": "?" };
+
 // Capitals (and digits) are drawn up to the cap height; this also covers
 // accented capitals like "Á", which /[A-Z]/ alone would miss.
 export const isCapital = (key) => {
@@ -84,8 +89,8 @@ export function defaultCols(key) {
   if (char === ACUTE || char === TILDE) return 4;
   if ("()".includes(char)) return 4;
   if (char === "-") return 5;
-  if (".,;:!'\"".includes(char)) return 2;
-  if (char === "?") return 6;
+  if (".,;:!¡'\"".includes(char)) return 2;
+  if (char === "?" || char === "¿") return 6;
   if ("iíjl".includes(char)) return 3;
   return 8;
 }

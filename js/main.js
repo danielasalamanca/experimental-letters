@@ -6,6 +6,7 @@ import {
   GRIDS, glyphGrid, shapeKey, hasOwnShape, resolvedCorners, resolvedPieces, resolvedOutline, glyphShape,
   planFit, applyFit, ROW_ZONES, zoneRows, setZoneRows, metricColor, advanceWidth, resolvedCells, canUseComponent, dependents,
   kerningValue, setKerning, layoutText, componentEdited, alternates, allChars, addAlternate, removeAlternate,
+  componentPoint, componentCellFromParent, componentLocalPoint, syncInvertedGlyphs,
 } from "./model.js";
 import { GROUPS, CHARSET, glyphName, fileName, codepoint, alternateOf, baseChar } from "./charset.js";
 import { drawGlyph, drawText, el, SVG_NS, contoursToPath } from "./render.js";
@@ -26,7 +27,7 @@ import {
   mastersReport, WEIGHTS, atWeight,
 } from "./masters.js";
 import {
-  pieceContour, normalizePiece, mirrorPiece, PIECE_SHAPES, pieceGlyphCorners, cornerKey,
+  pieceContour, normalizePiece, mirrorPiece, PIECE_SHAPES, pieceGlyphCorners, cornerKey, roundedContours,
   pieceHandles, movePieceHandle, contourCorners, contourObjects, pathfinder, polygonArea,
 } from "./pieces.js";
 
@@ -123,6 +124,7 @@ let zoomBox = null;      // explicit viewBox while zoomed or panned; null = fit
 // Redraws the canvas. `scope` says which thumbnails are stale:
 // "glyph" = the active glyph and the composites using it, "font" = all.
 function render(scope = "glyph") {
+  syncInvertedGlyphs(font);
   // Placing or deleting the first piece turns the corner tool on or off.
   $("toolCorner").disabled = !cornersAvailable();
   const bgChar = font.view.background;
@@ -483,7 +485,7 @@ function pickedPart() {
   const comp = selectedComponent();
   if (!comp || compPart?.index !== compSel) return null;
   const g = glyph();
-  const pt = [compPart.at[0] + comp.dx, compPart.at[1] + comp.dy];
+  const pt = componentPoint(font, comp, ...compPart.at);
   const contours = componentContours(font, g, compSel);
   for (const obj of contourObjects(contours)) {
     const part = obj.map((ci) => contours[ci]);
@@ -501,7 +503,7 @@ function erasePickedPart() {
   checkpoint();
   for (const local of componentOwnCells(g, comp)) {
     const [c, r] = parseKey(local);
-    if (comp.erase?.includes(local) || windingAt(picked.part, [c + comp.dx + 0.5, r + comp.dy + 0.5]) === 0) continue;
+    if (comp.erase?.includes(local) || windingAt(picked.part, componentPoint(font, comp, c + 0.5, r + 0.5)) === 0) continue;
     (comp.erase ??= []).push(local);
   }
   if (windingAt(componentContours(font, g, compSel), picked.pt) !== 0) (comp.hide ??= []).push([...compPart.at]);
@@ -515,7 +517,7 @@ function erasePickedPart() {
 // Where cell key `k` of the glyph falls in the component's own drawing.
 const localKey = (comp, k) => {
   const [c, r] = parseKey(k);
-  return key(c - comp.dx, r - comp.dy);
+  return key(...componentCellFromParent(font, comp, c, r));
 };
 
 // The component's own cells (unmoved, nothing erased).
@@ -558,7 +560,7 @@ function componentAt(p) {
 function startComponentDrag(index, p) {
   const comp = glyph().components[index];
   compSel = index;
-  compPart = { index, at: [p.x - comp.dx, p.y - comp.dy] };
+  compPart = { index, at: componentLocalPoint(font, comp, p.x, p.y) };
   action = { type: "component", index, sx: p.x, sy: p.y, dx0: comp.dx, dy0: comp.dy, moved: false };
   renderComponents();
   render(null);
@@ -1112,8 +1114,21 @@ function endNodeAction(done) {
     const w = Math.abs(done.x1 - done.x0), h = Math.abs(done.y1 - done.y0);
     if (w < 0.05 || h < 0.05) { render(null); return; }
     checkpoint();
-    const outline = ensureOutline();
-    outline.push(shapeContour(shapeMode, done));
+    const g = glyph();
+    let outline = ensureOutline();
+    const contour = shapeContour(shapeMode, done);
+    // Live radii are keyed by position. If this new rectangle reuses a
+    // rounded corner, bake the old curve into the existing outline first so
+    // the new corner starts sharp and can be rounded independently.
+    const newCorners = new Set(contour.nodes.map((n) => cornerKey(n.x, n.y)));
+    const carried = Object.fromEntries(Object.entries(g.corners ?? {}).filter(([k, r]) =>
+      newCorners.has(k) && (r === "max" || +r > 0)));
+    if (Object.keys(carried).length) {
+      g.outline = commandsToOutline(roundedContours(outlineToCommands(outline), { corners: carried }));
+      for (const k of Object.keys(carried)) delete g.corners[k];
+      outline = g.outline;
+    }
+    outline.push(contour);
     nodeSel.clear();
     outline[outline.length - 1].nodes.forEach((_, ni) => nodeSel.add(`${outline.length - 1}:${ni}`));
     render();
@@ -2284,8 +2299,8 @@ function renderComponents() {
     const name = document.createElement("button");
     name.type = "button";
     name.className = "comp-name";
-    name.textContent = comp.glyph === " " ? "␣" : comp.glyph;
-    name.title = `Editar «${glyphName(comp.glyph)}»`;
+    name.textContent = `${comp.glyph === " " ? "␣" : comp.glyph}${comp.turn === 180 ? " ↻" : ""}`;
+    name.title = comp.turn === 180 ? `Componente girado 180° · editar «${glyphName(comp.glyph)}»` : `Editar «${glyphName(comp.glyph)}»`;
     name.addEventListener("click", () => selectGlyph(comp.glyph));
     row.appendChild(name);
     for (const axis of ["dx", "dy"]) {

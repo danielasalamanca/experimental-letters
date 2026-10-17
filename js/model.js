@@ -2,7 +2,7 @@
 // Pure functions only (no DOM), so they can be tested with `node --test`.
 
 import { key, parseKey, windingAt } from "./geometry.js";
-import { CHARSET, COMPOSITES, defaultCols, isCapital, alternateOf, alternateKey } from "./charset.js";
+import { CHARSET, COMPOSITES, INVERTED_PUNCTUATION, defaultCols, isCapital, alternateOf, alternateKey } from "./charset.js";
 import { cloneOutline, shiftOutline, outlineToCommands } from "./nodes.js";
 import { pieceContour, contourObjects } from "./pieces.js";
 
@@ -75,10 +75,55 @@ export function createGlyph({
 // of its nodes or pieces (each point hides the part under it).
 function cloneComponent(c) {
   const out = { glyph: c.glyph, dx: c.dx ?? 0, dy: c.dy ?? 0 };
+  if (c.turn === 180) out.turn = 180;
+  if (c.autoMirror) out.autoMirror = true;
   if (c.erase?.length) out.erase = [...c.erase];
   if (c.hide?.length) out.hide = c.hide.map(([x, y]) => [x, y]);
   return out;
 }
+
+export function componentPoint(font, comp, x, y) {
+  if (comp.turn === 180) {
+    const width = font.glyphs[comp.glyph]?.cols ?? 0;
+    return [width - x + comp.dx, font.metrics.capHeight - y + comp.dy];
+  }
+  return [x + comp.dx, y + comp.dy];
+}
+
+export function componentCellFromParent(font, comp, c, r) {
+  if (comp.turn === 180) {
+    const width = font.glyphs[comp.glyph]?.cols ?? 0;
+    return [width - c + comp.dx - 1, font.metrics.capHeight - r + comp.dy - 1];
+  }
+  return [c - comp.dx, r - comp.dy];
+}
+
+export function componentLocalPoint(font, comp, x, y) {
+  if (comp.turn === 180) {
+    const width = font.glyphs[comp.glyph]?.cols ?? 0;
+    return [width - (x - comp.dx), font.metrics.capHeight - (y - comp.dy)];
+  }
+  return [x - comp.dx, y - comp.dy];
+}
+
+const transformedPiece = (font, comp, p) => {
+  if (comp.turn !== 180) {
+    return {
+      ...p, x0: p.x0 + comp.dx, x1: p.x1 + comp.dx,
+      y0: p.y0 + comp.dy, y1: p.y1 + comp.dy,
+      ...(p.points ? { points: p.points.map(([x, y]) => [x + comp.dx, y + comp.dy]) } : {}),
+    };
+  }
+  const point = (x, y) => componentPoint(font, comp, x, y);
+  const [ax, ay] = point(p.x0, p.y0), [bx, by] = point(p.x1, p.y1);
+  const corners = { bl: "tr", br: "tl", tl: "br", tr: "bl" };
+  return {
+    ...p, x0: Math.min(ax, bx), x1: Math.max(ax, bx),
+    y0: Math.min(ay, by), y1: Math.max(ay, by),
+    corner: corners[p.corner] ?? p.corner,
+    ...(p.points ? { points: p.points.map(([x, y]) => point(x, y)) } : {}),
+  };
+};
 
 // True if the letter erased part of the component.
 export const componentEdited = (c) => !!(c.erase?.length || c.hide?.length);
@@ -104,6 +149,14 @@ export function defaultGlyph(font, char) {
       { glyph: accent, dx: Math.floor((baseCols - accentCols) / 2), dy: lift },
     ];
   }
+  const source = INVERTED_PUNCTUATION[char];
+  if (source) {
+    const base = font.glyphs[source] ?? defaultGlyph(font, source);
+    glyph.cols = base.cols;
+    glyph.lsb = base.lsb;
+    glyph.rsb = base.rsb;
+    glyph.components = [{ glyph: source, dx: 0, dy: 0, turn: 180, autoMirror: true }];
+  }
   return glyph;
 }
 
@@ -111,8 +164,39 @@ export function defaultGlyph(font, char) {
 export function ensureCharset(font) {
   for (const char of CHARSET) {
     if (!font.glyphs[char]) font.glyphs[char] = defaultGlyph(font, char);
+    // Older fonts may already contain empty inverted-sign glyphs. Link those
+    // to their upright counterpart while preserving any hand-drawn inverted sign.
+    const glyph = font.glyphs[char];
+    if (char === "!" || char === "?") {
+      glyph.components = glyph.components.filter((part) =>
+        !(part.glyph === "." && part.turn !== 180 && !part.erase && !part.hide));
+    }
+    const source = INVERTED_PUNCTUATION[char];
+    if (source && !glyph.cells.length && !glyph.pieces.length && !glyph.outline?.length && !glyph.components.length) {
+      const base = font.glyphs[source];
+      if (base) {
+        glyph.cols = base.cols;
+        glyph.lsb = base.lsb;
+        glyph.rsb = base.rsb;
+        glyph.components = [{ glyph: source, dx: 0, dy: 0, turn: 180, autoMirror: true }];
+      }
+    }
   }
+  syncInvertedGlyphs(font);
   return font;
+}
+
+export function syncInvertedGlyphs(font) {
+  for (const [inverted, source] of Object.entries(INVERTED_PUNCTUATION)) {
+    const glyph = font.glyphs[inverted], base = font.glyphs[source];
+    if (!glyph || !base || !glyph.components.some((part) => part.autoMirror && part.glyph === source)) continue;
+    glyph.cols = base.cols;
+    glyph.lsb = base.lsb;
+    glyph.rsb = base.rsb;
+    glyph.grid = base.grid;
+    glyph.curve = base.curve;
+    glyph.rounding = base.rounding;
+  }
 }
 
 export function createFont() {
@@ -253,10 +337,7 @@ export function resolvedPieces(font, glyph, seen = new Set()) {
     if (!base || seen.has(comp.glyph)) continue;
     for (const p of resolvedPieces(font, base, new Set([...seen, comp.glyph]))) {
       if (comp.hide?.length && p.mode !== "cut" && comp.hide.some((pt) => windingAt([pieceContour(p)], pt) !== 0)) continue;
-      out.push({
-        ...p, x0: p.x0 + comp.dx, x1: p.x1 + comp.dx, y0: p.y0 + comp.dy, y1: p.y1 + comp.dy,
-        ...(p.points ? { points: p.points.map(([x, y]) => [x + comp.dx, y + comp.dy]) } : {}),
-      });
+      out.push(transformedPiece(font, comp, p));
     }
   }
   return [...out, ...(glyph.outline ? [] : glyph.pieces)];
@@ -271,7 +352,8 @@ export function resolvedCorners(font, glyph, seen = new Set()) {
     const inner = resolvedCorners(font, base, new Set([...seen, comp.glyph]));
     for (const [k, r] of Object.entries(inner)) {
       const [x, y] = parseKey(k);
-      out[key(x + comp.dx, y + comp.dy)] = r;
+      const [tx, ty] = componentPoint(font, comp, x, y);
+      out[key(tx, ty)] = r;
     }
   }
   return Object.assign(out, glyph.corners);
@@ -292,7 +374,10 @@ export function componentCells(font, glyph, seen = new Set()) {
     const cells = [...own, ...componentCells(font, base, inner)].filter((k) => !erased.has(k));
     for (const k of cells) {
       const [c, r] = parseKey(k);
-      out.add(key(c + comp.dx, r + comp.dy));
+      const [tc, tr] = comp.turn === 180
+        ? [font.glyphs[comp.glyph].cols - c - 1 + comp.dx, font.metrics.capHeight - r - 1 + comp.dy]
+        : [c + comp.dx, r + comp.dy];
+      out.add(key(tc, tr));
     }
   }
   return out;
@@ -309,7 +394,16 @@ export function resolvedOutline(font, glyph, seen = new Set()) {
     const base = font.glyphs[comp.glyph];
     if (!base || seen.has(comp.glyph)) continue;
     const parts = visibleParts(resolvedOutline(font, base, new Set([...seen, comp.glyph])), comp.hide);
-    out.push(...shiftOutline(parts, comp.dx, comp.dy));
+    if (comp.turn === 180) {
+      out.push(...parts.map((contour) => ({
+        ...contour,
+        nodes: contour.nodes.map((n) => {
+          const [x, y] = componentPoint(font, comp, n.x, n.y);
+          const rotate = (v) => v && [-v[0], -v[1]];
+          return { ...n, x, y, in: rotate(n.in), out: rotate(n.out) };
+        }),
+      })));
+    } else out.push(...shiftOutline(parts, comp.dx, comp.dy));
   }
   return out;
 }

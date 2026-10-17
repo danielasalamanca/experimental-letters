@@ -19,7 +19,7 @@
 // curve, so the result keeps real Bézier curves.
 
 import ClipperLib from "./vendor/clipper.js";
-import { squareContours, MAX_RADIUS } from "./outline.js";
+import { squareContours, MAX_RADIUS, snapRadius } from "./outline.js";
 
 export const PIECE_SHAPES = { tri: "Triángulo", quarter: "Cuarto de elipse", spandrel: "Esquina curva", ellipse: "Elipse", pill: "Cápsula", poly: "Polígono" };
 
@@ -393,6 +393,7 @@ function roundCorners(book, shape, found, base, wanted, join = true) {
       // A hair short of touching, so a wall never ends at zero thickness.
       radii[i] = Math.max(0, lo - 0.01);
     }
+    radii[i] = snapRadius(radii[i]);
     if (radii[i] < 1e-6) return;
     (c.turn === 1 ? outer : inner).push(...orient(book.paths([fillet(c, radii[i], per[i])])));
   });
