@@ -468,12 +468,49 @@ function paint(k, adding) {
 
 // --- Components on the canvas ---
 // A component's position is the letter's own: with Seleccionar or Nodos it
-// is dragged (or moved with the arrows) in this letter only. With Dibujar,
-// clicking its ink erases it here only: cells one by one; parts made of
-// nodes or pieces (like the dot of an i) whole.
+// is dragged (or moved with the arrows) in this letter only. Clicking it
+// also picks the part under the pointer (like the dot of an i), which
+// Supr erases in this letter only. With Dibujar, clicking its ink erases
+// it too: cells one by one; parts made of nodes or pieces whole.
 let compSel = null; // index of the selected component of the active glyph
+let compPart = null; // { index, at: [x, y] in the component's own cells }: the part clicked
 
 const selectedComponent = () => (compSel === null ? null : glyph().components[compSel] ?? null);
+
+// The contours of the picked part (an outer contour with its holes) as it
+// is placed in the letter, or null.
+function pickedPart() {
+  const comp = selectedComponent();
+  if (!comp || compPart?.index !== compSel) return null;
+  const g = glyph();
+  const pt = [compPart.at[0] + comp.dx, compPart.at[1] + comp.dy];
+  const contours = componentContours(font, g, compSel);
+  for (const obj of contourObjects(contours)) {
+    const part = obj.map((ci) => contours[ci]);
+    if (windingAt(part, pt) !== 0) return { part, pt };
+  }
+  return null;
+}
+
+// Erases the picked part of the component in this letter only: its cells
+// (by their centres) and, if it is made of nodes or pieces, the part whole.
+function erasePickedPart() {
+  const picked = pickedPart();
+  if (!picked) return false;
+  const g = glyph(), comp = selectedComponent();
+  checkpoint();
+  for (const local of componentOwnCells(g, comp)) {
+    const [c, r] = parseKey(local);
+    if (comp.erase?.includes(local) || windingAt(picked.part, [c + comp.dx + 0.5, r + comp.dy + 0.5]) === 0) continue;
+    (comp.erase ??= []).push(local);
+  }
+  if (windingAt(componentContours(font, g, compSel), picked.pt) !== 0) (comp.hide ??= []).push([...compPart.at]);
+  compPart = null;
+  syncGlyphPanel();
+  render();
+  toast(`Borrado solo en esta letra · «${comp.glyph}» no cambia (Restaurar en Componentes)`);
+  return true;
+}
 
 // Where cell key `k` of the glyph falls in the component's own drawing.
 const localKey = (comp, k) => {
@@ -521,6 +558,7 @@ function componentAt(p) {
 function startComponentDrag(index, p) {
   const comp = glyph().components[index];
   compSel = index;
+  compPart = { index, at: [p.x - comp.dx, p.y - comp.dy] };
   action = { type: "component", index, sx: p.x, sy: p.y, dx0: comp.dx, dy0: comp.dy, moved: false };
   renderComponents();
   render(null);
@@ -568,6 +606,13 @@ function drawComponentBox(layer) {
   }
   if (!xs.length) return;
   const cu = font.cell, pad = 0.15;
+  const picked = pickedPart();
+  if (picked) {
+    layer.appendChild(el("path", {
+      d: contoursToPath(picked.part, cu), fill: NODE_COLOR, "fill-opacity": 0.35, stroke: NODE_COLOR,
+      "stroke-width": 1.5, "vector-effect": "non-scaling-stroke",
+    }));
+  }
   const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
   layer.appendChild(el("rect", {
     x: x0 * cu, y: -y1 * cu, width: (x1 - x0) * cu, height: (y1 - y0) * cu,
@@ -575,9 +620,9 @@ function drawComponentBox(layer) {
   }));
   const comp = g.components[compSel];
   const t = el("text", {
-    x: x0 * cu, y: -y1 * cu - cu * 0.2, fill: NODE_COLOR, "font-size": cu * 0.5, "font-family": "inherit",
+    x: x0 * cu, y: -y1 * cu - cu * 0.2, fill: NODE_COLOR, "font-size": cu * 0.32, "font-family": "inherit",
   });
-  t.textContent = `${comp.glyph} · x ${comp.dx}, y ${comp.dy}`;
+  t.textContent = `${comp.glyph} · x ${comp.dx}, y ${comp.dy}` + (picked ? " · Supr borra la parte" : "");
   layer.appendChild(t);
 }
 
@@ -669,7 +714,7 @@ board.addEventListener("pointerdown", (evt) => {
   }
   // A component (not the letter's own cells): drag it in this letter.
   const ci = k && g.cells.includes(k) ? null : componentAt(p);
-  if (ci !== null && !evt.shiftKey) { startComponentDrag(ci, p); return; }
+  if (ci !== null && !evt.shiftKey) { selection.clear(); startComponentDrag(ci, p); return; }
   if (compSel !== null) { compSel = null; renderComponents(); }
   action = { type: "marquee", x0: p.x, y0: p.y, x1: p.x, y1: p.y, moved: false, additive: evt.shiftKey, cell: k };
 });
@@ -983,7 +1028,7 @@ function startNodeAction(evt) {
   // A component, where the letter's own outline has no ink: drag it.
   if (!evt.shiftKey && windingAt(outlineToCommands(outline), [p.x, p.y]) === 0) {
     const ci = componentAt(p);
-    if (ci !== null) { startComponentDrag(ci, p); return; }
+    if (ci !== null) { nodeSel.clear(); startComponentDrag(ci, p); return; }
   }
   if (compSel !== null) { compSel = null; renderComponents(); }
   action = { type: "nodeMarquee", x0: p.x, y0: p.y, x1: p.x, y1: p.y, moved: false, additive: evt.shiftKey };
@@ -2118,6 +2163,10 @@ window.addEventListener("keydown", (e) => {
     const step = e.shiftKey ? 1 : 0.25;
     nudgeNodes(arrows[k][0] * step, arrows[k][1] * step);
   }
+  else if ((k === "delete" || k === "backspace") && !nodeSel.size && !selection.size && (tool === "select" || tool === "nodes") && pickedPart()) {
+    e.preventDefault();
+    erasePickedPart();
+  }
   else if (tool === "nodes" && (k === "delete" || k === "backspace")) { e.preventDefault(); deleteSelectedNodes(); }
   else if (tool === "nodes" && k === "escape") {
     if (nodeAddMode) setNodeAdd(false);
@@ -2221,7 +2270,7 @@ function renderComponents() {
   const p = document.createElement("p");
   p.className = "info";
   p.textContent = g.components.length
-    ? "La posición es de esta letra: arrastra el componente en el lienzo con Seleccionar (V) o Nodos (A), o usa las flechas. Con Dibujar (B) borras partes de él solo aquí."
+    ? "Todo esto es solo de esta letra. Mover: arrastra el componente en el lienzo con Seleccionar (V) o Nodos (A), o usa las flechas. Borrar una parte (como el punto de la i): haz clic en ella y pulsa Supr."
     : "Sin componentes. Agrega otro glifo para reutilizar su dibujo: si lo editas, este glifo se actualiza.";
   list.appendChild(p);
   // Letters made with components open the section, so their accents are easy to place.
@@ -2269,6 +2318,15 @@ function renderComponents() {
     });
     row.appendChild(remove);
     list.appendChild(row);
+    if (i === compSel && pickedPart()) {
+      const erase = document.createElement("button");
+      erase.type = "button";
+      erase.className = "ghost wide component-erase";
+      erase.textContent = "Borrar la parte elegida (Supr)";
+      erase.title = `Borra la parte marcada de «${comp.glyph}» solo en esta letra`;
+      erase.addEventListener("click", erasePickedPart);
+      list.appendChild(erase);
+    }
     if (componentEdited(comp)) {
       const note = document.createElement("div");
       note.className = "component-erased";

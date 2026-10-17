@@ -399,6 +399,7 @@ label.check { display: flex; align-items: center; gap: 8px; }
 .comp-name { width: 32px; height: 28px; padding: 0; font-size: 16px; }
 .comp-remove { margin-left: auto; width: 28px; height: 28px; padding: 0; }
 .component.selected .comp-name { border-color: var(--orange); box-shadow: 0 0 0 2px var(--orange-soft); }
+.component-erase { margin: -2px 0 8px; }
 .component-erased { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: -2px 0 8px; font-size: 12px; color: var(--muted); }
 .component-erased button { padding: 2px 8px; font-size: 12px; }
 .alt-list { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 6px; }
