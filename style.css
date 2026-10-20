@@ -398,6 +398,14 @@ label.check { display: flex; align-items: center; gap: 8px; }
 .component input[type="number"] { width: 48px; }
 .comp-name { width: 32px; height: 28px; padding: 0; font-size: 16px; }
 .comp-remove { margin-left: auto; width: 28px; height: 28px; padding: 0; }
+.component.selected .comp-name { border-color: var(--orange); box-shadow: 0 0 0 2px var(--orange-soft); }
+.component-erase { margin: -2px 0 8px; }
+.component-erased { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: -2px 0 8px; font-size: 12px; color: var(--muted); }
+.component-erased button { padding: 2px 8px; font-size: 12px; }
+.alt-list { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 6px; }
+.alt-list:empty { display: none; }
+.alt-chip { min-width: 36px; height: 28px; padding: 0 8px; font-size: 13px; }
+.alt-chip.active { border-color: var(--orange); box-shadow: 0 0 0 2px var(--orange-soft); }
 .add-component { display: flex; gap: 6px; margin: 8px 0; }
 .add-component select { flex: 1; min-width: 0; }
 .piece-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }

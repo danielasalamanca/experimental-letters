@@ -228,6 +228,10 @@ function holeContour(P, geo) {
 export const MAX_STROKE = 0.45;
 export const MAX_RADIUS = 12;
 
+// Effective corner radii use half-cell increments. Always round down so the
+// snapped radius remains within the geometric space available to the corner.
+export const snapRadius = (radius) => Math.floor((Math.max(0, radius) + 1e-9) * 2) / 2;
+
 export function squareContours(cells, options) {
   const t = Math.min(Math.max(options.stroke ?? 0, 0), MAX_STROKE);
   const contours = [];
@@ -301,7 +305,7 @@ function cornerRadii(turns, has, wall, wanted) {
     const want = wanted(v);
     return want > 0 ? Math.min(want, roomAt(v, has, want, v.turn === 1 ? wall : 0)) : 0;
   });
-  return shareEdges(turns, radii);
+  return shareEdges(turns, radii).map(snapRadius);
 }
 
 // Two corners on the same edge share its length.

@@ -55,3 +55,38 @@ export function joinBridges(cells, curve, minWidth) {
   }
   return rects;
 }
+
+// Nonzero winding of contours (M/L/C/Z commands, in cells) around (x, y):
+// not 0 when the point is in their ink. Curves are flattened finely enough
+// to pick a part of a letter under the pointer.
+export function windingAt(contours, [x, y]) {
+  let w = 0;
+  const edge = ([x0, y0], [x1, y1]) => {
+    const side = (x1 - x0) * (y - y0) - (x - x0) * (y1 - y0);
+    if (y0 <= y && y1 > y && side > 0) w++;
+    else if (y0 > y && y1 <= y && side < 0) w--;
+  };
+  for (const cmds of contours) {
+    let start = null, cur = null;
+    for (const c of cmds) {
+      if (c.type === "M") { if (cur && start) edge(cur, start); start = cur = [c.x, c.y]; }
+      else if (c.type === "L") { edge(cur, [c.x, c.y]); cur = [c.x, c.y]; }
+      else if (c.type === "C") {
+        const [x0, y0] = cur;
+        let prev = cur;
+        for (let i = 1; i <= 16; i++) {
+          const t = i / 16, u = 1 - t;
+          const p = [
+            u * u * u * x0 + 3 * u * u * t * c.x1 + 3 * u * t * t * c.x2 + t * t * t * c.x,
+            u * u * u * y0 + 3 * u * u * t * c.y1 + 3 * u * t * t * c.y2 + t * t * t * c.y,
+          ];
+          edge(prev, p);
+          prev = p;
+        }
+        cur = [c.x, c.y];
+      } else if (c.type === "Z" && cur && start) { edge(cur, start); cur = start; }
+    }
+    if (cur && start && (cur[0] !== start[0] || cur[1] !== start[1])) edge(cur, start);
+  }
+  return w;
+}
