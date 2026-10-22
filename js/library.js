@@ -9,8 +9,11 @@ const INDEX_KEY = "experimental-letters:library";
 const FONT_PREFIX = "experimental-letters:font:";
 const OLD_KEYS = ["experimental-letters:v2", "experimental-letters"]; // single-font versions
 
+// "Regular" is the default style, so it's left out of the name.
+const shownStyle = (style) => (style && style.trim().toLowerCase() !== "regular" ? style : "");
+
 export const fontName = (font) =>
-  [font.meta?.family, font.meta?.style].filter((s) => s && s.trim()).join(" ") || "Sin nombre";
+  [font.meta?.family, shownStyle(font.meta?.style)].filter((s) => s && s.trim()).join(" ") || "Sin nombre";
 
 export const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
@@ -29,6 +32,8 @@ function read(storage, k) {
 export function openLibrary(storage) {
   let index = read(storage, INDEX_KEY);
   if (index?.fonts && index.active && read(storage, FONT_PREFIX + index.active)) {
+    // Names saved by earlier versions ended in " Regular".
+    for (const f of index.fonts) if (typeof f.name === "string") f.name = f.name.replace(/ Regular$/i, "") || f.name;
     return { index, data: read(storage, FONT_PREFIX + index.active) };
   }
   const old = OLD_KEYS.map((k) => read(storage, k)).find(Boolean) ?? null;

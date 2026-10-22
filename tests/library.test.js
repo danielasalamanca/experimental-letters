@@ -17,7 +17,7 @@ test("a project from the single-font version becomes the first font", () => {
   assert.ok(saveFont(storage, index, normalizeFont(data)));
   const again = openLibrary(storage);
   assert.equal(again.index.fonts.length, 1);
-  assert.equal(again.index.fonts[0].name, "Mi Grilla Regular");
+  assert.equal(again.index.fonts[0].name, "Mi Grilla");
   assert.equal(again.data.meta.family, "Mi Grilla");
 });
 
@@ -60,6 +60,8 @@ test("blank fonts have no drawing and a name", () => {
   const font = createBlankFont({ family: "Nueva", grid: "squares" });
   assert.equal(font.glyphs.a.cells.length, 0);
   assert.equal(font.grid, "squares");
-  assert.equal(fontName(font), "Nueva Regular");
+  assert.equal(fontName(font), "Nueva");
+  font.meta.style = "Bold";
+  assert.equal(fontName(font), "Nueva Bold");
   assert.ok(font.glyphs["á"].components.length === 2);
 });
