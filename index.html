@@ -4,9 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letras Experimentales</title>
-  <!-- Black icon on light systems, acid icon on dark ones. -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=56" media="(prefers-color-scheme: light)">
-  <link rel="icon" type="image/png" href="favicon.png?v=56" media="(prefers-color-scheme: dark)">
+  <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
+       not every browser honors `media` on icons (Safari ignores it). -->
+  <link rel="icon" type="image/png" href="favicon-light.png?v=57" id="favicon">
+  <script>
+    (() => {
+      const dark = matchMedia("(prefers-color-scheme: dark)");
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=57" : "favicon-light.png?v=57"; };
+      set();
+      dark.addEventListener("change", set);
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:wght@900&family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Fragment+Mono&family=Instrument+Serif:ital@1&display=swap">
