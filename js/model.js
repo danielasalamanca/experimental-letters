@@ -14,20 +14,20 @@ export const DEFAULT_METRICS = { ascender: 15, capHeight: 14, xHeight: 9, descen
 
 // Draw order is top to bottom; the baseline is fixed at 0.
 export const METRICS = [
-  { key: "ascender", name: "Ascendente", short: "asc", color: "#9a8fb0" },
-  { key: "capHeight", name: "Altura de mayúsculas", short: "mayús", color: "#ff52a9" },
-  { key: "xHeight", name: "Altura de x", short: "x", color: "#ff7133" },
-  { key: "baseline", name: "Línea base", short: "base", color: "#302b38" },
-  { key: "descender", name: "Descendente", short: "desc", color: "#b3a9a0" },
+  { key: "ascender", name: "Ascendente", short: "asc", color: "#b9b5ac" },
+  { key: "capHeight", name: "Altura de mayúsculas", short: "mayús", color: "#ff48b0" },
+  { key: "xHeight", name: "Altura de x", short: "x", color: "#e4ff4f" },
+  { key: "baseline", name: "Línea base", short: "base", color: "#111111" },
+  { key: "descender", name: "Descendente", short: "desc", color: "#8a8780" },
 ];
 
 export const metricColor = (k) => METRICS.find((m) => m.key === k).color;
 
-// Ink and paper of new fonts: #302b38 instead of pure black, on the warm
-// near-white of the editor. Fonts still on the old defaults move to these.
-export const DEFAULT_INK = "#302b38";
-export const DEFAULT_PAPER = "#fefcf8";
-const OLD_DEFAULTS = { ink: "#1d1d1b", paper: "#ffffff" };
+// Ink and paper of new fonts: the editor's #111 on white. Fonts still on
+// an earlier default move to these.
+export const DEFAULT_INK = "#111111";
+export const DEFAULT_PAPER = "#ffffff";
+const OLD_DEFAULTS = { ink: ["#1d1d1b", "#302b38"], paper: ["#fefcf8"] };
 
 // The letter from the original reference sketch, drawn as a lowercase "a".
 const SAMPLE_A = [
@@ -294,8 +294,8 @@ export function normalizeFont(data) {
     drafts: [...(data.drafts ?? [])],
   };
   // Fonts on the old default colors move to the new ones.
-  if (String(font.view.ink).toLowerCase() === OLD_DEFAULTS.ink) font.view.ink = DEFAULT_INK;
-  if (String(font.view.paper).toLowerCase() === OLD_DEFAULTS.paper) font.view.paper = DEFAULT_PAPER;
+  if (OLD_DEFAULTS.ink.includes(String(font.view.ink).toLowerCase())) font.view.ink = DEFAULT_INK;
+  if (OLD_DEFAULTS.paper.includes(String(font.view.paper).toLowerCase())) font.view.paper = DEFAULT_PAPER;
   const fix = (g) => createGlyph({ ...g, metrics: { ...font.metrics, ...g.metrics } });
   for (const k of Object.keys(font.glyphs)) font.glyphs[k] = fix(font.glyphs[k]);
   font.drafts = font.drafts.map(fix);

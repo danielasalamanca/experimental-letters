@@ -9,10 +9,12 @@ import { glyphContours } from "./outline.js";
 
 export const SVG_NS = "http://www.w3.org/2000/svg";
 
-export const SIDEBEARING_COLOR = "#7d7785";
+export const SIDEBEARING_COLOR = "#8a8780";
 export const BACKGROUND_COLOR = "#2f80ed";
 
-const FONT_FAMILY = "ui-sans-serif, system-ui, Helvetica, Arial, sans-serif";
+const FONT_FAMILY = '"Courier Prime", ui-monospace, Menlo, monospace';
+const LINE_COLOR = "#8a8780";
+const ACID = "#e4ff4f";
 
 export function el(name, attrs = {}) {
   const node = document.createElementNS(SVG_NS, name);
@@ -97,12 +99,16 @@ export function drawGlyph(svg, font, glyph, opts = {}) {
 
     // Overshoot zones: below the baseline, above the x-height and cap height.
     const os = font.overshoot;
-    const zones = el("g", { opacity: 0.14 });
+    const zones = el("g", { opacity: 0.08 });
     const zone = (y, h, color) => zones.appendChild(el("rect", { x: x0, y: -(y + h), width: contentRight - x0, height: h, fill: color }));
-    zone(-os, os, METRICS[3].color);
-    zone(m.xHeight * cu, os, METRICS[2].color);
+    zone(-os, os, LINE_COLOR);
+    zone(m.xHeight * cu, os, LINE_COLOR);
     zone(m.capHeight * cu, os, METRICS[1].color);
     svg.appendChild(zones);
+    // The x-height band of the letter, tinted acid.
+    if (labels) {
+      svg.appendChild(el("rect", { x: 0, y: -m.xHeight * cu, width: cols * cu, height: m.xHeight * cu, fill: ACID, opacity: 0.3 }));
+    }
   }
 
   if (guides && glyphGrid(font, glyph) === "squares") {
@@ -123,7 +129,7 @@ export function drawGlyph(svg, font, glyph, opts = {}) {
     g.appendChild(dots);
     svg.appendChild(g);
   } else if (guides) {
-    const g = el("g", { fill: "none", stroke: "#c8c8c8", "stroke-width": 1, opacity: font.view.gridOpacity ?? 1 });
+    const g = el("g", { fill: "none", stroke: "#d9d6cf", "stroke-width": 1, opacity: font.view.gridOpacity ?? 1 });
     for (let c = 0; c <= cols; c++) {
       for (let r = lo; r <= hi; r++) {
         g.appendChild(el("rect", { x: c * cu - cu / 2, y: -r * cu - cu / 2, width: cu, height: cu, "vector-effect": "non-scaling-stroke" }));
@@ -159,15 +165,24 @@ export function drawGlyph(svg, font, glyph, opts = {}) {
     const g = el("g");
     for (const def of METRICS) {
       const y = -m[def.key] * cu;
+      const base = def.key === "baseline";
       g.appendChild(el("line", {
         x1: x0, x2: contentRight + (labels ? cu * 0.3 : 0), y1: y, y2: y,
-        stroke: def.color, "stroke-width": def.key === "baseline" ? 2 : 1.25,
+        stroke: base ? "#111111" : LINE_COLOR, "stroke-width": base ? 1.5 : 0.75,
         "vector-effect": "non-scaling-stroke",
       }));
       if (labels) {
-        const handle = el("g", { class: def.key === "baseline" ? "metric-label" : "metric-label draggable", "data-metric": def.key });
-        handle.appendChild(el("rect", { x: contentRight + cu * 0.3, y: y - cu * 0.4, width: cu * 3.8, height: cu * 0.8, rx: cu * 0.15, fill: def.color }));
-        handle.appendChild(label(contentRight + cu * 0.5, y, `${def.short} ${m[def.key] * cu}`, cu));
+        // Pills: white with an ink outline; the x-height acid, the baseline ink.
+        const handle = el("g", { class: base ? "metric-label" : "metric-label draggable", "data-metric": def.key });
+        const text = `${def.short} ${m[def.key] * cu}`.toUpperCase();
+        handle.appendChild(el("rect", {
+          x: contentRight + cu * 0.3, y: y - cu * 0.4, width: cu * (1 + text.length * 0.27), height: cu * 0.8, rx: cu * 0.4,
+          fill: base ? "#111111" : def.key === "xHeight" ? ACID : "#ffffff",
+          stroke: "#111111", "stroke-width": 1, "vector-effect": "non-scaling-stroke",
+        }));
+        const t = label(contentRight + cu * 0.8, y, text, cu);
+        t.setAttribute("fill", base ? "#ffffff" : "#111111");
+        handle.appendChild(t);
         g.appendChild(handle);
       }
     }
@@ -185,7 +200,7 @@ export function drawGlyph(svg, font, glyph, opts = {}) {
       }));
       const handle = el("g", { class: "sb-label", "data-sb": side });
       const w = cu * 2.4;
-      handle.appendChild(el("rect", { x: x - w / 2, y: gridBottom + cu * 0.1, width: w, height: cu * 0.7, rx: cu * 0.15, fill: SIDEBEARING_COLOR }));
+      handle.appendChild(el("rect", { x: x - w / 2, y: gridBottom + cu * 0.1, width: w, height: cu * 0.7, rx: cu * 0.35, fill: SIDEBEARING_COLOR }));
       const t = label(x, gridBottom + cu * 0.45, `${side === "lsb" ? "izq" : "der"} ${value}`, cu);
       t.setAttribute("text-anchor", "middle");
       handle.appendChild(t);
@@ -236,7 +251,7 @@ function placeholderLetter(char, m, cols, cu) {
 }
 
 function label(x, y, text, cu) {
-  const t = el("text", { x, y, fill: "#fff", "font-size": cu * 0.42, "font-family": FONT_FAMILY, "dominant-baseline": "central" });
+  const t = el("text", { x, y, fill: "#fff", "font-size": cu * 0.38, "font-family": FONT_FAMILY, "dominant-baseline": "central" });
   t.textContent = text;
   return t;
 }

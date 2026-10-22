@@ -146,6 +146,7 @@ function render(scope = "glyph") {
   if (!spaceDown) decorate();
   $("zoomLevel").textContent = Math.round((fitBox.w / (zoomBox ?? fitBox).w) * 100) + "%";
   updateInfo();
+  paintRanges();
   if (scope === "font") renderCharmap();
   else if (scope === "glyph") dependents(font, font.active).forEach(updateThumb);
   if (scope) scheduleTest();
@@ -153,6 +154,15 @@ function render(scope = "glyph") {
   scheduleWeights();
   persist();
 }
+
+// Sliders show their filled part through --fill (see style.css).
+function paintRange(input) {
+  const min = +input.min || 0, max = input.max === "" ? 100 : +input.max;
+  const p = max > min ? ((+input.value - min) / (max - min)) * 100 : 0;
+  input.style.setProperty("--fill", `${Math.min(100, Math.max(0, p))}%`);
+}
+const paintRanges = () => document.querySelectorAll('input[type="range"]').forEach(paintRange);
+document.addEventListener("input", (e) => { if (e.target.type === "range") paintRange(e.target); });
 
 // Character shown as the gray reference letter, or null.
 function placeholderChar() {
@@ -242,26 +252,94 @@ const thumbs = new Map(); // char -> cell element
 function renderCharmap() {
   const map = $("charmap");
   if (!thumbs.size) {
-    for (const group of GROUPS) {
-      const h = document.createElement("h2");
-      h.textContent = group.name;
-      const grid = document.createElement("div");
-      grid.className = "cm-grid";
-      for (const char of group.chars) {
-        const cell = document.createElement("button");
-        cell.type = "button";
-        cell.className = "cm-cell";
-        cell.dataset.char = char;
-        cell.addEventListener("click", () => selectGlyph(char));
-        thumbs.set(char, cell);
-        grid.appendChild(cell);
-      }
-      map.append(h, grid);
-    }
+    for (const group of GROUPS) map.appendChild(charmapGroup(group.name, group.chars));
   }
   syncAlternateGroup();
   allChars(font).forEach(updateThumb);
 }
+
+// One group of the map: its title with a "drawn / total" count, and its cells.
+function charmapGroup(name, chars) {
+  const box = document.createElement("section");
+  box.className = "cm-group";
+  const h = document.createElement("h2");
+  const title = document.createElement("span");
+  title.textContent = name;
+  const count = document.createElement("span");
+  count.className = "cm-count";
+  h.append(title, count);
+  const grid = document.createElement("div");
+  grid.className = "cm-grid";
+  for (const char of chars) {
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "cm-cell";
+    cell.dataset.char = char;
+    cell.addEventListener("click", () => selectGlyph(char));
+    thumbs.set(char, cell);
+    grid.appendChild(cell);
+  }
+  box.append(h, grid);
+  return box;
+}
+
+// Filters of the map: a kind of character and, optionally, a state.
+const charFilter = { kind: "all", state: null };
+const KINDS = {
+  all: () => true,
+  upper: (c) => c !== c.toLowerCase(),
+  lower: (c) => c !== c.toUpperCase(),
+  digits: (c) => /^[0-9]$/.test(c),
+  signs: (c) => c.toLowerCase() === c.toUpperCase() && !/^[0-9]$/.test(c),
+};
+const STATES = {
+  drawn: (cell) => !cell.classList.contains("empty"),
+  empty: (cell) => cell.classList.contains("empty"),
+  composite: (cell) => cell.classList.contains("composite"),
+};
+
+// Hides the cells (and whole groups) left out by the filters and updates
+// each group's count. Batched: updateThumb asks for it on every redraw.
+let charmapSyncQueued = false;
+function syncCharmapGroups() {
+  if (charmapSyncQueued) return;
+  charmapSyncQueued = true;
+  queueMicrotask(() => {
+    charmapSyncQueued = false;
+    let shown = 0;
+    for (const box of $("charmap").querySelectorAll(".cm-group")) {
+      const cells = [...box.querySelectorAll(".cm-cell")];
+      let visible = 0;
+      for (const cell of cells) {
+        const ok = KINDS[charFilter.kind](baseChar(cell.dataset.char)) && (!charFilter.state || STATES[charFilter.state](cell));
+        cell.classList.toggle("filtered", !ok);
+        if (ok) visible++;
+      }
+      box.classList.toggle("filtered", visible === 0);
+      shown += visible;
+      const drawn = cells.filter((c) => !c.classList.contains("empty")).length;
+      box.querySelector(".cm-count").textContent = `${drawn} / ${cells.length}`;
+    }
+    $("charmapEmpty").hidden = shown > 0;
+  });
+}
+
+document.querySelectorAll("#charFilters .filter").forEach((b) => b.addEventListener("click", () => {
+  charFilter.kind = b.dataset.filter;
+  document.querySelectorAll("#charFilters .filter").forEach((o) => {
+    o.classList.toggle("active", o === b);
+    o.setAttribute("aria-pressed", o === b);
+  });
+  syncCharmapGroups();
+}));
+document.querySelectorAll("#stateFilters .state").forEach((b) => b.addEventListener("click", () => {
+  charFilter.state = charFilter.state === b.dataset.state ? null : b.dataset.state;
+  document.querySelectorAll("#stateFilters .state").forEach((o) => {
+    o.classList.toggle("active", o.dataset.state === charFilter.state);
+    o.setAttribute("aria-pressed", o.dataset.state === charFilter.state);
+  });
+  syncCharmapGroups();
+}));
 
 // The "Alternativas" group at the end of the map, rebuilt when alternates
 // are added or deleted.
@@ -274,22 +352,8 @@ function syncAlternateGroup() {
   for (const k of [...thumbs.keys()]) if (alternateOf(k)) thumbs.delete(k);
   $("charmap").querySelector(".cm-alternates")?.remove();
   if (!keys.length) return;
-  const box = document.createElement("div");
-  box.className = "cm-alternates";
-  const h = document.createElement("h2");
-  h.textContent = "Alternativas";
-  const grid = document.createElement("div");
-  grid.className = "cm-grid";
-  for (const k of keys) {
-    const cell = document.createElement("button");
-    cell.type = "button";
-    cell.className = "cm-cell";
-    cell.dataset.char = k;
-    cell.addEventListener("click", () => selectGlyph(k));
-    thumbs.set(k, cell);
-    grid.appendChild(cell);
-  }
-  box.append(h, grid);
+  const box = charmapGroup("Alternativas", keys);
+  box.classList.add("cm-alternates");
   $("charmap").appendChild(box);
 }
 
@@ -315,7 +379,10 @@ function updateThumb(char) {
     cell.appendChild(marker("bold-mark", `El máster ${boldName()} no es compatible con el Regular`));
   }
   cell.classList.toggle("empty", empty);
+  cell.classList.toggle("composite", g.components.length > 0);
   cell.classList.toggle("active", char === font.active);
+  syncCharmapGroups();
+  if (char === font.active) drawGlyph($("glyphThumb"), font, g, { frame: "advance" });
   cell.title = alt ? `${glyphName(char)} · alternativa ${alt.n} de «${alt.base}»` : `${glyphName(char)} · ${codepoint(char)}`;
 }
 
@@ -2237,8 +2304,13 @@ function syncGlyphPanel() {
   const alt = alternateOf(char);
   const shown = baseChar(char);
   $("glyphChar").textContent = shown === " " ? "␣" : shown;
-  $("glyphName").textContent = glyphName(char);
+  const kind = alt ? "alternativa" : /^[0-9]$/.test(shown) ? "número"
+    : shown !== shown.toLowerCase() ? "mayúscula" : shown !== shown.toUpperCase() ? "minúscula" : "signo";
+  $("glyphName").textContent = glyphName(char) === shown ? kind : `${kind} · ${glyphName(char)}`;
   $("glyphCode").textContent = alt ? `Alternativa ${alt.n} de «${alt.base}» · ${codepoint(char)}` : codepoint(char);
+  $("boardChar").textContent = $("glyphChar").textContent;
+  $("boardInfo").textContent = `${codepoint(char)} · ${g.cols} col`;
+  drawGlyph($("glyphThumb"), font, g, { frame: "advance" });
   const gridSelect = $("glyphGrid");
   gridSelect.replaceChildren(new Option(`Como la fuente (${GRIDS[font.grid]})`, ""));
   for (const [value, name] of Object.entries(GRIDS)) gridSelect.appendChild(new Option(name, value));
@@ -2248,7 +2320,7 @@ function syncGlyphPanel() {
   $("lsb").value = g.lsb;
   $("rsb").value = g.rsb;
   $("advanceInfo").textContent =
-    `Ancho de avance: ${advanceWidth(font, g)} u = ${g.lsb} + ${g.cols} × ${font.cell} + ${g.rsb}`;
+    `avance = ${g.lsb} + ${g.cols} × ${font.cell} + ${g.rsb} = ${advanceWidth(font, g)} u`;
   renderComponents();
   renderAlternates();
   syncPieceList();
@@ -2597,6 +2669,7 @@ function syncControls() {
   syncToolbar();
   syncMeta();
   syncWeights();
+  paintRanges();
 }
 
 function updateInfo() {
@@ -2784,6 +2857,10 @@ function renderTest() {
     weighted: weight > axis.min ? (char) => atWeight(font, char, weight) : null,
   });
   $("testView").style.background = paper;
+  // How many of the characters in the text are drawn.
+  const chars = [...new Set([...t.text].filter((c) => c.trim() && font.glyphs[c]))];
+  const drawn = chars.filter((c) => !isEmptyGlyph(font.glyphs[c])).length;
+  $("testCount").textContent = chars.length ? `${drawn} de ${chars.length} dibujada${chars.length === 1 ? "" : "s"}` : "";
   syncTestControls();
 }
 
@@ -2802,10 +2879,8 @@ function syncTestControls() {
   const list = $("kernList");
   list.replaceChildren();
   const pairs = Object.entries(font.kerning);
-  if (!pairs.length) {
-    list.textContent = "Clic entre dos letras del texto para ajustar su kerning (también con ← →).";
-    return;
-  }
+  // With no pairs yet, the hint under the text explains how to add one.
+  if (!pairs.length) return;
   for (const [pair, value] of pairs) {
     const chip = document.createElement("button");
     chip.type = "button";
@@ -3014,9 +3089,11 @@ function syncLibrary() {
   const time = lastSaved?.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
   const count = `${library.fonts.length} tipografía${library.fonts.length === 1 ? "" : "s"} en este navegador`;
   $("saveStatus").textContent = saveFailed
-    ? "No se pudo guardar · descarga el .json"
-    : time ? `Guardada · ${time}` : "";
+    ? "no se pudo guardar · descarga el .json"
+    : time ? `guardada ${time}` : "";
+  $("saveStatus").classList.toggle("failed", saveFailed);
   $("saveStatus").title = count;
+  $("fontStyleName").textContent = font.meta.style?.trim() || "Regular";
 }
 
 // --- Help and first-use tip ---
@@ -3160,6 +3237,7 @@ function syncWeights() {
   range.max = axis.max;
   const weight = Math.min(axis.max, Math.max(axis.min, font.view.test.weight ?? axis.min));
   range.value = weight;
+  paintRange(range);
   const named = instances(axis).find((i) => i.weight === weight);
   $("testWeightOut").textContent = named ? named.name : String(weight);
   // Export choices: every named weight as a static font, and the variable one.
