@@ -227,6 +227,8 @@ export function createFont() {
       test: { text: "hamburgefonstiv", size: 72, inverted: false },
     },
     kerning: {},
+    // "Solo mayúsculas": lowercase letters are typed as their capitals.
+    allCaps: false,
     // Weight axis: Regular and bold master weights, and how much the
     // automatic bold master thickens (units per side). See masters.js.
     axis: { min: 400, max: 800, thicken: 20 },
@@ -462,6 +464,30 @@ export function allChars(font) {
   return [...CHARSET.filter((c) => font.glyphs[c]), ...extra];
 }
 
+// --- All-caps fonts ("Solo mayúsculas") ---
+// Like Glyphs' all-caps fonts: typing a lowercase letter shows its capital,
+// so the caps need no Caps Lock. The lowercase glyphs stay in the project but
+// aren't exported; each capital also takes its lowercase code point.
+
+// The capital a key stands for in an all-caps font, or null.
+export function capitalOf(font, key) {
+  if (!font.allCaps) return null;
+  const char = alternateOf(key)?.base ?? key;
+  const up = char.toUpperCase();
+  return up !== char && font.glyphs[up] ? up : null;
+}
+
+// The glyphs that go into the font files.
+export const exportChars = (font) => allChars(font).filter((k) => !capitalOf(font, k));
+
+// Code points of a character in the font files: its own plus, in an all-caps
+// font, those of the lowercase letters it stands for.
+export function charUnicodes(font, char) {
+  if (alternateOf(char)) return [];
+  const extra = Object.keys(font.glyphs).filter((k) => !alternateOf(k) && capitalOf(font, k) === char);
+  return [char, ...extra].map((c) => c.codePointAt(0));
+}
+
 // Adds an alternate of a character, starting as a copy of the drawing of
 // `from` (the character or one of its alternates): cells, nodes, pieces,
 // components, width and sidebearings. Returns its key.
@@ -626,7 +652,7 @@ export function setKerning(font, left, right, value) {
 export const missingAdvance = (font) => Math.round(font.upm / 2);
 
 // Places each character of `text` using advance widths, sidebearings and
-// kerning. Returns one item per character: { char, line, index, x, advance,
+// kerning (in an all-caps font, lowercase letters are set as capitals). Returns one item per character: { char, line, index, x, advance,
 // glyph, kern } where `kern` is the kerning applied after it.
 // `advanceOf(char, glyph)` can give other widths (e.g. at another weight).
 export function layoutText(font, text, advanceOf = null) {
@@ -636,10 +662,12 @@ export function layoutText(font, text, advanceOf = null) {
   lines.forEach((line, li) => {
     const chars = [...line];
     let x = 0;
-    chars.forEach((char, i) => {
+    chars.forEach((typed, i) => {
+      const char = capitalOf(font, typed) ?? typed;
       const glyph = font.glyphs[char] ?? null;
       const advance = glyph ? (advanceOf ? advanceOf(char, glyph) : advanceWidth(font, glyph)) : missingAdvance(font);
-      const kern = i + 1 < chars.length ? kerningValue(font, char, chars[i + 1]) : 0;
+      const next = chars[i + 1];
+      const kern = next !== undefined ? kerningValue(font, char, capitalOf(font, next) ?? next) : 0;
       items.push({ char, line: li, index: i, x, advance, glyph, kern });
       x += advance + kern;
     });

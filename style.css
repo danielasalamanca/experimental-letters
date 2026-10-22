@@ -237,6 +237,7 @@ input[type="range"]:disabled { opacity: 0.35; cursor: default; }
 }
 /* Drawn letters: the acid bar along the bottom. */
 .cm-cell:not(.empty)::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: var(--acid); }
+.cm-cell.as-capital:not(.active) svg { opacity: 0.3; }
 .cm-cell.active, .cm-cell.active:hover:not(:disabled) { background: var(--fg); box-shadow: none; }
 .cm-cell.active::after { display: none; }
 .cm-cell.active svg [fill]:not([fill="none"]):not(rect:first-child) { fill: var(--acid); }

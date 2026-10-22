@@ -7,9 +7,9 @@
 // quadratic curves the same way, so they keep the same points.
 
 import { glyphName } from "./charset.js";
-import { allChars } from "./model.js";
+import { exportChars, charUnicodes } from "./model.js";
 import { masterPair, normalizeAxis, instances } from "./masters.js";
-import { gposKerning, gsubAlternates, alternateGroups, glyphUnicode, readSfnt, writeSfnt, Writer } from "./otf.js";
+import { gposKerning, gsubAlternates, alternateGroups, readSfnt, writeSfnt, Writer } from "./otf.js";
 
 const loadOpentype = () => import("./vendor/opentype.min.js");
 
@@ -19,10 +19,10 @@ export async function buildVariableTtf(font) {
   const axis = normalizeAxis(font.axis);
   const meta = font.meta;
   const family = meta.family.trim() || "Letras Experimentales";
-  const chars = allChars(font);
+  const chars = exportChars(font);
 
   // Both masters of every glyph, as TrueType points (font units).
-  const notdef = { name: ".notdef", unicode: null, regular: emptyGlyph(), bold: emptyGlyph(), advance: [font.upm / 2, font.upm / 2] };
+  const notdef = { name: ".notdef", unicodes: [], regular: emptyGlyph(), bold: emptyGlyph(), advance: [font.upm / 2, font.upm / 2] };
   const glyphs = [notdef];
   for (const char of chars) {
     const pair = masterPair(font, char);
@@ -37,7 +37,7 @@ export async function buildVariableTtf(font) {
     const bold = ok ? units(pair.bold, pair.lsb[1]) : reg;
     const [regular, boldPts] = toQuadratic(reg, bold);
     glyphs.push({
-      name: glyphName(char), unicode: glyphUnicode(char) ?? null, regular, bold: boldPts,
+      name: glyphName(char), unicodes: charUnicodes(font, char), regular, bold: boldPts,
       advance: [pair.advance[0], ok ? pair.advance[1] : pair.advance[0]].map(Math.round),
     });
   }
@@ -54,7 +54,7 @@ export async function buildVariableTtf(font) {
     descender: font.metrics.descender * cu,
     weightClass: axis.min,
     glyphs: glyphs.map((g) => new opentype.Glyph({
-      name: g.name, unicode: g.unicode ?? undefined, advanceWidth: g.advance[0], path: new opentype.Path(),
+      name: g.name, unicodes: g.unicodes, advanceWidth: g.advance[0], path: new opentype.Path(),
     })),
   });
   const { tables } = readSfnt(otf.toArrayBuffer());

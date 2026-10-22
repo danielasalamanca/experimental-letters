@@ -5,7 +5,7 @@ import {
   METRICS, createGlyph, normalizeFont, createBlankFont, defaultGlyph, setMetric, sameMetrics,
   GRIDS, glyphGrid, shapeKey, hasOwnShape, resolvedCorners, resolvedPieces, resolvedOutline, glyphShape,
   planFit, applyFit, ROW_ZONES, zoneRows, setZoneRows, metricColor, advanceWidth, resolvedCells, canUseComponent, dependents,
-  kerningValue, setKerning, layoutText, componentEdited, alternates, allChars, addAlternate, removeAlternate,
+  kerningValue, setKerning, layoutText, capitalOf, componentEdited, alternates, allChars, addAlternate, removeAlternate,
   componentPoint, componentCellFromParent, componentLocalPoint, syncInvertedGlyphs,
 } from "./model.js";
 import { GROUPS, CHARSET, glyphName, fileName, codepoint, alternateOf, baseChar } from "./charset.js";
@@ -381,9 +381,12 @@ function updateThumb(char) {
   cell.classList.toggle("empty", empty);
   cell.classList.toggle("composite", g.components.length > 0);
   cell.classList.toggle("active", char === font.active);
+  const capital = capitalOf(font, char);
+  cell.classList.toggle("as-capital", !!capital);
   syncCharmapGroups();
   if (char === font.active) drawGlyph($("glyphThumb"), font, g, { frame: "advance" });
   cell.title = alt ? `${glyphName(char)} · alternativa ${alt.n} de «${alt.base}»` : `${glyphName(char)} · ${codepoint(char)}`;
+  if (capital) cell.title += ` · se escribe con «${capital}» (solo mayúsculas)`;
 }
 
 function marker(className, title) {
@@ -2659,6 +2662,7 @@ function syncControls() {
   $("stroke").disabled = font.style !== "outline";
   $("gridType").value = font.grid;
   $("join").checked = font.join.enabled;
+  $("allCaps").checked = font.allCaps;
   $("joinWidth").value = font.join.width;
   $("joinWidth").disabled = !font.join.enabled;
   $("ink").value = font.view.ink;
@@ -2717,6 +2721,7 @@ bind("style", "change", (t) => { font.style = t.value; }, "font");
 bind("roundAll", "change", (t) => { font.roundAll = t.checked; }, "font");
 bind("stroke", "change", (t) => { font.stroke = clampNum(Math.round(+t.value), 1, Math.floor(font.cell * 0.45), font.stroke); }, "font");
 bind("join", "change", (t) => { font.join.enabled = t.checked; }, "font");
+bind("allCaps", "change", (t) => { font.allCaps = t.checked; }, "font");
 bind("joinWidth", "change", (t) => { font.join.width = clampNum(+t.value, 1, 250, font.join.width); }, "font");
 bind("ink", "input", (t) => { font.view.ink = t.value; }, "font");
 bind("paper", "input", (t) => { font.view.paper = t.value; }, "font");
@@ -2858,7 +2863,7 @@ function renderTest() {
   });
   $("testView").style.background = paper;
   // How many of the characters in the text are drawn.
-  const chars = [...new Set([...t.text].filter((c) => c.trim() && font.glyphs[c]))];
+  const chars = [...new Set([...t.text].map((c) => capitalOf(font, c) ?? c).filter((c) => c.trim() && font.glyphs[c]))];
   const drawn = chars.filter((c) => !isEmptyGlyph(font.glyphs[c])).length;
   $("testCount").textContent = chars.length ? `${drawn} de ${chars.length} dibujada${chars.length === 1 ? "" : "s"}` : "";
   syncTestControls();

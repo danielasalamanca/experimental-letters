@@ -4,7 +4,7 @@
 
 import { glyphFinalContours } from "./shapes.js";
 import { glyphName, alternateOf } from "./charset.js";
-import { advanceWidth, allChars } from "./model.js";
+import { advanceWidth, exportChars, charUnicodes } from "./model.js";
 import { atWeight, normalizeAxis, weightName } from "./masters.js";
 
 const loadOpentype = () => import("./vendor/opentype.min.js");
@@ -20,13 +20,13 @@ export async function buildOtf(font, { mode = "join", weight = null } = {}) {
   const instance = weight !== null && weight !== axis.min;
 
   const glyphs = [new opentype.Glyph({ name: ".notdef", advanceWidth: Math.round(font.upm / 2), path: new opentype.Path() })];
-  const chars = allChars(font);
+  const chars = exportChars(font);
   for (const char of chars) {
     const g = font.glyphs[char];
     const at = instance ? atWeight(font, char, weight) : null;
     glyphs.push(new opentype.Glyph({
       name: glyphName(char),
-      unicode: glyphUnicode(char),
+      unicodes: charUnicodes(font, char),
       advanceWidth: Math.round(at ? at.advance : advanceWidth(font, g)),
       path: at ? contoursPath(opentype, at.contours, at.lsb, cu) : glyphPath(opentype, font, g, mode),
     }));
@@ -58,9 +58,6 @@ export async function buildOtf(font, { mode = "join", weight = null } = {}) {
   if (alts.length) buffer = addTable(buffer, "GSUB", gsubAlternates(alts));
   return buffer;
 }
-
-// Alternates have no code point: they are reached through the GSUB table.
-export const glyphUnicode = (char) => (alternateOf(char) ? undefined : char.codePointAt(0));
 
 // [[glyph, [alternate 1, alternate 2…]]] by glyph index, for gsubAlternates.
 // Alternate n keeps its place even if an earlier one was deleted.

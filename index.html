@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:wght@900&family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Fragment+Mono&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=54">
+  <link rel="stylesheet" href="style.css?v=55">
 </head>
 <body>
   <header class="topbar">
@@ -325,6 +325,8 @@
             </datalist>
             <label class="row">Diseñadora <input type="text" id="metaDesigner" autocomplete="off"></label>
             <label class="row">Versión <input type="text" id="metaVersion" autocomplete="off"></label>
+            <label class="check"><input type="checkbox" id="allCaps"> Solo mayúsculas</label>
+            <p class="info">Al escribir en minúsculas aparecen las mayúsculas, sin activar Bloq Mayús. Las minúsculas no se exportan: cada mayúscula también ocupa el lugar de su minúscula.</p>
             <div class="buttons">
               <button id="duplicateFont" type="button" class="ghost" title="Guarda una copia y sigue trabajando en ella">Duplicar</button>
               <button id="deleteFont" type="button" class="ghost danger" title="Elimina esta tipografía del navegador">Eliminar</button>
@@ -498,22 +500,22 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=54",
-        "./js/geometry.js": "./js/geometry.js?v=54",
-        "./js/model.js": "./js/model.js?v=54",
-        "./js/render.js": "./js/render.js?v=54",
-        "./js/tools.js": "./js/tools.js?v=54",
-        "./js/library.js": "./js/library.js?v=54",
-        "./js/pieces.js": "./js/pieces.js?v=54",
-        "./js/nodes.js": "./js/nodes.js?v=54",
-        "./js/shapes.js": "./js/shapes.js?v=54",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=54",
-        "./js/outline.js": "./js/outline.js?v=54",
-        "./js/otf.js": "./js/otf.js?v=54",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=54"
+        "./js/charset.js": "./js/charset.js?v=55",
+        "./js/geometry.js": "./js/geometry.js?v=55",
+        "./js/model.js": "./js/model.js?v=55",
+        "./js/render.js": "./js/render.js?v=55",
+        "./js/tools.js": "./js/tools.js?v=55",
+        "./js/library.js": "./js/library.js?v=55",
+        "./js/pieces.js": "./js/pieces.js?v=55",
+        "./js/nodes.js": "./js/nodes.js?v=55",
+        "./js/shapes.js": "./js/shapes.js?v=55",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=55",
+        "./js/outline.js": "./js/outline.js?v=55",
+        "./js/otf.js": "./js/otf.js?v=55",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=55"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=54"></script>
+  <script type="module" src="js/main.js?v=55"></script>
 </body>
 </html>
