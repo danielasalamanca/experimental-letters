@@ -19,7 +19,7 @@ export async function buildOtf(font, { mode = "join", weight = null } = {}) {
   const axis = normalizeAxis(font.axis);
   const instance = weight !== null && weight !== axis.min;
 
-  const glyphs = [new opentype.Glyph({ name: ".notdef", advanceWidth: Math.round(font.upm / 2), path: new opentype.Path() })];
+  const glyphs = [new opentype.Glyph({ name: ".notdef", advanceWidth: Math.round(font.upm / 2), path: contoursPath(opentype, notdefContours(font), 0, 1) })];
   const chars = exportChars(font);
   for (const char of chars) {
     const g = font.glyphs[char];
@@ -57,6 +57,19 @@ export async function buildOtf(font, { mode = "join", weight = null } = {}) {
   const alts = alternateGroups(chars, index);
   if (alts.length) buffer = addTable(buffer, "GSUB", gsubAlternates(alts));
   return buffer;
+}
+
+// .notdef as an outlined box as tall as the capitals, in font units: a
+// missing character shows up as a box instead of a blank.
+export function notdefContours(font) {
+  const u = font.upm / 20;
+  const top = font.metrics.capHeight > 0 ? font.metrics.capHeight * font.cell : font.upm * 0.7;
+  const box = (x0, y0, x1, y1, ccw) => {
+    const pts = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+    if (!ccw) pts.reverse();
+    return [...pts.map(([x, y], i) => ({ type: i ? "L" : "M", x, y })), { type: "Z" }];
+  };
+  return [box(u, 0, 9 * u, top, true), box(2 * u, u, 8 * u, top - u, false)];
 }
 
 // [[glyph, [alternate 1, alternate 2…]]] by glyph index, for gsubAlternates.

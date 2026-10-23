@@ -148,6 +148,8 @@ export function defaultGlyph(font, char) {
       { glyph: base, dx: 0, dy: 0 },
       { glyph: accent, dx: Math.floor((baseCols - accentCols) / 2), dy: lift },
     ];
+    // Once both are drawn, the accent's ink is centered on the letter's.
+    glyph.components[1].dx = centeredDx(font, glyph, 1) ?? glyph.components[1].dx;
   }
   const source = INVERTED_PUNCTUATION[char];
   if (source) {
@@ -421,6 +423,35 @@ function visibleParts(outline, hide = []) {
     if (hide.some((pt) => windingAt(obj.map((ci) => cmds[ci]), pt) !== 0)) obj.forEach((ci) => hidden.add(ci));
   }
   return kept.filter((_, ci) => !hidden.has(ci));
+}
+
+// Horizontal extent [left, right] of a glyph's ink in cells (its visible
+// columns, components, pieces that add ink and nodes), or null if empty.
+export function inkSpan(font, glyph) {
+  const xs = [];
+  const own = glyph.outline ? [] : glyph.cells;
+  for (const k of own) {
+    const [c] = parseKey(k);
+    if (c >= 0 && c < glyph.cols) xs.push(c, c + 1);
+  }
+  for (const k of componentCells(font, glyph)) xs.push(parseKey(k)[0], parseKey(k)[0] + 1);
+  for (const p of resolvedPieces(font, glyph)) if (p.mode !== "cut") xs.push(p.x0, p.x1, ...(p.points ?? []).map(([x]) => x));
+  for (const contour of resolvedOutline(font, glyph)) for (const n of contour.nodes) xs.push(n.x);
+  return xs.length ? [Math.min(...xs), Math.max(...xs)] : null;
+}
+
+// The dx (whole columns: the grid is modular) that centers component `index`
+// of `glyph` on the ink of the rest of the letter, or null when either is
+// empty or the component is turned. When the two widths differ by an odd
+// number of columns, half a column can't be avoided; it goes to the left.
+export function centeredDx(font, glyph, index) {
+  const comp = glyph.components[index];
+  const base = font.glyphs[comp?.glyph];
+  if (!base || comp.turn === 180) return null;
+  const rest = { ...glyph, components: glyph.components.filter((_, i) => i !== index) };
+  const [a, b] = [inkSpan(font, rest), inkSpan(font, base)];
+  if (!a || !b) return null;
+  return Math.floor((a[0] + a[1] - b[0] - b[1]) / 2);
 }
 
 // True if `char`'s glyph uses `target` anywhere in its component tree.

@@ -23,7 +23,7 @@ test("kerning of 0 removes the pair", () => {
 
 test("lines and unknown characters", () => {
   const font = normalizeFont(null);
-  const { items, lines } = layoutText(font, "a\n€a");
+  const { items, lines } = layoutText(font, "a\n¥a");
   assert.equal(lines, 2);
   assert.equal(items[1].line, 1);
   assert.equal(items[1].glyph, null);

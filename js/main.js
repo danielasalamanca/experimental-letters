@@ -5,7 +5,7 @@ import {
   METRICS, createGlyph, normalizeFont, createBlankFont, defaultGlyph, setMetric, sameMetrics,
   GRIDS, glyphGrid, shapeKey, hasOwnShape, resolvedCorners, resolvedPieces, resolvedOutline, glyphShape,
   planFit, applyFit, ROW_ZONES, zoneRows, setZoneRows, metricColor, advanceWidth, resolvedCells, canUseComponent, dependents,
-  kerningValue, setKerning, layoutText, capitalOf, componentEdited, alternates, allChars, addAlternate, removeAlternate,
+  kerningValue, setKerning, layoutText, capitalOf, centeredDx, componentEdited, alternates, allChars, addAlternate, removeAlternate,
   componentPoint, componentCellFromParent, componentLocalPoint, syncInvertedGlyphs,
 } from "./model.js";
 import { GROUPS, CHARSET, glyphName, fileName, codepoint, alternateOf, baseChar } from "./charset.js";
@@ -2393,6 +2393,25 @@ function renderComponents() {
       });
       label.appendChild(input);
       row.appendChild(label);
+    }
+    // Accents and other marks are centered on the letter (the first component).
+    const dx = centeredDx(font, g, i);
+    if (comp.turn !== 180 && i > 0) {
+      const center = document.createElement("button");
+      center.type = "button";
+      center.className = "comp-center";
+      center.textContent = "↔";
+      center.disabled = dx === null || dx === comp.dx;
+      center.title = dx === null
+        ? "Centrar: dibuja primero este componente y el resto de la letra"
+        : dx === comp.dx ? "Ya está centrado sobre el resto de la letra" : "Centrar sobre el resto de la letra";
+      center.addEventListener("click", () => {
+        checkpoint();
+        comp.dx = dx;
+        renderComponents();
+        render();
+      });
+      row.appendChild(center);
     }
     const remove = document.createElement("button");
     remove.type = "button";

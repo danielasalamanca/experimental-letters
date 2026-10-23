@@ -9,15 +9,16 @@ const range = (from, to) => {
 
 export const ACUTE = "´"; // ´
 export const TILDE = "˜"; // ˜
+export const DIERESIS = "¨"; // ¨
 
 export const GROUPS = [
   { name: "Mayúsculas", chars: [...range("A", "Z"), "Ñ"] },
   { name: "Minúsculas", chars: [...range("a", "z"), "ñ"] },
-  { name: "Acentuadas", chars: ["á", "é", "í", "ó", "ú", "Á", "É", "Í", "Ó", "Ú"] },
+  { name: "Acentuadas", chars: ["á", "é", "í", "ó", "ú", "ü", "Á", "É", "Í", "Ó", "Ú", "Ü"] },
   { name: "Números", chars: range("0", "9") },
-  { name: "Puntuación", chars: [".", ",", ";", ":", "!", "¡", "?", "¿", "-", "'", "\"", "(", ")"] },
-  { name: "Símbolos", chars: ["&", "@"] },
-  { name: "Acentos (componentes)", chars: [ACUTE, TILDE] },
+  { name: "Puntuación", chars: [".", ",", ";", ":", "!", "¡", "?", "¿", "-", "–", "—", "'", "\"", "‘", "’", "“", "”", "«", "»", "(", ")", "/"] },
+  { name: "Símbolos", chars: ["&", "@", "#", "%", "$", "€"] },
+  { name: "Acentos (componentes)", chars: [ACUTE, TILDE, DIERESIS] },
   { name: "Espacio", chars: [" "] },
 ];
 
@@ -28,12 +29,14 @@ const DIGITS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "
 const NAMES = {
   ".": "period", ",": "comma", ";": "semicolon", ":": "colon", "!": "exclam",
   "?": "question", "¡": "exclamdown", "¿": "questiondown",
-  "-": "hyphen", "'": "quotesingle", "\"": "quotedbl",
-  "&": "ampersand", "@": "at",
+  "-": "hyphen", "–": "endash", "—": "emdash", "'": "quotesingle", "\"": "quotedbl",
+  "‘": "quoteleft", "’": "quoteright", "“": "quotedblleft", "”": "quotedblright",
+  "«": "guillemetleft", "»": "guillemetright", "/": "slash",
+  "&": "ampersand", "@": "at", "#": "numbersign", "%": "percent", "$": "dollar", "€": "Euro",
   "(": "parenleft", ")": "parenright", " ": "space",
-  [ACUTE]: "acute", [TILDE]: "tilde",
-  "á": "aacute", "é": "eacute", "í": "iacute", "ó": "oacute", "ú": "uacute",
-  "Á": "Aacute", "É": "Eacute", "Í": "Iacute", "Ó": "Oacute", "Ú": "Uacute",
+  [ACUTE]: "acute", [TILDE]: "tilde", [DIERESIS]: "dieresis",
+  "á": "aacute", "é": "eacute", "í": "iacute", "ó": "oacute", "ú": "uacute", "ü": "udieresis",
+  "Á": "Aacute", "É": "Eacute", "Í": "Iacute", "Ó": "Oacute", "Ú": "Uacute", "Ü": "Udieresis",
   "ñ": "ntilde", "Ñ": "Ntilde",
 };
 
@@ -70,8 +73,8 @@ export const codepoint = (char) =>
 // dy is in rows: capitals need the accent lifted to the cap height.
 export const COMPOSITES = {
   "á": ["a", ACUTE], "é": ["e", ACUTE], "í": ["i", ACUTE],
-  "ó": ["o", ACUTE], "ú": ["u", ACUTE], "ñ": ["n", TILDE], "Ñ": ["N", TILDE],
-  "Á": ["A", ACUTE], "É": ["E", ACUTE], "Í": ["I", ACUTE], "Ó": ["O", ACUTE], "Ú": ["U", ACUTE],
+  "ó": ["o", ACUTE], "ú": ["u", ACUTE], "ü": ["u", DIERESIS], "ñ": ["n", TILDE], "Ñ": ["N", TILDE],
+  "Á": ["A", ACUTE], "É": ["E", ACUTE], "Í": ["I", ACUTE], "Ó": ["O", ACUTE], "Ú": ["U", ACUTE], "Ü": ["U", DIERESIS],
 };
 
 export const INVERTED_PUNCTUATION = { "¡": "!", "¿": "?" };
@@ -86,10 +89,14 @@ export const isCapital = (key) => {
 export function defaultCols(key) {
   const char = baseChar(key);
   if (char === " ") return 5;
-  if (char === ACUTE || char === TILDE) return 4;
-  if ("()".includes(char)) return 4;
+  if (char === ACUTE || char === TILDE || char === DIERESIS) return 4;
+  if ("()/".includes(char)) return 4;
   if (char === "-") return 5;
-  if (".,;:!¡'\"".includes(char)) return 2;
+  if (char === "–") return 6;
+  if (char === "—") return 12;
+  if ("“”«»".includes(char)) return 4;
+  if (".,;:!¡'\"‘’".includes(char)) return 2;
+  if (char === "%") return 10;
   if (char === "?" || char === "¿") return 6;
   if ("iíjl".includes(char)) return 3;
   return 8;

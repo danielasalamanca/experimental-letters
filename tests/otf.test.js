@@ -27,7 +27,7 @@ test("the .otf has every glyph, names, metrics and advance widths", async () => 
   assert.equal(otf.unitsPerEm, 1000);
   assert.equal(otf.ascender, 750);
   assert.equal(otf.descender, -250);
-  assert.equal(otf.glyphs.length, 89); // .notdef + 88 characters
+  assert.equal(otf.glyphs.length, 109); // .notdef + 108 characters
   const A = otf.charToGlyph("A");
   assert.equal(A.name, "A");
   assert.equal(A.advanceWidth, advanceWidth(font, font.glyphs.A));
@@ -119,4 +119,21 @@ test("pieces reach the .otf as exact curves and diagonals", async () => {
   const types = (ch) => otf.charToGlyph(ch).path.commands.map((c) => c.type).join("");
   assert.equal(types("A").replace(/Z$/, ""), "MLLL"); // a trapezoid
   assert.equal((types("K").match(/C/g) ?? []).length, 1);
+});
+
+test("the Spanish set includes ü, quotes, dashes and symbols, with their names", async () => {
+  const otf = opentype.parse(await buildOtf(sampleFont()));
+  const names = { "ü": "udieresis", "Ü": "Udieresis", "«": "guillemetleft", "»": "guillemetright",
+    "“": "quotedblleft", "”": "quotedblright", "‘": "quoteleft", "’": "quoteright",
+    "–": "endash", "—": "emdash", "/": "slash", "#": "numbersign", "%": "percent", "$": "dollar", "€": "Euro" };
+  for (const [char, name] of Object.entries(names)) assert.equal(otf.charToGlyph(char).name, name, char);
+});
+
+test(".notdef is a visible box, not a blank", async () => {
+  const otf = opentype.parse(await buildOtf(sampleFont()));
+  const notdef = otf.glyphs.get(0);
+  assert.equal(notdef.name, ".notdef");
+  assert.equal(notdef.path.commands.filter((c) => c.type === "M").length, 2);
+  const box = notdef.getBoundingBox();
+  assert.deepEqual([box.x1, box.y1, box.x2, box.y2], [50, 0, 450, 700]);
 });

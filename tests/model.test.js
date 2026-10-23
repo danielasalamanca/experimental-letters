@@ -186,3 +186,23 @@ test("rows per zone stay within limits", () => {
   assert.equal(setZoneRows(m, "top", 999).ascender, 60);
   assert.equal(setZoneRows(m, "top", -3).ascender, 14);
 });
+
+test("accents are centered on the ink of their letter, in whole columns", async () => {
+  const { defaultGlyph, centeredDx, inkSpan } = await import("../js/model.js");
+  const { ACUTE, DIERESIS } = await import("../js/charset.js");
+  const font = normalizeFont(null);
+  // A 3-column i drawn in the middle column, and a one-column acute drawn
+  // in the third column of its 4.
+  font.glyphs.i.cells = ["1,0", "1,1", "1,2", "1,3"];
+  font.glyphs[ACUTE].cells = ["2,10"];
+  assert.deepEqual(inkSpan(font, font.glyphs.i), [1, 2]);
+  const í = defaultGlyph(font, "í");
+  assert.equal(í.components[1].dx, -1); // the accent's ink lands on column 1
+  assert.equal(centeredDx(font, í, 1), -1);
+  // Empty letters fall back to centering by columns.
+  assert.equal(centeredDx(font, font.glyphs["ü"], 1), null);
+  assert.deepEqual(font.glyphs["ü"].components.map((c) => c.glyph), ["u", DIERESIS]);
+  // Odd differences leave the extra half column on the left.
+  font.glyphs.i.cells = ["0,0", "1,0"];
+  assert.equal(centeredDx(font, í, 1), -2);
+});

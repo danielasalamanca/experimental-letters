@@ -19,7 +19,7 @@ test("the variable font has a weight axis with named weights", async () => {
   const buf = await buildVariableTtf(sample());
   const otf = opentype.parse(buf);
   assert.equal(otf.outlinesFormat, "truetype");
-  assert.equal(otf.glyphs.length, 89);
+  assert.equal(otf.glyphs.length, 109);
   const [axis] = otf.tables.fvar.axes;
   assert.deepEqual([axis.tag, axis.minValue, axis.defaultValue, axis.maxValue], ["wght", 400, 400, 800]);
   assert.deepEqual(otf.tables.fvar.instances.map((i) => i.name.en), ["Regular", "Medium", "SemiBold", "Bold", "ExtraBold"]);
@@ -64,4 +64,10 @@ test("a weight in between exports as its own static font", async () => {
   assert.deepEqual([box.x1, box.x2], [50, 120]);
   const regular = opentype.parse(await buildOtf(f));
   assert.equal(regular.tables.os2.usWeightClass, 400);
+});
+
+test(".notdef is a visible box in the variable font too", async () => {
+  const otf = opentype.parse(await buildVariableTtf(sample()));
+  const box = otf.glyphs.get(0).getBoundingBox();
+  assert.deepEqual([box.x1, box.y1, box.x2, box.y2], [50, 0, 450, 700]);
 });

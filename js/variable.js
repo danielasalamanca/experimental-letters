@@ -9,7 +9,7 @@
 import { glyphName } from "./charset.js";
 import { exportChars, charUnicodes } from "./model.js";
 import { masterPair, normalizeAxis, instances } from "./masters.js";
-import { gposKerning, gsubAlternates, alternateGroups, readSfnt, writeSfnt, Writer } from "./otf.js";
+import { gposKerning, gsubAlternates, alternateGroups, notdefContours, readSfnt, writeSfnt, Writer } from "./otf.js";
 
 const loadOpentype = () => import("./vendor/opentype.min.js");
 
@@ -22,7 +22,9 @@ export async function buildVariableTtf(font) {
   const chars = exportChars(font);
 
   // Both masters of every glyph, as TrueType points (font units).
-  const notdef = { name: ".notdef", unicodes: [], regular: emptyGlyph(), bold: emptyGlyph(), advance: [font.upm / 2, font.upm / 2] };
+  const box = notdefContours(font);
+  const [notdefReg, notdefBold] = toQuadratic(box, box);
+  const notdef = { name: ".notdef", unicodes: [], regular: notdefReg, bold: notdefBold, advance: [font.upm / 2, font.upm / 2] };
   const glyphs = [notdef];
   for (const char of chars) {
     const pair = masterPair(font, char);
@@ -89,8 +91,6 @@ export async function buildVariableTtf(font) {
   if (alts.length) tables.set("GSUB", gsubAlternates(alts));
   return writeSfnt(0x00010000, tables);
 }
-
-const emptyGlyph = () => ({ contours: [] });
 
 // --- Cubic to quadratic, the same way for both masters ---
 // A cubic becomes k quadratic pieces; k is chosen so that both masters stay
