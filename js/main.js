@@ -3101,20 +3101,29 @@ $("exportOtf").addEventListener("click", async () => {
   button.textContent = "Generando…";
   try {
     const kind = $("exportKind").value;
+    const web = $("exportFormat").value === "web";
+    // Web fonts are the same font with its tables compressed (see woff.js).
+    const save = async (buffer, name, type) => {
+      if (!web) return downloadBlob(new Blob([buffer], { type: `font/${type}` }), `${name}.${type}`);
+      const { sfntToWoff } = await import("./woff.js");
+      downloadBlob(new Blob([await sfntToWoff(buffer)], { type: "font/woff" }), `${name}.woff`);
+    };
+    const webTip = (file) => ` Úsala en tu sitio con @font-face { src: url("${file}.woff") format("woff"); }.`;
     if (kind === "variable") {
       const { buildVariableTtf } = await import("./variable.js");
-      const buffer = await buildVariableTtf(font);
-      downloadBlob(new Blob([buffer], { type: "font/ttf" }), `${baseName(false)}-Variable.ttf`);
+      const name = `${baseName(false)}-Variable`;
+      await save(await buildVariableTtf(font), name, "ttf");
       const bad = mastersReport(font, Object.keys(font.glyphs)).incompatible;
-      toast("Fuente variable exportada." + (bad.length ? ` ${bad.length} letra(s) no compatibles quedan iguales en todos los pesos: ${bad.join(" ")}` : ""));
+      toast((web ? "Fuente variable web exportada." + webTip(name) : "Fuente variable exportada.")
+        + (bad.length ? ` ${bad.length} letra(s) no compatibles quedan iguales en todos los pesos: ${bad.join(" ")}` : ""));
     } else {
       const weight = +kind.split(":")[1];
       const axis = normalizeAxis(font.axis);
       const { buildOtf } = await import("./otf.js");
-      const buffer = await buildOtf(font, { mode: $("otfMode").value, weight });
       const name = weight === axis.min ? baseName() : `${baseName(false)}-${weightName(weight)}`;
-      downloadBlob(new Blob([buffer], { type: "font/otf" }), `${name}.otf`);
-      toast("Fuente exportada. Instálala con doble clic para usarla en Illustrator o InDesign.");
+      await save(await buildOtf(font, { mode: $("otfMode").value, weight }), name, "otf");
+      toast(web ? "Fuente web exportada." + webTip(name)
+        : "Fuente exportada. Instálala con doble clic para usarla en Illustrator o InDesign.");
     }
   } catch (err) {
     console.error(err);
@@ -3296,19 +3305,24 @@ function syncWeights() {
   const kind = $("exportKind");
   const current = kind.value;
   kind.replaceChildren(
-    ...instances(axis).map((i) => new Option(`${i.name} (.otf)`, `static:${i.weight}`)),
-    new Option("Variable, todos los pesos (.ttf)", "variable"),
+    ...instances(axis).map((i) => new Option(i.name, `static:${i.weight}`)),
+    new Option("Variable, todos los pesos", "variable"),
   );
   kind.value = [...kind.options].some((o) => o.value === current) ? current : `static:${axis.min}`;
   syncExportInfo();
 }
 
 function syncExportInfo() {
-  $("exportKindInfo").innerHTML = $("exportKind").value === "variable"
-    ? "Una sola fuente con todos los pesos entre los dos másteres. Se descarga con <strong>Exportar fuente</strong>, arriba a la derecha."
-    : "La fuente se descarga con <strong>Exportar fuente</strong>, arriba a la derecha.";
+  const variable = $("exportKind").value === "variable";
+  const file = $("exportFormat").value === "web" ? ".woff" : variable ? ".ttf" : ".otf";
+  const what = $("exportFormat").value === "web"
+    ? `Un archivo <strong>${file}</strong> para usar en sitios web con @font-face.`
+    : `Un archivo <strong>${file}</strong> para instalar en el computador.`;
+  $("exportKindInfo").innerHTML = (variable ? "Una sola fuente con todos los pesos entre los dos másteres. " : "")
+    + `${what} Se descarga con <strong>Exportar fuente</strong>, arriba a la derecha.`;
 }
 $("exportKind").addEventListener("change", syncExportInfo);
+$("exportFormat").addEventListener("change", syncExportInfo);
 
 // Summary of the bold master, recomputed a moment after changes while the
 // panel is open.

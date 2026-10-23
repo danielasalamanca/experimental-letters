@@ -352,6 +352,9 @@ el dibujo, y uno **grueso** (ExtraBold por defecto). Los pesos intermedios
   - **Exportar tal cual**: sin unión; las estrellas que se tocan en un punto
     quedan unidas solo por ese punto.
   - Incluye el kerning (tabla GPOS), los anchos de avance y las métricas.
+  - **Formato › Para la web (.woff):** la misma fuente (un peso o la variable)
+    comprimida para usarla en un sitio con `@font-face`. Es WOFF 1.0: WOFF2
+    necesita compresión Brotli, que los navegadores no traen para comprimir.
 - **Exportar SVG / PNG** del glifo o del texto de prueba, opcionalmente con
   las líneas de métricas (y la grilla, en el glifo) para presentaciones.
 
