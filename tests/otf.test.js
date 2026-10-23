@@ -146,3 +146,13 @@ test("case marks are exported by name, without a code point", async () => {
   assert.equal(acuteCase.unicode, undefined);
   assert.equal(otf.charToGlyph("´").name, "acute");
 });
+
+test("alternates keep the kerning of their letter in the .otf", async () => {
+  const { addAlternate } = await import("../js/model.js");
+  const font = sampleFont();
+  addAlternate(font, "A");
+  const otf = opentype.parse(await buildOtf(font));
+  const byName = (name) => Array.from({ length: otf.glyphs.length }, (_, i) => otf.glyphs.get(i)).find((g) => g.name === name);
+  assert.equal(otf.getKerningValue(byName("A.alt1"), otf.charToGlyph("V")), -60);
+  assert.equal(otf.getKerningValue(otf.charToGlyph("V"), byName("A.alt1")), -40);
+});

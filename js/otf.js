@@ -4,7 +4,7 @@
 
 import { glyphFinalContours } from "./shapes.js";
 import { glyphName, alternateOf } from "./charset.js";
-import { advanceWidth, exportChars, charUnicodes } from "./model.js";
+import { advanceWidth, exportChars, charUnicodes, kerningPairs } from "./model.js";
 import { atWeight, normalizeAxis, weightName } from "./masters.js";
 
 const loadOpentype = () => import("./vendor/opentype.min.js");
@@ -45,12 +45,9 @@ export async function buildOtf(font, { mode = "join", weight = null } = {}) {
   });
 
   const index = new Map(chars.map((c, i) => [c, i + 1]));
-  const pairs = Object.entries(font.kerning)
-    .map(([pair, value]) => {
-      const [left, right] = [...pair];
-      return [index.get(left), index.get(right), Math.round(value)];
-    })
-    .filter(([l, r, v]) => l && r && v);
+  const pairs = kerningPairs(font)
+    .map(([left, right, value]) => [index.get(left), index.get(right), value])
+    .filter(([l, r]) => l && r);
 
   let buffer = otf.toArrayBuffer();
   if (pairs.length) buffer = addTable(buffer, "GPOS", gposKerning(pairs));

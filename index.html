@@ -6,11 +6,11 @@
   <title>Letras Experimentales</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=59" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=60" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=59" : "favicon-light.png?v=59"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=60" : "favicon-light.png?v=60"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:wght@900&family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Fragment+Mono&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=59">
+  <link rel="stylesheet" href="style.css?v=60">
 </head>
 <body>
   <header class="topbar">
@@ -509,22 +509,22 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=59",
-        "./js/geometry.js": "./js/geometry.js?v=59",
-        "./js/model.js": "./js/model.js?v=59",
-        "./js/render.js": "./js/render.js?v=59",
-        "./js/tools.js": "./js/tools.js?v=59",
-        "./js/library.js": "./js/library.js?v=59",
-        "./js/pieces.js": "./js/pieces.js?v=59",
-        "./js/nodes.js": "./js/nodes.js?v=59",
-        "./js/shapes.js": "./js/shapes.js?v=59",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=59",
-        "./js/outline.js": "./js/outline.js?v=59",
-        "./js/otf.js": "./js/otf.js?v=59",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=59"
+        "./js/charset.js": "./js/charset.js?v=60",
+        "./js/geometry.js": "./js/geometry.js?v=60",
+        "./js/model.js": "./js/model.js?v=60",
+        "./js/render.js": "./js/render.js?v=60",
+        "./js/tools.js": "./js/tools.js?v=60",
+        "./js/library.js": "./js/library.js?v=60",
+        "./js/pieces.js": "./js/pieces.js?v=60",
+        "./js/nodes.js": "./js/nodes.js?v=60",
+        "./js/shapes.js": "./js/shapes.js?v=60",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=60",
+        "./js/outline.js": "./js/outline.js?v=60",
+        "./js/otf.js": "./js/otf.js?v=60",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=60"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=59"></script>
+  <script type="module" src="js/main.js?v=60"></script>
 </body>
 </html>

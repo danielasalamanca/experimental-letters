@@ -6,7 +6,7 @@ import {
   GRIDS, glyphGrid, shapeKey, hasOwnShape, resolvedCorners, resolvedPieces, resolvedOutline, glyphShape,
   planFit, applyFit, ROW_ZONES, zoneRows, setZoneRows, metricColor, advanceWidth, resolvedCells, canUseComponent, dependents,
   kerningValue, setKerning, layoutText, capitalOf, centeredDx, componentEdited, alternates, allChars, addAlternate, removeAlternate,
-  componentPoint, componentCellFromParent, componentLocalPoint, syncInvertedGlyphs,
+  componentPoint, componentCellFromParent, componentLocalPoint, syncInvertedGlyphs, syncAlternates, spacingKey,
 } from "./model.js";
 import { GROUPS, CHARSET, glyphName, fileName, codepoint, alternateOf, baseChar, caseOf } from "./charset.js";
 import { drawGlyph, drawText, el, SVG_NS, contoursToPath } from "./render.js";
@@ -54,6 +54,17 @@ let font = normalizeFont(opened.data);
 let master = "regular";
 let boldView = null; // read-only bold master of a letter made of components
 const glyph = () => (master === "bold" ? boldOf(font.active) : font.glyphs[font.active]);
+// The glyph whose sidebearings the margin controls edit: an alternate shares
+// those of its letter (see syncAlternates), so they're edited there.
+function spacingGlyph() {
+  const k = spacingKey(font, font.active);
+  if (k === font.active) return glyph();
+  const base = font.glyphs[k];
+  if (master !== "bold") return base;
+  return base.bold && !base.bold.auto ? base.bold : glyph();
+}
+// Margins of an alternate also change its letter and the other alternates.
+const spacingScope = () => (spacingKey(font, font.active) === font.active ? "glyph" : "font");
 const boldName = () => weightName(normalizeAxis(font.axis).max);
 
 function boldOf(char) {
@@ -125,6 +136,7 @@ let zoomBox = null;      // explicit viewBox while zoomed or panned; null = fit
 // "glyph" = the active glyph and the composites using it, "font" = all.
 function render(scope = "glyph") {
   syncInvertedGlyphs(font);
+  syncAlternates(font);
   // Placing or deleting the first piece turns the corner tool on or off.
   $("toolCorner").disabled = !cornersAvailable();
   const bgChar = font.view.background;
@@ -825,10 +837,12 @@ window.addEventListener("pointermove", (evt) => {
       const value = action.side === "lsb"
         ? Math.round(-x / step) * step
         : Math.round((x - g.cols * font.cell) / step) * step;
-      if (value !== g[action.side]) {
-        g[action.side] = value;
+      const target = spacingGlyph();
+      if (value !== target[action.side]) {
+        target[action.side] = value;
+        syncAlternates(font);
         syncGlyphPanel();
-        render();
+        render(spacingScope());
       }
       break;
     }
@@ -2324,8 +2338,10 @@ function syncGlyphPanel() {
   $("colsOut").textContent = g.cols;
   $("lsb").value = g.lsb;
   $("rsb").value = g.rsb;
+  const spacing = spacingKey(font, font.active);
   $("advanceInfo").textContent =
-    `avance = ${g.lsb} + ${g.cols} × ${font.cell} + ${g.rsb} = ${advanceWidth(font, g)} u`;
+    `avance = ${g.lsb} + ${g.cols} × ${font.cell} + ${g.rsb} = ${advanceWidth(font, g)} u`
+    + (spacing === font.active ? "" : ` · márgenes y kerning de «${spacing}»`);
   renderComponents();
   renderAlternates();
   syncPieceList();
@@ -2504,8 +2520,8 @@ function renderAlternates() {
   }
   const alt = alternateOf(char);
   $("altInfo").textContent = alt
-    ? `Alternativa ${alt.n} de «${base}». Se exporta como «${glyphName(char)}»: en Illustrator aparece entre las alternativas de «${base}» (aalt, ss${String(alt.n).padStart(2, "0")}).`
-    : "Otra versión de esta letra, que empieza como copia de su dibujo. Aparece en «Alternativas» del panel de letras y se exporta como alternativa (Illustrator la muestra en «Alternativas a la selección actual»).";
+    ? `Alternativa ${alt.n} de «${base}». Usa los márgenes y el kerning de «${base}»: cambiar sus márgenes aquí los cambia para toda la familia. Se exporta como «${glyphName(char)}»: en Illustrator aparece entre las alternativas de «${base}» (aalt, ss${String(alt.n).padStart(2, "0")}).`
+    : "Otra versión de esta letra, que empieza como copia de su dibujo y comparte sus márgenes y su kerning. Aparece en «Alternativas» del panel de letras y se exporta como alternativa (Illustrator la muestra en «Alternativas a la selección actual»).";
   $("addAlt").textContent = alt ? "Crear otra alternativa" : "Crear alternativa";
   $("removeAlt").hidden = !alt;
 }
@@ -2728,8 +2744,16 @@ function bind(id, event, apply, scope = "glyph", tag = id) {
 }
 
 bind("cols", "input", (t) => { glyph().cols = +t.value; });
-bind("lsb", "change", (t) => { glyph().lsb = clampNum(Math.round(+t.value), -1000, 2000, glyph().lsb); });
-bind("rsb", "change", (t) => { glyph().rsb = clampNum(Math.round(+t.value), -1000, 2000, glyph().rsb); });
+for (const side of ["lsb", "rsb"]) {
+  $(side).addEventListener("change", (e) => {
+    checkpoint(side);
+    const g = spacingGlyph();
+    g[side] = clampNum(Math.round(+e.target.value), -1000, 2000, g[side]);
+    syncAlternates(font);
+    syncControls();
+    render(spacingScope());
+  });
+}
 bind("cell", "change", (t) => { font.cell = clampNum(+t.value, 5, 250, font.cell); }, "font");
 bind("upm", "change", (t) => { font.upm = clampNum(Math.round(+t.value), 16, 16384, font.upm); }, null);
 bind("guides", "change", (t) => { font.view.guides = t.checked; }, null);

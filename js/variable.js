@@ -7,7 +7,7 @@
 // quadratic curves the same way, so they keep the same points.
 
 import { glyphName } from "./charset.js";
-import { exportChars, charUnicodes } from "./model.js";
+import { exportChars, charUnicodes, kerningPairs } from "./model.js";
 import { masterPair, normalizeAxis, instances } from "./masters.js";
 import { gposKerning, gsubAlternates, alternateGroups, notdefContours, readSfnt, writeSfnt, Writer } from "./otf.js";
 
@@ -80,12 +80,9 @@ export async function buildVariableTtf(font) {
   tables.set("STAT", buildStat(axis, named, names));
 
   const index = new Map(chars.map((c, i) => [c, i + 1]));
-  const pairs = Object.entries(font.kerning)
-    .map(([pair, value]) => {
-      const [left, right] = [...pair];
-      return [index.get(left), index.get(right), Math.round(value)];
-    })
-    .filter(([l, r, v]) => l && r && v);
+  const pairs = kerningPairs(font)
+    .map(([left, right, value]) => [index.get(left), index.get(right), value])
+    .filter(([l, r]) => l && r);
   if (pairs.length) tables.set("GPOS", gposKerning(pairs));
   const alts = alternateGroups(chars, index);
   if (alts.length) tables.set("GSUB", gsubAlternates(alts));

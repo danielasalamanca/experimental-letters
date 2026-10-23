@@ -199,6 +199,7 @@ export function ensureCharset(font) {
   }
   useCaseMarks(font, added);
   syncInvertedGlyphs(font);
+  syncAlternates(font);
   return font;
 }
 
@@ -217,6 +218,28 @@ function useCaseMarks(font, added) {
     }
   }
 }
+
+// Alternates share the sidebearings of their letter (and, when both bold
+// masters are drawn by hand, those of the bold master too), so swapping in
+// an alternate keeps the spacing of the text.
+export function syncAlternates(font) {
+  for (const [k, glyph] of Object.entries(font.glyphs)) {
+    const base = font.glyphs[alternateOf(k)?.base];
+    if (!base) continue;
+    glyph.lsb = base.lsb;
+    glyph.rsb = base.rsb;
+    if (glyph.bold && !glyph.bold.auto && base.bold && !base.bold.auto) {
+      glyph.bold.lsb = base.bold.lsb;
+      glyph.bold.rsb = base.bold.rsb;
+    }
+  }
+}
+
+// The glyph whose sidebearings `key` uses: its letter, for an alternate.
+export const spacingKey = (font, key) => {
+  const base = alternateOf(key)?.base;
+  return base && font.glyphs[base] ? base : key;
+};
 
 export function syncInvertedGlyphs(font) {
   for (const [inverted, source] of Object.entries(INVERTED_PUNCTUATION)) {
@@ -707,6 +730,20 @@ export function setKerning(font, left, right, value) {
   const v = Math.round(value);
   if (v === 0) delete font.kerning[k];
   else font.kerning[k] = v;
+}
+
+// Kerning pairs for the font files, as [left, right, value] glyph keys:
+// a letter's pairs also apply to its alternates, on either side.
+export function kerningPairs(font) {
+  const family = (char) => [char, ...alternates(font, char)];
+  const out = [];
+  for (const [pair, value] of Object.entries(font.kerning)) {
+    const [left, right] = [...pair];
+    const v = Math.round(value);
+    if (!v) continue;
+    for (const l of family(left)) for (const r of family(right)) out.push([l, r, v]);
+  }
+  return out;
 }
 
 // Characters outside the set are shown as an empty box this wide.
