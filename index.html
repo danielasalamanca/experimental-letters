@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Letras Experimentales</title>
+  <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=62" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=63" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=62" : "favicon-light.png?v=62"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=63" : "favicon-light.png?v=63"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:wght@900&family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Fragment+Mono&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=62">
+  <link rel="stylesheet" href="style.css?v=63">
 </head>
 <body>
   <header class="topbar">
@@ -44,7 +44,6 @@
 
   <div class="app">
     <aside class="zone zone-left" id="lettersPanel" aria-label="Letras">
-      <img class="filters-icon" src="img/filtros.svg" width="30" height="30" alt="">
       <div class="filters" id="charFilters" role="group" aria-label="Mostrar">
         <button type="button" class="filter active" data-filter="all" aria-pressed="true">Todas</button>
         <button type="button" class="filter" data-filter="upper" aria-pressed="false">Mayúsculas</button>
@@ -461,7 +460,7 @@
 
   <dialog id="helpDialog" class="help">
     <form method="dialog">
-      <h3>Cómo usar Letras experimentales</h3>
+      <h3>Cómo usar Experimental Letters</h3>
       <ol class="steps">
         <li><strong>Elige una letra</strong> en la columna de la izquierda.</li>
         <li><strong>Dibuja</strong> haciendo clic o arrastrando sobre la grilla. Cambia la forma en la sección <em>Forma</em>.</li>
@@ -528,23 +527,23 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=62",
-        "./js/geometry.js": "./js/geometry.js?v=62",
-        "./js/model.js": "./js/model.js?v=62",
-        "./js/render.js": "./js/render.js?v=62",
-        "./js/tools.js": "./js/tools.js?v=62",
-        "./js/library.js": "./js/library.js?v=62",
-        "./js/pieces.js": "./js/pieces.js?v=62",
-        "./js/nodes.js": "./js/nodes.js?v=62",
-        "./js/shapes.js": "./js/shapes.js?v=62",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=62",
-        "./js/outline.js": "./js/outline.js?v=62",
-        "./js/otf.js": "./js/otf.js?v=62",
-        "./js/woff.js": "./js/woff.js?v=62",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=62"
+        "./js/charset.js": "./js/charset.js?v=63",
+        "./js/geometry.js": "./js/geometry.js?v=63",
+        "./js/model.js": "./js/model.js?v=63",
+        "./js/render.js": "./js/render.js?v=63",
+        "./js/tools.js": "./js/tools.js?v=63",
+        "./js/library.js": "./js/library.js?v=63",
+        "./js/pieces.js": "./js/pieces.js?v=63",
+        "./js/nodes.js": "./js/nodes.js?v=63",
+        "./js/shapes.js": "./js/shapes.js?v=63",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=63",
+        "./js/outline.js": "./js/outline.js?v=63",
+        "./js/otf.js": "./js/otf.js?v=63",
+        "./js/woff.js": "./js/woff.js?v=63",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=63"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=62"></script>
+  <script type="module" src="js/main.js?v=63"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-# Letras experimentales
+# Experimental Letters
 
 Editor web para crear letras sobre grillas modulares. Hay dos tipos de
 grilla:

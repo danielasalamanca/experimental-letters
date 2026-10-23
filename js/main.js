@@ -3189,7 +3189,7 @@ $("projectFile").addEventListener("change", async (e) => {
   }
   const isProject = data?.format === "experimental-letters" || Array.isArray(data?.filled);
   if (!isProject) {
-    toast("Ese archivo no es un proyecto de Letras experimentales.");
+    toast("Ese archivo no es un proyecto de Experimental Letters.");
     return;
   }
   switchTo(newId(), normalizeFont(data));
