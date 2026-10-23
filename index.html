@@ -6,11 +6,11 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=67" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=68" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=67" : "favicon-light.png?v=67"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=68" : "favicon-light.png?v=68"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=67">
+  <link rel="stylesheet" href="style.css?v=68">
 </head>
 <body>
   <header class="topbar">
@@ -529,26 +529,27 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=67",
-        "./js/geometry.js": "./js/geometry.js?v=67",
-        "./js/model.js": "./js/model.js?v=67",
-        "./js/render.js": "./js/render.js?v=67",
-        "./js/tools.js": "./js/tools.js?v=67",
-        "./js/library.js": "./js/library.js?v=67",
-        "./js/history.js": "./js/history.js?v=67",
-        "./js/pieces.js": "./js/pieces.js?v=67",
-        "./js/nodes.js": "./js/nodes.js?v=67",
-        "./js/shapes.js": "./js/shapes.js?v=67",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=67",
-        "./js/outline.js": "./js/outline.js?v=67",
-        "./js/otf.js": "./js/otf.js?v=67",
-        "./js/masters.js": "./js/masters.js?v=67",
-        "./js/variable.js": "./js/variable.js?v=67",
-        "./js/woff.js": "./js/woff.js?v=67",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=67"
+        "./js/charset.js": "./js/charset.js?v=68",
+        "./js/geometry.js": "./js/geometry.js?v=68",
+        "./js/model.js": "./js/model.js?v=68",
+        "./js/render.js": "./js/render.js?v=68",
+        "./js/tools.js": "./js/tools.js?v=68",
+        "./js/library.js": "./js/library.js?v=68",
+        "./js/history.js": "./js/history.js?v=68",
+        "./js/pieces.js": "./js/pieces.js?v=68",
+        "./js/nodes.js": "./js/nodes.js?v=68",
+        "./js/shapes.js": "./js/shapes.js?v=68",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=68",
+        "./js/outline.js": "./js/outline.js?v=68",
+        "./js/otf.js": "./js/otf.js?v=68",
+        "./js/masters.js": "./js/masters.js?v=68",
+        "./js/variable.js": "./js/variable.js?v=68",
+        "./js/woff.js": "./js/woff.js?v=68",
+        "./js/export.js": "./js/export.js?v=68",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=68"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=67"></script>
+  <script type="module" src="js/main.js?v=68"></script>
 </body>
 </html>
