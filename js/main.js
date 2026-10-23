@@ -14,6 +14,7 @@ import { openLibrary, saveFont, loadFont, deleteFont, newId, fontName } from "./
 import { History } from "./history.js";
 import { initExport, baseName, downloadBlob, syncExportKinds } from "./export.js";
 import { initTestbar } from "./testbar.js";
+import { initGuide } from "./guide.js";
 import {
   AXES, axisRows, mirrorKeys, translate, cellsInRect, connectedCells,
   selectionExtras, translateCorner, translatePiece,
@@ -3304,6 +3305,7 @@ $("deleteFont").addEventListener("click", async () => {
 });
 
 initExport({ getFont: () => font, getGlyph: glyph, toast });
+initGuide({ getFont: () => font, isEmptyGlyph, selectGlyph });
 
 buildMetricInputs();
 buildRowInputs();

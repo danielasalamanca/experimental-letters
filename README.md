@@ -35,6 +35,12 @@ grilla:
 ## Qué se puede hacer
 
 ### Mapa de caracteres y glifos
+- **¿Por dónde empiezo?** (arriba de las letras): un torpedo con el orden
+  habitual para diseñar. Primero las letras de control, **n o** y **H O**, que
+  fijan el grosor, las curvas y el espaciado; luego las que reutilizan sus
+  partes (h m u r; b d p q; **I L F E T**…), las redondas, las diagonales, los
+  números y la puntuación. Marca las letras ya dibujadas y **Siguiente
+  sugerida** abre la primera que falta.
 - A la izquierda está el set completo: A–Z, a–z, 0–9, puntuación
   (. , ; : ! ¡ ? ¿ - – — ' " ‘ ’ “ ” « » ( ) /), símbolos (& @ # % $ €), ñ, Ñ,
   las vocales acentuadas (á é í ó ú ü y Á É Í Ó Ú Ü), los acentos usados como
