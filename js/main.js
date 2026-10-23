@@ -12,6 +12,7 @@ import {
 import { GROUPS, CHARSET, glyphName, fileName, codepoint, alternateOf, baseChar, caseOf } from "./charset.js";
 import { drawGlyph, drawText, el, SVG_NS, contoursToPath } from "./render.js";
 import { openLibrary, saveFont, loadFont, deleteFont, newId, fontName } from "./library.js";
+import { History } from "./history.js";
 import {
   AXES, axisRows, mirrorKeys, translate, cellsInRect, connectedCells,
   selectionExtras, translateCorner, translatePiece,
@@ -98,34 +99,30 @@ function persist() {
   syncLibrary();
 }
 
-// --- Undo / redo: whole-font snapshots, coalesced per control ---
-const undoStack = [], redoStack = [];
+// --- Undo / redo: font snapshots (see history.js), coalesced per control ---
+const undoHistory = new History(200);
 let lastTag = null, lastTime = 0;
 
 function checkpoint(tag = null) {
   const now = Date.now();
   if (tag && tag === lastTag && now - lastTime < 1000) { lastTime = now; return; }
   lastTag = tag; lastTime = now;
-  undoStack.push(JSON.stringify(font));
-  if (undoStack.length > 200) undoStack.shift();
-  redoStack.length = 0;
+  undoHistory.push(font);
   // Any change made on the bold master makes it hand-edited: it no longer
   // follows the Regular by itself.
   if (master === "bold" && font.glyphs[font.active]?.bold) font.glyphs[font.active].bold.auto = false;
 }
 
-function restore(from, to) {
-  const snap = from.pop();
-  if (!snap) return;
-  to.push(JSON.stringify(font));
-  font = normalizeFont(JSON.parse(snap));
+function restore(data) {
+  if (!data) return;
+  font = normalizeFont(data);
   lastTag = null;
   boldView = null;
   if (master === "bold") refreshBold(font, font.active);
   refreshAll();
 }
-const undo = () => restore(undoStack, redoStack);
-const redo = () => restore(redoStack, undoStack);
+const undo = () => restore(undoHistory.undo(font));
+const redo = () => restore(undoHistory.redo(font));
 
 // --- Rendering ---
 let bounds = null;       // what the canvas currently shows
@@ -2730,8 +2727,8 @@ function updateInfo() {
     : `${plan.pending.length} glifo(s) dibujados con métricas anteriores.`;
   $("rowsFit").hidden = $("rowsFitInfo").hidden = plan.affected === 0;
   $("rowsFitInfo").textContent = `${plan.affected} letra(s) quedaron con las filas anteriores. Ajustarlas inserta o quita filas en sus dibujos.`;
-  $("undo").disabled = undoStack.length === 0;
-  $("redo").disabled = redoStack.length === 0;
+  $("undo").disabled = !undoHistory.canUndo;
+  $("redo").disabled = !undoHistory.canRedo;
 }
 
 // Small helper for controls that edit the font and re-render.
@@ -3552,8 +3549,7 @@ function switchTo(id, data) {
   persist();
   library.active = id;
   font = data;
-  undoStack.length = 0;
-  redoStack.length = 0;
+  undoHistory.clear();
   lastTag = null;
   kernPair = null;
   zoomBox = null;
