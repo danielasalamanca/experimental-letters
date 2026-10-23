@@ -7,7 +7,7 @@ import { cloneOutline, shiftOutline, outlineToCommands } from "./nodes.js";
 import { pieceContour, contourObjects } from "./pieces.js";
 
 export const FORMAT = "experimental-letters";
-export const VERSION = 2;
+export const VERSION = 3;
 
 // Vertical metrics are stored in whole grid rows above the baseline (0).
 export const DEFAULT_METRICS = { ascender: 15, capHeight: 14, xHeight: 9, descender: -5 };
@@ -163,9 +163,24 @@ export function defaultGlyph(font, char) {
     glyph.cols = base.cols;
     glyph.lsb = base.lsb;
     glyph.rsb = base.rsb;
-    glyph.components = [{ glyph: source, dx: 0, dy: 0, turn: 180, autoMirror: true }];
+    glyph.components = [{ glyph: source, dx: 0, dy: invertedDrop(font), turn: 180, autoMirror: true }];
   }
   return glyph;
+}
+
+// ¡ and ¿ are ! and ? turned around, hanging from the x-height and going
+// below the baseline, as usual in Spanish (turned in place, they would sit
+// between the baseline and the cap height). In rows.
+const invertedDrop = (font) => font.metrics.xHeight - font.metrics.capHeight;
+
+// Version 3: fonts saved before still have ¡ and ¿ turned in place; those
+// that weren't moved by hand now hang like new ones.
+function hangInvertedSigns(font) {
+  for (const [inverted, source] of Object.entries(INVERTED_PUNCTUATION)) {
+    for (const comp of font.glyphs[inverted]?.components ?? []) {
+      if (comp.autoMirror && comp.glyph === source && comp.dx === 0 && comp.dy === 0) comp.dy = invertedDrop(font);
+    }
+  }
 }
 
 // How far a case mark starts above its lowercase accent, in rows.
@@ -193,7 +208,7 @@ export function ensureCharset(font) {
         glyph.cols = base.cols;
         glyph.lsb = base.lsb;
         glyph.rsb = base.rsb;
-        glyph.components = [{ glyph: source, dx: 0, dy: 0, turn: 180, autoMirror: true }];
+        glyph.components = [{ glyph: source, dx: 0, dy: invertedDrop(font), turn: 180, autoMirror: true }];
       }
     }
   }
@@ -363,6 +378,8 @@ export function normalizeFont(data) {
   for (const k of Object.keys(font.glyphs)) font.glyphs[k] = fix(font.glyphs[k]);
   font.drafts = font.drafts.map(fix);
   ensureCharset(font);
+  if ((data.version ?? 2) < 3) hangInvertedSigns(font);
+  font.version = VERSION;
   if (!font.glyphs[font.active]) font.active = "a";
   return font;
 }

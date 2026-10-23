@@ -55,7 +55,9 @@ grilla:
   el acento de minúscula subido a la altura de mayúsculas, y se pueden dibujar
   más planos o más bajos sin tocar las minúsculas. El botón ↔ centra un acento
   sobre la tinta de la letra. "¡" y "¿" son componentes girados 180° de "!" y
-  "?": siguen sus dibujos, su grilla, sus columnas y sus márgenes.
+  "?": siguen sus dibujos, su grilla, sus columnas y sus márgenes, y cuelgan
+  de la altura de x bajando de la línea base, como se usa en español (se
+  pueden subir o bajar con la **y** del componente).
   En el lienzo, lo que viene de componentes se ve en gris. **Descomponer**
   copia todo al dibujo propio del glifo.
 

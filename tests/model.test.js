@@ -246,3 +246,32 @@ test("older fonts switch their capitals to the case marks without changing their
   // An accent with an erased part stays as it was.
   assert.equal(loaded.glyphs["É"].components[1].glyph, "´");
 });
+
+test("¡ and ¿ hang from the x-height and go below the baseline", async () => {
+  const { resolvedCells } = await import("../js/model.js");
+  const font = normalizeFont(null);
+  const { xHeight, capHeight } = font.metrics;
+  // A "!" drawn as a stem up to the cap height and a dot on the baseline.
+  font.glyphs["!"].cols = 1;
+  font.glyphs["!"].cells = [...Array.from({ length: capHeight - 3 }, (_, r) => `0,${r + 3}`), "0,0"];
+  const rows = resolvedCells(font, font.glyphs["¡"]).map((k) => +k.split(",")[1]);
+  assert.equal(Math.max(...rows) + 1, xHeight, "the dot's top at the x-height");
+  assert.equal(Math.min(...rows), xHeight - capHeight, "the stem below the baseline");
+  assert.deepEqual(font.glyphs["¿"].components.map((c) => [c.glyph, c.turn, c.dy]), [["?", 180, xHeight - capHeight]]);
+});
+
+test("fonts saved before version 3 get hanging ¡ ¿, unless moved by hand", () => {
+  const font = normalizeFont(null);
+  const old = JSON.parse(JSON.stringify(font));
+  old.version = 2;
+  old.glyphs["¡"].components[0].dy = 0;
+  old.glyphs["¿"].components[0].dy = 0;
+  old.glyphs["¿"].components[0].dx = 1;
+  const loaded = normalizeFont(old);
+  assert.equal(loaded.version, 3);
+  assert.equal(loaded.glyphs["¡"].components[0].dy, font.metrics.xHeight - font.metrics.capHeight);
+  assert.equal(loaded.glyphs["¿"].components[0].dy, 0, "moved by hand: left as it was");
+  // Once saved as version 3, a 0 chosen on purpose stays.
+  loaded.glyphs["¡"].components[0].dy = 0;
+  assert.equal(normalizeFont(JSON.parse(JSON.stringify(loaded))).glyphs["¡"].components[0].dy, 0);
+});
