@@ -228,8 +228,10 @@ function holeContour(P, geo) {
 export const MAX_STROKE = 0.45;
 export const MAX_RADIUS = 12;
 
-// Effective corner radii use half-cell increments. Always round down so the
-// snapped radius remains within the geometric space available to the corner.
+// Corners with their own radius (Esquinas) use half-cell increments. Always
+// round down so the snapped radius remains within the geometric space
+// available to the corner. The global rounding (0–1, radii up to half a cell)
+// is not snapped: it would all round down to sharp corners.
 export const snapRadius = (radius) => Math.floor((Math.max(0, radius) + 1e-9) * 2) / 2;
 
 export function squareContours(cells, options) {
@@ -284,7 +286,7 @@ function resolveCorners(cells, { rounding = 0, stroke = 0, corners = {}, join: j
   return traceLoops(set, has, join).map((loop) => {
     const turns = cornerList(loop);
     // As an outline, walls must stay at least two strokes wide.
-    const radii = cornerRadii(turns, has, 2 * t, (v) => wanted(v.x, v.y));
+    const radii = cornerRadii(turns, has, 2 * t, (v) => wanted(v.x, v.y), (v) => corners[key(v.x, v.y)] !== undefined);
     return { turns, radii };
   });
 }
@@ -300,12 +302,12 @@ export function squareCorners(cells) {
 const cornerList = (loop) =>
   loop.map((v) => ({ ...v, turn: (v.dout - v.din + 4) % 4 })).filter((v) => v.turn !== 0);
 
-function cornerRadii(turns, has, wall, wanted) {
+function cornerRadii(turns, has, wall, wanted, own = () => false) {
   const radii = turns.map((v) => {
     const want = wanted(v);
     return want > 0 ? Math.min(want, roomAt(v, has, want, v.turn === 1 ? wall : 0)) : 0;
   });
-  return shareEdges(turns, radii).map(snapRadius);
+  return shareEdges(turns, radii).map((r, i) => (own(turns[i]) ? snapRadius(r) : r));
 }
 
 // Two corners on the same edge share its length.
