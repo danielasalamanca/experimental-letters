@@ -397,6 +397,16 @@ body.master-bold .board-card { box-shadow: 0 0 0 2px var(--fg); }
 }
 
 /* ---------- Right: the letter ---------- */
+/* Tabs: "Esta letra" and "Toda la fuente". */
+.panel-tabs {
+  position: sticky; top: 0; z-index: 2;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px; padding: 4px; margin-bottom: 16px;
+  background: linear-gradient(var(--chip), var(--chip)), var(--bg); border-radius: 22px;
+}
+.panel-tabs .chip { color: var(--muted); }
+.panel-tabs .chip:hover:not(:disabled) { background: var(--chip); color: var(--fg); }
+.panel-tabs .chip.active, .panel-tabs .chip.active:hover:not(:disabled) { background: var(--fg); color: #fff; }
+.panel-intro { margin: 0 0 12px; }
 .glyph-card {
   display: flex; align-items: center; gap: 0;
   height: 120px; padding: 16px 22px; margin-bottom: 20px;
@@ -443,7 +453,6 @@ label.check { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
 .section[open] > summary::after { content: "−"; }
 .section > summary:hover { color: var(--pink-ink); }
 .section-body { padding: 2px 0 16px; }
-.zone-right > .label { margin: 4px 0 8px; }
 .swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.25); }
 .rows-editor { margin: 12px 0 4px; padding-top: 10px; border-top: 1px solid var(--line); }
 .rows-head { display: flex; justify-content: space-between; align-items: baseline; font-weight: 500; margin-bottom: 4px; }

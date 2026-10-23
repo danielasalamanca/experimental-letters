@@ -2669,7 +2669,9 @@ function syncControls() {
   const own = g[k] != null;
   $("glyphCurveGlobal").hidden = own;
   $("glyphCurveOwn").hidden = !own;
-  $("glyphCurveText").textContent = `Este glifo usa ${squares ? "el redondeo global" : "la curvatura global"}.`;
+  $("glyphCurveText").textContent = squares && !font.roundAll
+    ? "Esta letra usa la forma de la fuente: esquinas en punta."
+    : `Esta letra usa ${squares ? "el redondeo global" : "la curvatura global"} (${pct(font[k])}).`;
   $("ownCurve").textContent = `${word} propi${squares ? "o" : "a"}`;
   $("glyphCurveLabel").textContent = `${word} propi${squares ? "o" : "a"}`;
   $("useGlobal").textContent = `Usar ${squares ? "redondeo global" : "curvatura global"}`;
@@ -3330,6 +3332,41 @@ function toggleLetters() {
 }
 $("toggleLetters").addEventListener("click", toggleLetters);
 try { if (localStorage.getItem(LETTERS_KEY) === "1") setLettersHidden(true); } catch {}
+
+// --- Right panel: "Esta letra" and "Toda la fuente" ---
+// Settings of the active letter and settings of the whole font live on
+// separate tabs, so a global change is never made by mistake.
+const PANEL_KEY = "experimental-letters:panel";
+const PANEL_TABS = { glyph: ["tabGlyph", "panelGlyph"], font: ["tabFont", "panelFont"] };
+function showPanel(name) {
+  for (const [key, [tab, panel]] of Object.entries(PANEL_TABS)) {
+    const on = key === name;
+    $(tab).classList.toggle("active", on);
+    $(tab).setAttribute("aria-selected", String(on));
+    $(tab).tabIndex = on ? 0 : -1;
+    $(panel).hidden = !on;
+  }
+  try { localStorage.setItem(PANEL_KEY, name); } catch {}
+}
+$("tabGlyph").addEventListener("click", () => showPanel("glyph"));
+$("tabFont").addEventListener("click", () => showPanel("font"));
+// Arrow keys move between the tabs (and don't reach the canvas shortcuts).
+document.querySelector(".panel-tabs").addEventListener("keydown", (e) => {
+  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  e.preventDefault();
+  e.stopPropagation();
+  const next = $("tabGlyph").classList.contains("active") ? "font" : "glyph";
+  showPanel(next);
+  $(PANEL_TABS[next][0]).focus();
+});
+// Links between the tabs ("Cambiar la forma de toda la fuente").
+document.querySelectorAll("[data-goto]").forEach((b) => b.addEventListener("click", () => {
+  const target = $(b.dataset.goto);
+  showPanel(target.closest("#panelFont") ? "font" : "glyph");
+  target.open = true;
+  target.scrollIntoView({ block: "nearest" });
+}));
+try { if (localStorage.getItem(PANEL_KEY) === "font") showPanel("font"); } catch {}
 
 // --- Collapsible test bar ---
 const TEST_KEY = "experimental-letters:test-hidden";

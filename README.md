@@ -24,8 +24,11 @@ grilla:
 - **Centro:** las herramientas (Dibujar, Seleccionar, Nodos, Esquinas,
   Piezas) en una barra; las opciones de la herramienta activa aparecen
   debajo, en una franja clara. Más abajo, el lienzo.
-- **Derecha:** paneles plegables: **Letra** y **Forma** abiertos; **Grilla**,
-  **Métricas**, **Tipografía** y **Exportar** se abren cuando los necesitas.
+- **Derecha:** dos pestañas. **Esta letra**: ancho, márgenes, alternativas,
+  nodos, piezas, la forma y grilla propias de la letra, componentes y copiar
+  desde otra letra. **Toda la fuente**: forma global, grilla, métricas,
+  tipografía, pesos y exportar. Así un ajuste global nunca se cambia por
+  error al editar una letra.
 - **Abajo:** la barra **Probar** para escribir con tu fuente y ajustar el
   kerning.
 
@@ -274,8 +277,9 @@ grilla:
 
 ### Forma
 - **Curvatura global** (grilla de círculos) o **redondeo global** de las
-  esquinas (grilla de puntos), con la opción de darle a un glifo un valor
-  propio (marcado con un punto azul en el mapa) y volver al global.
+  esquinas (grilla de puntos), en **Toda la fuente › Forma**. En **Esta letra ›
+  Forma de esta letra** se le da a un glifo un valor propio (marcado con un
+  punto azul en el mapa), se vuelve al global o se elige su grilla.
 - Grilla de puntos: las esquinas quedan **en punta** hasta que actives
   **Redondear todas las esquinas**; recién entonces se aplica el redondeo
   global, así puedes dejarlo para el final. Las esquinas redondeadas con la

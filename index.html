@@ -6,11 +6,11 @@
   <title>Letras Experimentales</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=58" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=59" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=58" : "favicon-light.png?v=58"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=59" : "favicon-light.png?v=59"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:wght@900&family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Fragment+Mono&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=58">
+  <link rel="stylesheet" href="style.css?v=59">
 </head>
 <body>
   <header class="topbar">
@@ -173,6 +173,11 @@
     </main>
 
     <aside class="zone zone-right" aria-label="Propiedades">
+      <div class="panel-tabs" role="tablist" aria-label="Propiedades">
+        <button id="tabGlyph" type="button" class="chip active" role="tab" aria-selected="true" aria-controls="panelGlyph">Esta letra</button>
+        <button id="tabFont" type="button" class="chip" role="tab" aria-selected="false" aria-controls="panelFont" tabindex="-1">Toda la fuente</button>
+      </div>
+      <div id="panelGlyph" class="panel" role="tabpanel" aria-labelledby="tabGlyph">
       <div class="glyph-card">
         <svg id="glyphThumb" class="glyph-thumb" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
         <span id="glyphChar" class="glyph-char"></span>
@@ -218,11 +223,9 @@
           </div>
         </details>
         <details class="section">
-          <summary>Forma</summary>
+          <summary>Forma de esta letra</summary>
           <div class="section-body">
-            <label class="range-row"><span id="curveLabel">Curvatura global</span> <output id="curveOut"></output>
-              <input type="range" id="curve" min="20" max="100">
-            </label>
+            <label class="row">Grilla <select id="glyphGrid"></select></label>
             <div id="glyphCurveGlobal" class="glyph-curve">
               <span id="glyphCurveText">Este glifo usa la curvatura global.</span>
               <button id="ownCurve" type="button" class="ghost">Curvatura propia</button>
@@ -233,25 +236,7 @@
               </label>
               <button id="useGlobal" type="button" class="ghost">Usar curvatura global</button>
             </div>
-            <div id="circleOptions">
-              <label class="check"><input type="checkbox" id="join"> Unión mínima</label>
-              <label class="row">Grosor de unión (u) <input type="number" id="joinWidth" min="1" max="250" step="1"></label>
-            </div>
-            <div id="squareOptions" hidden>
-              <label class="check"><input type="checkbox" id="roundAll"> Redondear todas las esquinas</label>
-              <p class="info" id="roundAllInfo"></p>
-              <label class="row">Estilo
-                <select id="style">
-                  <option value="fill">Relleno</option>
-                  <option value="outline">Contorno</option>
-                </select>
-              </label>
-              <label class="row">Grosor del contorno (u) <input type="number" id="stroke" min="1" step="1"></label>
-            </div>
-            <div class="colors">
-              <label class="row color">Tinta <input type="color" id="ink"></label>
-              <label class="row color">Fondo <input type="color" id="paper"></label>
-            </div>
+            <button type="button" class="link" data-goto="fontShape">Cambiar la forma de toda la fuente</button>
           </div>
         </details>
         <details class="section regular-only" id="componentsBox">
@@ -275,16 +260,39 @@
             <p class="info">Reemplaza el dibujo, columnas y márgenes de esta letra (se puede deshacer).</p>
           </div>
         </details>
-        <details class="section">
-          <summary>Grilla de esta letra</summary>
-          <div class="section-body">
-            <label class="row">Grilla <select id="glyphGrid"></select></label>
-          </div>
-        </details>
+      </div>
       </div>
 
-      <span class="label">Toda la fuente</span>
+      <div id="panelFont" class="panel" role="tabpanel" aria-labelledby="tabFont" hidden>
+      <p class="info panel-intro">Estos ajustes cambian todas las letras.</p>
       <div class="sections">
+        <details class="section" id="fontShape">
+          <summary>Forma</summary>
+          <div class="section-body">
+            <label class="range-row"><span id="curveLabel">Curvatura global</span> <output id="curveOut"></output>
+              <input type="range" id="curve" min="20" max="100">
+            </label>
+            <div id="circleOptions">
+              <label class="check"><input type="checkbox" id="join"> Unión mínima</label>
+              <label class="row">Grosor de unión (u) <input type="number" id="joinWidth" min="1" max="250" step="1"></label>
+            </div>
+            <div id="squareOptions" hidden>
+              <label class="check"><input type="checkbox" id="roundAll"> Redondear todas las esquinas</label>
+              <p class="info" id="roundAllInfo"></p>
+              <label class="row">Estilo
+                <select id="style">
+                  <option value="fill">Relleno</option>
+                  <option value="outline">Contorno</option>
+                </select>
+              </label>
+              <label class="row">Grosor del contorno (u) <input type="number" id="stroke" min="1" step="1"></label>
+            </div>
+            <div class="colors">
+              <label class="row color">Tinta <input type="color" id="ink"></label>
+              <label class="row color">Fondo <input type="color" id="paper"></label>
+            </div>
+          </div>
+        </details>
         <details class="section">
           <summary>Grilla</summary>
           <div class="section-body">
@@ -373,6 +381,7 @@
             </div>
           </div>
         </details>
+      </div>
       </div>
     </aside>
   </div>
@@ -500,22 +509,22 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=58",
-        "./js/geometry.js": "./js/geometry.js?v=58",
-        "./js/model.js": "./js/model.js?v=58",
-        "./js/render.js": "./js/render.js?v=58",
-        "./js/tools.js": "./js/tools.js?v=58",
-        "./js/library.js": "./js/library.js?v=58",
-        "./js/pieces.js": "./js/pieces.js?v=58",
-        "./js/nodes.js": "./js/nodes.js?v=58",
-        "./js/shapes.js": "./js/shapes.js?v=58",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=58",
-        "./js/outline.js": "./js/outline.js?v=58",
-        "./js/otf.js": "./js/otf.js?v=58",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=58"
+        "./js/charset.js": "./js/charset.js?v=59",
+        "./js/geometry.js": "./js/geometry.js?v=59",
+        "./js/model.js": "./js/model.js?v=59",
+        "./js/render.js": "./js/render.js?v=59",
+        "./js/tools.js": "./js/tools.js?v=59",
+        "./js/library.js": "./js/library.js?v=59",
+        "./js/pieces.js": "./js/pieces.js?v=59",
+        "./js/nodes.js": "./js/nodes.js?v=59",
+        "./js/shapes.js": "./js/shapes.js?v=59",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=59",
+        "./js/outline.js": "./js/outline.js?v=59",
+        "./js/otf.js": "./js/otf.js?v=59",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=59"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=58"></script>
+  <script type="module" src="js/main.js?v=59"></script>
 </body>
 </html>
