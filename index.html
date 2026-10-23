@@ -6,19 +6,19 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=63" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=64" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=63" : "favicon-light.png?v=63"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=64" : "favicon-light.png?v=64"; };
       set();
       dark.addEventListener("change", set);
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:wght@900&family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Fragment+Mono&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=63">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
+  <link rel="stylesheet" href="style.css?v=64">
 </head>
 <body>
   <header class="topbar">
@@ -82,6 +82,11 @@
         </div>
       </div>
 
+      <div class="tip" id="tip" role="note" hidden>
+        <strong>Para empezar</strong>
+        <span>Elige una letra a la izquierda y haz clic o arrastra sobre la grilla para dibujarla. Mantén la barra espaciadora para verla sin guías.</span>
+        <button id="tipClose" type="button" class="small">Entendido</button>
+      </div>
       <div class="work">
       <div class="context-bar" role="toolbar" aria-orientation="vertical" aria-label="Opciones de la herramienta">
         <div class="tool-group" id="boldGroup" hidden>
@@ -151,7 +156,7 @@
           <button id="mirrorV" type="button" title="Simetría al dibujar: lo que dibujas se repite arriba y abajo" aria-label="Simetría arriba–abajo al dibujar">Espejo V</button>
           <select id="mirrorAxis" title="Eje de la simetría arriba–abajo" aria-label="Eje de la simetría arriba–abajo"></select>
           <label class="inline" title="Muestra otra letra detrás, en transparencia">Fondo: <select id="background" aria-label="Glifo de fondo"></select></label>
-          <label class="inline" title="Muestra la letra en gris, en una fuente del sistema, como referencia para empezar a dibujarla">Guía: <select id="placeholder" aria-label="Letra guía">
+          <label class="inline" title="Muestra la letra en gris, en una fuente del sistema, como referencia para empezar a dibujarla">Referencia: <select id="placeholder" aria-label="Letra de referencia">
             <option value="empty">si está vacía</option>
             <option value="always">siempre</option>
             <option value="off">nunca</option>
@@ -160,11 +165,6 @@
           <output id="zoomLevel" title="Zoom">100%</output>
           <button id="zoomIn" type="button" class="square" title="Acercar (+)" aria-label="Acercar">+</button>
           <button id="zoomFit" type="button" title="Ajustar a la ventana (0)">Ajustar</button>
-        </div>
-        <div class="tip" id="tip" hidden>
-          <strong>Para empezar</strong>
-          <span>Elige una letra a la izquierda y haz clic o arrastra sobre la grilla para dibujarla. Mantén la barra espaciadora para verla sin guías.</span>
-          <button id="tipClose" type="button" class="small">Entendido</button>
         </div>
         <div id="toast" class="toast" role="status" hidden></div>
       </div>
@@ -527,23 +527,23 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=63",
-        "./js/geometry.js": "./js/geometry.js?v=63",
-        "./js/model.js": "./js/model.js?v=63",
-        "./js/render.js": "./js/render.js?v=63",
-        "./js/tools.js": "./js/tools.js?v=63",
-        "./js/library.js": "./js/library.js?v=63",
-        "./js/pieces.js": "./js/pieces.js?v=63",
-        "./js/nodes.js": "./js/nodes.js?v=63",
-        "./js/shapes.js": "./js/shapes.js?v=63",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=63",
-        "./js/outline.js": "./js/outline.js?v=63",
-        "./js/otf.js": "./js/otf.js?v=63",
-        "./js/woff.js": "./js/woff.js?v=63",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=63"
+        "./js/charset.js": "./js/charset.js?v=64",
+        "./js/geometry.js": "./js/geometry.js?v=64",
+        "./js/model.js": "./js/model.js?v=64",
+        "./js/render.js": "./js/render.js?v=64",
+        "./js/tools.js": "./js/tools.js?v=64",
+        "./js/library.js": "./js/library.js?v=64",
+        "./js/pieces.js": "./js/pieces.js?v=64",
+        "./js/nodes.js": "./js/nodes.js?v=64",
+        "./js/shapes.js": "./js/shapes.js?v=64",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=64",
+        "./js/outline.js": "./js/outline.js?v=64",
+        "./js/otf.js": "./js/otf.js?v=64",
+        "./js/woff.js": "./js/woff.js?v=64",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=64"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=63"></script>
+  <script type="module" src="js/main.js?v=64"></script>
 </body>
 </html>

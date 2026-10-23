@@ -204,7 +204,7 @@ grilla:
     Glifo, con su botón para quitarlas.
 - **Fondo:** muestra otro glifo en azul transparente detrás del que dibujas
   (por ejemplo, la "n" detrás de la "m").
-- **Guía:** como en Glyphs, muestra la letra en gris con una fuente del
+- **Referencia:** como en Glyphs, muestra la letra en gris con una fuente del
   sistema, para tener una referencia al empezar. Las mayúsculas llegan a la
   altura de mayúsculas y las minúsculas a la altura x, siempre con sus
   proporciones, aunque sea más ancha que la grilla. Por defecto aparece solo **si la letra está
