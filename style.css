@@ -626,6 +626,16 @@ dialog.help { max-width: 540px; }
 .shortcuts dt { font-family: var(--mono); white-space: nowrap; }
 .shortcuts dd { margin: 0; }
 
+/* The tools bar, the board and the right column move up beside the history
+   buttons (menu, undo, redo), which stay above the letters: the board gets
+   that row's height. With the letters hidden, the tools bar stays below the
+   buttons so it doesn't cover them. */
+@media (min-width: 901px) {
+  :root { --history-row: 60px; } /* the buttons (36px) and the space around them */
+  .zone-center, .zone-right { margin-top: calc(-1 * var(--history-row)); }
+  .app.letters-hidden .zone-center { margin-top: 0; }
+}
+
 /* ---------- Smaller screens ---------- */
 @media (max-width: 1280px) {
   .app { grid-template-columns: 232px minmax(0, 1fr) 290px; }
