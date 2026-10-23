@@ -3,15 +3,16 @@
 Editor web para crear letras sobre grillas modulares. Hay dos tipos de
 grilla:
 
-- **Círculos (estrellas):** cada celda rellena dibuja la estrella cóncava que
-  queda entre cuatro círculos vecinos; la curvatura de esos círculos define el
-  carácter de la letra.
-- **Puntos (cuadrados):** una grilla de puntos, como la de un cuaderno
-  punteado, donde cada celda es un cuadrado. Las esquinas se pueden redondear
+- **Puntos (cuadrados)**, con la que empieza cada tipografía nueva: una
+  grilla de puntos, como la de un cuaderno punteado, donde cada celda es un
+  cuadrado. Las esquinas se pueden redondear
   —todas a la vez o una por una, con radios de varias celdas para hacer arcos,
   panzas y contraformas redondas, al estilo de los alfabetos geométricos
   modulares— y la letra puede ser rellena o solo un **contorno** que recorre
   el borde de los cuadrados.
+- **Círculos (estrellas):** cada celda rellena dibuja la estrella cóncava que
+  queda entre cuatro círculos vecinos; la curvatura de esos círculos define el
+  carácter de la letra.
 
 **Abrir el editor:** https://danielasalamanca.github.io/experimental-letters/
 

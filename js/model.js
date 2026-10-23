@@ -278,8 +278,9 @@ export function createFont() {
     cell: 50,
     metrics: { ...DEFAULT_METRICS },
     overshoot: 12,
-    // Grid type: "circles" (stars between circles) or "squares" (dot grid).
-    grid: "circles",
+    // Grid type: "squares" (dot grid, the default) or "circles" (stars
+    // between circles).
+    grid: "squares",
     curve: 1,
     join: { enabled: true, width: 15 },
     // Square grid: corner rounding (0–1), fill or outline, outline width (u).
@@ -315,7 +316,7 @@ export function createFont() {
 export const createFullFont = () => ensureCharset(createFont());
 
 // A new, empty font (no sample letter) for "Nueva tipografía".
-export function createBlankFont({ family = "Nueva tipografía", grid = "circles" } = {}) {
+export function createBlankFont({ family = "Nueva tipografía", grid = "squares" } = {}) {
   const font = createFont();
   font.glyphs = {};
   font.meta.family = family;
@@ -343,6 +344,8 @@ export function migrateV1(old) {
     });
   };
 
+  // The first version only had the circle grid.
+  font.grid = "circles";
   font.curve = globalCurve;
   font.view.ink = old.ink ?? font.view.ink;
   font.view.paper = old.paper ?? font.view.paper;
@@ -360,6 +363,8 @@ export function normalizeFont(data) {
   const font = {
     ...base,
     ...data,
+    // Fonts saved before there was a choice of grid were drawn on circles.
+    grid: data.grid ?? "circles",
     meta: { ...base.meta, ...data.meta },
     metrics: { ...base.metrics, ...data.metrics },
     join: { ...base.join, ...data.join },
@@ -384,7 +389,7 @@ export function normalizeFont(data) {
   return font;
 }
 
-export const GRIDS = { circles: "Círculos (estrellas)", squares: "Puntos (cuadrados)" };
+export const GRIDS = { squares: "Puntos (cuadrados)", circles: "Círculos (estrellas)" };
 
 export const glyphGrid = (font, glyph) => glyph.grid ?? font.grid;
 

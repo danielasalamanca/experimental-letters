@@ -3261,7 +3261,7 @@ $("fontSelect").addEventListener("change", (e) => {
 
 $("newFont").addEventListener("click", () => {
   $("newFontName").value = "Nueva tipografía";
-  $("newFontGrid").value = font.grid;
+  $("newFontGrid").value = "squares"; // the main grid; circles can be chosen here
   const dialog = $("newFontDialog");
   dialog.returnValue = "";
   dialog.onclose = () => {

@@ -275,3 +275,17 @@ test("fonts saved before version 3 get hanging ¡ ¿, unless moved by hand", () 
   loaded.glyphs["¡"].components[0].dy = 0;
   assert.equal(normalizeFont(JSON.parse(JSON.stringify(loaded))).glyphs["¡"].components[0].dy, 0);
 });
+
+test("new fonts use the square grid; older ones keep the circles they were drawn on", async () => {
+  const { createBlankFont, migrateV1 } = await import("../js/model.js");
+  assert.equal(normalizeFont(null).grid, "squares");
+  assert.equal(createBlankFont().grid, "squares");
+  assert.equal(createBlankFont({ grid: "circles" }).grid, "circles");
+  // A saved font keeps its grid; one saved before grids existed was on circles.
+  const saved = JSON.parse(JSON.stringify(normalizeFont(null)));
+  saved.grid = "circles";
+  assert.equal(normalizeFont(saved).grid, "circles");
+  delete saved.grid;
+  assert.equal(normalizeFont(saved).grid, "circles");
+  assert.equal(migrateV1({ filled: [] }).grid, "circles");
+});
