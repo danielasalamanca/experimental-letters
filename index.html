@@ -6,11 +6,11 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=71" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=72" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=71" : "favicon-light.png?v=71"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=72" : "favicon-light.png?v=72"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=71">
+  <link rel="stylesheet" href="style.css?v=72">
 </head>
 <body>
   <header class="topbar">
@@ -45,15 +45,15 @@
   <div class="app">
     <aside class="zone zone-left" id="lettersPanel" aria-label="Letras">
       <button id="guideBtn" type="button" class="guide-btn" title="Una guía del orden habitual para diseñar las letras">¿Por dónde empiezo?</button>
-      <div class="filters" id="charFilters" role="group" aria-label="Mostrar">
-        <button type="button" class="filter active" data-filter="all" aria-pressed="true">Todas</button>
-        <button type="button" class="filter" data-filter="upper" aria-pressed="false">Mayúsculas</button>
-        <button type="button" class="filter" data-filter="lower" aria-pressed="false">Minúsculas</button>
-        <button type="button" class="filter" data-filter="digits" aria-pressed="false">Números</button>
-        <button type="button" class="filter" data-filter="signs" aria-pressed="false">Signos</button>
+      <div class="filters kinds" id="charFilters" role="group" aria-label="Mostrar">
+        <button type="button" class="filter active" data-filter="all" aria-pressed="true" title="Todas las letras">Todas</button>
+        <button type="button" class="filter" data-filter="upper" aria-pressed="false" title="Mayúsculas" aria-label="Mayúsculas">ABC</button>
+        <button type="button" class="filter" data-filter="lower" aria-pressed="false" title="Minúsculas" aria-label="Minúsculas">abc</button>
+        <button type="button" class="filter" data-filter="digits" aria-pressed="false" title="Números" aria-label="Números">123</button>
+        <button type="button" class="filter" data-filter="signs" aria-pressed="false" title="Signos: puntuación, símbolos y acentos" aria-label="Signos">!?&amp;</button>
       </div>
       <span class="label">Estado</span>
-      <div class="filters" id="stateFilters" role="group" aria-label="Estado">
+      <div class="filters states" id="stateFilters" role="group" aria-label="Estado">
         <button type="button" class="state" data-state="drawn" aria-pressed="false">Dibujadas</button>
         <button type="button" class="state" data-state="empty" aria-pressed="false">Vacías</button>
         <button type="button" class="state" data-state="composite" aria-pressed="false">Compuestas</button>
@@ -543,29 +543,29 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=71",
-        "./js/geometry.js": "./js/geometry.js?v=71",
-        "./js/model.js": "./js/model.js?v=71",
-        "./js/render.js": "./js/render.js?v=71",
-        "./js/tools.js": "./js/tools.js?v=71",
-        "./js/library.js": "./js/library.js?v=71",
-        "./js/history.js": "./js/history.js?v=71",
-        "./js/pieces.js": "./js/pieces.js?v=71",
-        "./js/nodes.js": "./js/nodes.js?v=71",
-        "./js/shapes.js": "./js/shapes.js?v=71",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=71",
-        "./js/outline.js": "./js/outline.js?v=71",
-        "./js/otf.js": "./js/otf.js?v=71",
-        "./js/masters.js": "./js/masters.js?v=71",
-        "./js/variable.js": "./js/variable.js?v=71",
-        "./js/woff.js": "./js/woff.js?v=71",
-        "./js/export.js": "./js/export.js?v=71",
-        "./js/testbar.js": "./js/testbar.js?v=71",
-        "./js/guide.js": "./js/guide.js?v=71",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=71"
+        "./js/charset.js": "./js/charset.js?v=72",
+        "./js/geometry.js": "./js/geometry.js?v=72",
+        "./js/model.js": "./js/model.js?v=72",
+        "./js/render.js": "./js/render.js?v=72",
+        "./js/tools.js": "./js/tools.js?v=72",
+        "./js/library.js": "./js/library.js?v=72",
+        "./js/history.js": "./js/history.js?v=72",
+        "./js/pieces.js": "./js/pieces.js?v=72",
+        "./js/nodes.js": "./js/nodes.js?v=72",
+        "./js/shapes.js": "./js/shapes.js?v=72",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=72",
+        "./js/outline.js": "./js/outline.js?v=72",
+        "./js/otf.js": "./js/otf.js?v=72",
+        "./js/masters.js": "./js/masters.js?v=72",
+        "./js/variable.js": "./js/variable.js?v=72",
+        "./js/woff.js": "./js/woff.js?v=72",
+        "./js/export.js": "./js/export.js?v=72",
+        "./js/testbar.js": "./js/testbar.js?v=72",
+        "./js/guide.js": "./js/guide.js?v=72",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=72"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=71"></script>
+  <script type="module" src="js/main.js?v=72"></script>
 </body>
 </html>

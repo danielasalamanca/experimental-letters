@@ -218,11 +218,18 @@ dialog.guide { max-width: 600px; }
 .guide-char.next { box-shadow: inset 0 0 0 2px var(--fg); }
 .filters { display: flex; flex-wrap: wrap; gap: 6px; }
 .filters + .label { margin: 16px 0 8px; }
-.filter { min-height: 34px; padding: 0 16px; font-size: 14.5px; font-weight: 400; background: var(--surface); }
-.filter:hover:not(:disabled) { background: var(--surface); box-shadow: inset 0 0 0 1px var(--fg); }
+/* Kinds of characters (short labels: ABC, abc, 123, !?&) and states: one
+   pill each, on a single row. */
+.filters.kinds, .filters.states {
+  flex-wrap: nowrap; gap: 1px; padding: 4px;
+  background: linear-gradient(var(--chip), var(--chip)), var(--surface); border-radius: 22px;
+}
+.filter { flex: 1 1 auto; min-width: 0; min-height: 32px; padding: 0 6px; font-size: 14px; font-weight: 600; background: transparent; }
+.filter[data-filter="digits"] { font-family: var(--mono); font-weight: 700; }
+.filter:hover:not(:disabled) { background: var(--surface); }
 .filter.active, .filter.active:hover:not(:disabled) { background: var(--fg); color: #fff; box-shadow: none; }
-.state { min-height: 32px; padding: 0 15px; font-weight: 400; background: transparent; border-color: var(--fg); }
-.state:hover:not(:disabled) { background: var(--chip); }
+.state { flex: 1 1 auto; min-width: 0; min-height: 30px; padding: 0 6px; font-size: 13.5px; font-weight: 400; background: transparent; border-color: transparent; }
+.state:hover:not(:disabled) { background: var(--surface); }
 .state.active, .state.active:hover:not(:disabled) { background: var(--acid); }
 #stateFilters { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
 
