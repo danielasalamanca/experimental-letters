@@ -282,6 +282,10 @@ export function createFont() {
       test: { text: "hamburgefonstiv", size: 72, inverted: false },
     },
     kerning: {},
+    // Kerning groups by side ({ left: { V: "V", W: "V" }, right: {…} }) and
+    // the values between them ({ A: { V: -60 } }). See kernGroup.
+    groups: { left: {}, right: {} },
+    groupKerning: {},
     // "Solo mayúsculas": lowercase letters are typed as their capitals.
     allCaps: false,
     // Weight axis: Regular and bold master weights, and how much the
@@ -346,6 +350,8 @@ export function normalizeFont(data) {
     join: { ...base.join, ...data.join },
     view: { ...base.view, ...data.view, test: { ...base.view.test, ...data.view?.test } },
     kerning: { ...data.kerning },
+    groups: { left: { ...data.groups?.left }, right: { ...data.groups?.right } },
+    groupKerning: Object.fromEntries(Object.entries(data.groupKerning ?? {}).map(([a, row]) => [a, { ...row }])),
     axis: { ...base.axis, ...data.axis },
     glyphs: { ...data.glyphs },
     drafts: [...(data.drafts ?? [])],
@@ -720,28 +726,123 @@ export function applyFit(font, plan) {
 
 // --- Spacing and kerning ---
 // Kerning pairs are stored as two-character keys, e.g. "AV": -40 (units).
+// Like Glyphs, letters can also share kerning through groups: each letter
+// has a group on each side ("right" is used when it comes first, the A of
+// AV; "left" when it comes second, the V). A value between two groups,
+// stored in font.groupKerning[right group][left group], applies to every
+// pair of their members; a pair with its own value is an exception.
 
 export const pairKey = (left, right) => left + right;
 
-export const kerningValue = (font, left, right) => font.kerning[pairKey(left, right)] ?? 0;
+export const GROUP_SIDES = ["left", "right"];
 
+// The group of `key` on `side`: its own, else its letter's (an alternate
+// follows its letter, an accented letter like Á follows A), else null.
+export function kernGroup(font, key, side, seen = new Set()) {
+  const own = font.groups?.[side]?.[key];
+  if (own) return own;
+  if (seen.has(key)) return null;
+  seen.add(key);
+  const base = alternateOf(key)?.base ?? (caseOf(key) ? null : COMPOSITES[key]?.[0]);
+  return base && font.glyphs[base] ? kernGroup(font, base, side, seen) : null;
+}
+
+export function setKernGroup(font, key, side, name) {
+  const n = String(name ?? "").trim().slice(0, 24);
+  if (n) font.groups[side][key] = n;
+  else delete font.groups[side][key];
+}
+
+// Every glyph in a group (its own or inherited), in the font's order.
+export const groupMembers = (font, side, name) => allChars(font).filter((k) => kernGroup(font, k, side) === name);
+
+// Names of the groups in use on a side.
+export const groupNames = (font, side) => [...new Set(Object.values(font.groups[side]))].sort();
+
+// The pair's own value, if it has one (alternates use their letter's).
+export function pairKerning(font, left, right) {
+  const base = (k) => alternateOf(k)?.base ?? k;
+  for (const l of new Set([left, base(left)])) {
+    for (const r of new Set([right, base(right)])) {
+      const v = font.kerning[pairKey(l, r)];
+      if (v !== undefined) return v;
+    }
+  }
+  return undefined;
+}
+
+// The groups a pair kerns with ([right group of left, left group of right]),
+// or null unless both letters have one.
+export function pairGroups(font, left, right) {
+  const a = kernGroup(font, left, "right"), b = kernGroup(font, right, "left");
+  return a && b ? [a, b] : null;
+}
+
+export const groupKerningValue = (font, a, b) => font.groupKerning[a]?.[b];
+
+export function kerningValue(font, left, right) {
+  const own = pairKerning(font, left, right);
+  if (own !== undefined) return own;
+  const groups = pairGroups(font, left, right);
+  return (groups && groupKerningValue(font, ...groups)) ?? 0;
+}
+
+// What editing a pair changes: its own value when it has one (an
+// exception), else its groups' value when both letters have groups.
+export const kerningTarget = (font, left, right) =>
+  font.kerning[pairKey(left, right)] === undefined && pairGroups(font, left, right) ? "group" : "pair";
+
+// Sets the pair's own value. A 0 is kept while the pair's groups have a
+// value, as an exception that cancels it.
 export function setKerning(font, left, right, value) {
   const k = pairKey(left, right);
   const v = Math.round(value);
-  if (v === 0) delete font.kerning[k];
+  const groups = pairGroups(font, left, right);
+  if (v === 0 && !(groups && groupKerningValue(font, ...groups))) delete font.kerning[k];
   else font.kerning[k] = v;
 }
 
+export const removeKerning = (font, left, right) => { delete font.kerning[pairKey(left, right)]; };
+
+export function setGroupKerning(font, a, b, value) {
+  const v = Math.round(value);
+  if (v) (font.groupKerning[a] ??= {})[b] = v;
+  else if (font.groupKerning[a]) {
+    delete font.groupKerning[a][b];
+    if (!Object.keys(font.groupKerning[a]).length) delete font.groupKerning[a];
+  }
+}
+
 // Kerning pairs for the font files, as [left, right, value] glyph keys:
-// a letter's pairs also apply to its alternates, on either side.
+// group values become pairs of their members, and a letter's pairs also
+// apply to its alternates, on either side.
 export function kerningPairs(font) {
+  const keys = allChars(font);
   const family = (char) => [char, ...alternates(font, char)];
-  const out = [];
-  for (const [pair, value] of Object.entries(font.kerning)) {
+  const candidates = new Map();
+  const add = (l, r) => candidates.set(`${l}\u0000${r}`, [l, r]);
+  for (const pair of Object.keys(font.kerning)) {
     const [left, right] = [...pair];
-    const v = Math.round(value);
-    if (!v) continue;
-    for (const l of family(left)) for (const r of family(right)) out.push([l, r, v]);
+    for (const l of family(left)) for (const r of family(right)) add(l, r);
+  }
+  const bySide = (side) => {
+    const out = new Map();
+    for (const k of keys) {
+      const g = kernGroup(font, k, side);
+      if (g) out.set(g, [...(out.get(g) ?? []), k]);
+    }
+    return out;
+  };
+  const rights = bySide("right"), lefts = bySide("left");
+  for (const [a, row] of Object.entries(font.groupKerning)) {
+    for (const b of Object.keys(row)) {
+      for (const l of rights.get(a) ?? []) for (const r of lefts.get(b) ?? []) add(l, r);
+    }
+  }
+  const out = [];
+  for (const [l, r] of candidates.values()) {
+    const v = Math.round(kerningValue(font, l, r));
+    if (v) out.push([l, r, v]);
   }
   return out;
 }

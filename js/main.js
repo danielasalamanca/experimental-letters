@@ -5,7 +5,8 @@ import {
   METRICS, createGlyph, normalizeFont, createBlankFont, defaultGlyph, setMetric, sameMetrics,
   GRIDS, glyphGrid, shapeKey, hasOwnShape, resolvedCorners, resolvedPieces, resolvedOutline, glyphShape,
   planFit, applyFit, ROW_ZONES, zoneRows, setZoneRows, metricColor, advanceWidth, resolvedCells, canUseComponent, dependents,
-  kerningValue, setKerning, layoutText, capitalOf, centeredDx, componentEdited, alternates, allChars, addAlternate, removeAlternate,
+  kerningValue, setKerning, removeKerning, setGroupKerning, kerningTarget, pairGroups, groupKerningValue,
+  kernGroup, setKernGroup, groupMembers, groupNames, layoutText, capitalOf, centeredDx, componentEdited, alternates, allChars, addAlternate, removeAlternate,
   componentPoint, componentCellFromParent, componentLocalPoint, syncInvertedGlyphs, syncAlternates, spacingKey,
 } from "./model.js";
 import { GROUPS, CHARSET, glyphName, fileName, codepoint, alternateOf, baseChar, caseOf } from "./charset.js";
@@ -2344,6 +2345,7 @@ function syncGlyphPanel() {
     + (spacing === font.active ? "" : ` · márgenes y kerning de «${spacing}»`);
   renderComponents();
   renderAlternates();
+  syncKernGroups();
   syncPieceList();
   const edited = !!g.outline;
   $("editNodes").hidden = edited;
@@ -2927,32 +2929,121 @@ function syncTestControls() {
   $("kernPair").textContent = has ? `${kernPair.left}${kernPair.right}` : "—";
   $("kernValue").value = has ? kerningValue(font, kernPair.left, kernPair.right) : "";
   for (const id of ["kernMinus", "kernValue", "kernPlus", "kernClear"]) $(id).disabled = !has;
+  // Whether the value belongs to the pair's groups or to the pair alone.
+  const groups = has ? pairGroups(font, kernPair.left, kernPair.right) : null;
+  const scope = $("kernScope");
+  scope.hidden = !groups;
+  if (groups) {
+    const pair = `${kernPair.left}${kernPair.right}`;
+    const onGroups = kerningTarget(font, kernPair.left, kernPair.right) === "group";
+    scope.textContent = onGroups ? `Grupos ${groups[0]} · ${groups[1]}` : `Solo ${pair}`;
+    scope.classList.toggle("exception", !onGroups);
+    scope.title = onGroups
+      ? `Cambia todos los pares de los grupos ${groups[0]} y ${groups[1]}. Clic: excepción solo para ${pair}`
+      : `Excepción: solo ${pair}. Clic: volver al kerning de los grupos ${groups[0]} · ${groups[1]}`;
+  }
 
   const list = $("kernList");
   list.replaceChildren();
-  const pairs = Object.entries(font.kerning);
-  // With no pairs yet, the hint under the text explains how to add one.
-  if (!pairs.length) return;
-  for (const [pair, value] of pairs) {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "kern-chip";
-    chip.classList.toggle("active", has && pair === kernPair.left + kernPair.right);
-    chip.textContent = `${pair} ${value > 0 ? "+" : ""}${value}`;
-    chip.addEventListener("click", () => {
-      const [left, right] = [...pair];
-      const at = testLayout.items.find((it, i, all) => it.char === left && all[i + 1]?.char === right && all[i + 1].line === it.line);
-      kernPair = at ? { left, right, line: at.line, index: at.index } : { left, right };
-      renderTest();
-    });
-    list.appendChild(chip);
+  const chip = (text, active, title, pick) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "kern-chip";
+    b.classList.toggle("active", active);
+    b.textContent = text;
+    if (title) b.title = title;
+    b.addEventListener("click", () => { pick(); renderTest(); });
+    list.appendChild(b);
+    return b;
+  };
+  const signed = (v) => `${v > 0 ? "+" : ""}${v}`;
+  // Picks the pair in the text if it's there.
+  const pickPair = (left, right) => {
+    const at = testLayout.items.find((it, i, all) => it.char === left && all[i + 1]?.char === right && all[i + 1].line === it.line);
+    kernPair = at ? { left, right, line: at.line, index: at.index } : { left, right };
+  };
+  for (const [a, row] of Object.entries(font.groupKerning)) {
+    for (const [b, value] of Object.entries(row)) {
+      const active = has && groups?.[0] === a && groups?.[1] === b && kerningTarget(font, kernPair.left, kernPair.right) === "group";
+      chip(`${a}·${b} ${signed(value)}`, active, `Grupos ${a} (lado derecho) y ${b} (lado izquierdo)`, () => {
+        // A pair of the groups in the text, else their first letters.
+        const at = testLayout.items.find((it, i, all) => all[i + 1]?.line === it.line
+          && kernGroup(font, it.char, "right") === a && kernGroup(font, all[i + 1].char, "left") === b);
+        if (at) pickPair(at.char, testLayout.items[testLayout.items.indexOf(at) + 1].char);
+        else kernPair = { left: groupMembers(font, "right", a)[0], right: groupMembers(font, "left", b)[0] };
+      }).classList.add("group");
+    }
+  }
+  for (const [pair, value] of Object.entries(font.kerning)) {
+    const [left, right] = [...pair];
+    const exception = !!pairGroups(font, left, right);
+    chip(`${pair} ${signed(value)}`, has && pair === kernPair.left + kernPair.right,
+      exception ? `Excepción a los grupos de ${pair}` : null, () => pickPair(left, right))
+      .classList.toggle("exception", exception);
   }
 }
+
+// --- Kerning groups of the active letter ---
+const GROUP_FIELDS = { left: "groupLeft", right: "groupRight" };
+const GROUP_USE = { left: "cuando va segunda (la V de AV)", right: "cuando va primera (la A de AV)" };
+
+function syncKernGroups() {
+  const char = font.active;
+  const alt = alternateOf(char);
+  for (const [side, id] of Object.entries(GROUP_FIELDS)) {
+    const own = font.groups[side][char] ?? "";
+    const group = kernGroup(font, char, side);
+    const input = $(id);
+    // Alternates always kern like their letter.
+    input.disabled = !!alt;
+    if (document.activeElement !== input) input.value = alt ? "" : own;
+    input.placeholder = group && !own ? `${group} (heredado)` : "sin grupo";
+    const list = $(side === "left" ? "groupNamesLeft" : "groupNamesRight");
+    list.replaceChildren(...groupNames(font, side).map((n) => new Option(n, n)));
+    const members = group ? groupMembers(font, side, group).filter((k) => !alternateOf(k)) : [];
+    const shown = members.slice(0, 16).map((k) => (k === " " ? "␣" : k)).join(" ") + (members.length > 16 ? " …" : "");
+    $(`${id}Info`).textContent = alt
+      ? `Usa los grupos de «${alt.base}».`
+      : group
+        ? `Se usa ${GROUP_USE[side]}. Grupo «${group}»${own ? "" : ", heredado de su letra"}: ${shown}.`
+        : `Se usa ${GROUP_USE[side]}. Sin grupo: solo kerning por pares.`;
+  }
+}
+
+for (const [side, id] of Object.entries(GROUP_FIELDS)) {
+  $(id).addEventListener("change", (e) => {
+    checkpoint();
+    setKernGroup(font, font.active, side, e.target.value);
+    syncKernGroups();
+    renderTest();
+    updateInfo();
+    persist();
+  });
+}
+
+// The pair's value goes to its groups unless it is an exception (see kerningTarget).
+$("kernScope").addEventListener("click", () => {
+  if (!kernPair) return;
+  const { left, right } = kernPair;
+  checkpoint();
+  if (kerningTarget(font, left, right) === "group") {
+    font.kerning[left + right] = kerningValue(font, left, right);
+    toast(`${left}${right} es ahora una excepción: cambiarla no toca a los grupos.`);
+  } else {
+    removeKerning(font, left, right);
+    toast(`${left}${right} vuelve a usar el kerning de sus grupos.`);
+  }
+  renderTest();
+  updateInfo();
+  persist();
+});
 
 function setPairKerning(value) {
   if (!kernPair) return;
   checkpoint("kern");
-  setKerning(font, kernPair.left, kernPair.right, value);
+  const { left, right } = kernPair;
+  if (kerningTarget(font, left, right) === "group") setGroupKerning(font, ...pairGroups(font, left, right), value);
+  else setKerning(font, left, right, value);
   renderTest();
   updateInfo();
   persist();
@@ -3034,7 +3125,18 @@ $("testInvert").addEventListener("click", () => {
 $("kernMinus").addEventListener("click", (e) => adjustKerning(e.shiftKey ? -KERN_STEP * 5 : -KERN_STEP));
 $("kernPlus").addEventListener("click", (e) => adjustKerning(e.shiftKey ? KERN_STEP * 5 : KERN_STEP));
 $("kernValue").addEventListener("change", (e) => setPairKerning(+e.target.value || 0));
-$("kernClear").addEventListener("click", () => setPairKerning(0));
+// "Quitar": an exception goes back to its groups; otherwise the value is removed.
+$("kernClear").addEventListener("click", () => {
+  if (!kernPair) return;
+  const { left, right } = kernPair;
+  if (font.kerning[left + right] !== undefined && pairGroups(font, left, right)) {
+    checkpoint();
+    removeKerning(font, left, right);
+    renderTest();
+    updateInfo();
+    persist();
+  } else setPairKerning(0);
+});
 
 for (const text of PRESETS) $("testPreset").appendChild(new Option(text, text));
 

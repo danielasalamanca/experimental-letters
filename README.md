@@ -253,6 +253,14 @@ grilla:
   primera o la izquierda de la segunda) para elegir el par; ajústalo con − y +,
   con las flechas ← → (Shift: de a 50 u) o escribiendo el valor. Los pares
   ajustados aparecen como etiquetas debajo; clic para volver a uno.
+- **Grupos de kerning** (como en Glyphs): en **Esta letra › Grupos de
+  kerning** cada letra puede tener un grupo por lado. Si V y W tienen el grupo
+  izquierdo «V» y A el derecho «A», un solo valor de AV vale para AV, AW, ÁV,
+  ÁW… Las acentuadas y las alternativas heredan los grupos de su letra. En la
+  barra de kerning, el botón **Grupos A · V** indica que estás ajustando los
+  grupos; clic para convertir ese par en una **excepción** («Solo AW») con su
+  propio valor, y **Quitar** lo devuelve al valor de los grupos. Al exportar,
+  los valores de grupo se escriben como pares de todas sus letras.
 - **Doble clic** en una letra del texto la abre en el editor.
 
 ### Métricas verticales
