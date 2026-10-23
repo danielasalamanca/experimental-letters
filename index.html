@@ -6,11 +6,11 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=65" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=66" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=65" : "favicon-light.png?v=65"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=66" : "favicon-light.png?v=66"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=65">
+  <link rel="stylesheet" href="style.css?v=66">
 </head>
 <body>
   <header class="topbar">
@@ -362,6 +362,8 @@
             <label class="row">Peso del Regular <input type="number" id="axisMin" min="1" max="999" step="10"></label>
             <label class="row">Máster grueso <select id="axisMax"></select></label>
             <label class="row" title="Cuánto se engrosa el Regular para crear el máster grueso automático, en unidades por lado">Engrosar automático (u) <input type="number" class="thicken" min="1" max="400" step="1"></label>
+            <label class="row" title="Cuánto engrosan los trazos horizontales, en % de lo que engrosan los verticales. Menos de 100 % deja las contraformas más abiertas, como en un negrito dibujado.">Contraste (%) <input type="number" id="axisContrast" min="0" max="100" step="5"></label>
+            <p class="info">El máster automático mantiene las alturas: lo que toca la línea base, la altura de x o la de mayúsculas no se mueve, y las barras engrosan hacia adentro.</p>
             <p class="info" id="mastersInfo"></p>
             <div id="mastersBad" class="bad-list"></div>
             <button id="editBold" type="button" class="ghost wide">Editar el máster <span class="bold-name">ExtraBold</span></button>
@@ -527,23 +529,25 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=65",
-        "./js/geometry.js": "./js/geometry.js?v=65",
-        "./js/model.js": "./js/model.js?v=65",
-        "./js/render.js": "./js/render.js?v=65",
-        "./js/tools.js": "./js/tools.js?v=65",
-        "./js/library.js": "./js/library.js?v=65",
-        "./js/pieces.js": "./js/pieces.js?v=65",
-        "./js/nodes.js": "./js/nodes.js?v=65",
-        "./js/shapes.js": "./js/shapes.js?v=65",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=65",
-        "./js/outline.js": "./js/outline.js?v=65",
-        "./js/otf.js": "./js/otf.js?v=65",
-        "./js/woff.js": "./js/woff.js?v=65",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=65"
+        "./js/charset.js": "./js/charset.js?v=66",
+        "./js/geometry.js": "./js/geometry.js?v=66",
+        "./js/model.js": "./js/model.js?v=66",
+        "./js/render.js": "./js/render.js?v=66",
+        "./js/tools.js": "./js/tools.js?v=66",
+        "./js/library.js": "./js/library.js?v=66",
+        "./js/pieces.js": "./js/pieces.js?v=66",
+        "./js/nodes.js": "./js/nodes.js?v=66",
+        "./js/shapes.js": "./js/shapes.js?v=66",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=66",
+        "./js/outline.js": "./js/outline.js?v=66",
+        "./js/otf.js": "./js/otf.js?v=66",
+        "./js/masters.js": "./js/masters.js?v=66",
+        "./js/variable.js": "./js/variable.js?v=66",
+        "./js/woff.js": "./js/woff.js?v=66",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=66"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=65"></script>
+  <script type="module" src="js/main.js?v=66"></script>
 </body>
 </html>

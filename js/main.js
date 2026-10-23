@@ -3370,6 +3370,17 @@ document.querySelectorAll("input.thicken").forEach((input) => input.addEventList
   render("font");
 }));
 
+$("axisContrast").addEventListener("change", (e) => {
+  const b = font.glyphs[font.active]?.bold;
+  const wasAuto = b?.auto;
+  checkpoint("contrast");
+  if (b) b.auto = wasAuto;
+  font.axis = normalizeAxis({ ...font.axis, contrast: +e.target.value / 100 });
+  if (master === "bold") refreshBold(font, font.active);
+  syncWeights();
+  render("font");
+});
+
 $("axisMin").addEventListener("change", (e) => {
   checkpoint("axis");
   font.axis = normalizeAxis({ ...font.axis, min: +e.target.value });
@@ -3395,6 +3406,7 @@ function syncWeights() {
   maxSelect.replaceChildren(...options.sort((a, b) => a[0] - b[0]).map(([w, name]) => new Option(`${name} (${w})`, w)));
   maxSelect.value = axis.max;
   document.querySelectorAll("input.thicken").forEach((i) => { i.value = axis.thicken; });
+  $("axisContrast").value = Math.round(axis.contrast * 100);
   const range = $("testWeight");
   range.min = axis.min;
   range.max = axis.max;

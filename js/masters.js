@@ -22,7 +22,10 @@ export const WEIGHTS = [
   [600, "SemiBold"], [700, "Bold"], [800, "ExtraBold"], [900, "Black"],
 ];
 
-export const DEFAULT_AXIS = { min: 400, max: 800, thicken: 20 };
+// thicken: units added on each side of vertical strokes; contrast: how much
+// horizontal strokes thicken, as a share of that (real bolds thicken their
+// horizontals less, which keeps counters open).
+export const DEFAULT_AXIS = { min: 400, max: 800, thicken: 20, contrast: 0.6 };
 
 export function normalizeAxis(axis = {}) {
   const num = (v, fallback) => (Number.isFinite(+v) ? +v : fallback);
@@ -31,7 +34,8 @@ export function normalizeAxis(axis = {}) {
   if (max <= min) max = Math.min(1000, min + 100);
   if (max <= min) min = max - 1;
   const thicken = Math.min(400, Math.max(1, num(axis.thicken, DEFAULT_AXIS.thicken)));
-  return { min, max, thicken };
+  const contrast = Math.round(Math.min(1, Math.max(0, num(axis.contrast, DEFAULT_AXIS.contrast))) * 100) / 100;
+  return { min, max, thicken, contrast };
 }
 
 export const weightName = (w) => WEIGHTS.find(([v]) => v === w)?.[1] ?? `Peso ${w}`;
@@ -102,7 +106,8 @@ export function signature(contours) {
 // --- Thickening ---
 // Every node moves away from the ink by `d` (cells), along the bisector of
 // its two sides (a miter), and curve handles grow with their segment, so the
-// result keeps exactly the same points: it stays compatible.
+// result keeps exactly the same points: it stays compatible. `dy` (default
+// `d`) is how far horizontal sides move: less than `d` gives contrast.
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
 const unit = (v) => {
@@ -159,7 +164,7 @@ function inkSide(polys, ci) {
   return 1;
 }
 
-export function thickenOutline(outline, d) {
+export function thickenOutline(outline, d, dy = d) {
   const polys = polylines(outline);
   return outline.map((contour, ci) => {
     const { nodes } = contour;
@@ -196,7 +201,7 @@ export function thickenOutline(outline, d) {
         const inside = winding([node.x + m[0] * 1e-3, node.y + m[1] * 1e-3], polys) !== 0;
         v = inside ? [-m[0], -m[1]] : m;
       }
-      return { x: node.x + v[0] * d, y: node.y + v[1] * d, in: node.in && [...node.in], out: node.out && [...node.out] };
+      return { x: node.x + v[0] * d, y: node.y + v[1] * dy, in: node.in && [...node.in], out: node.out && [...node.out] };
     });
     // Handles grow (or shrink) with the distance between their nodes.
     for (let i = 0; i < n; i++) {
@@ -290,18 +295,48 @@ export const pureComposite = (glyph) =>
 
 const cellsOf = (font, units) => units / font.cell;
 
-// A new bold master for a letter: its Regular thickened by `font.axis.thicken`.
-// The drawing moves right by the same amount and gets twice as wide, so the
-// sidebearings stay the same.
+// Vertical lines (in cells) that a bold master keeps: baseline, x-height,
+// cap height, ascender and descender.
+const metricLines = (font) => {
+  const m = font.metrics;
+  return [0, m.xHeight, m.capHeight, m.ascender, m.descender];
+};
+
+// What an automatic bold master depends on besides the Regular's drawing:
+// when any of it changes, the master is made again.
+const boldParams = (font) => {
+  const { thicken, contrast } = normalizeAxis(font.axis);
+  return `v2:${thicken}:${contrast}:${metricLines(font).join(",")}:${font.overshoot}:${font.cell}`;
+};
+
+// A new bold master for a letter: its Regular thickened by `font.axis.thicken`
+// on vertical strokes and `contrast` times that on horizontal ones. Points on
+// the baseline, x-height, cap height, ascender or descender (or within their
+// overshoot) keep their height, so heights match across weights and
+// horizontal strokes grow inward. The drawing moves right by `thicken` and
+// gets twice that wider, so the sidebearings stay the same.
 export function makeBold(font, glyph) {
   const regular = normalizeContours(glyphFinalContours(font, glyph));
-  const d = cellsOf(font, normalizeAxis(font.axis).thicken);
-  const thick = thickenOutline(commandsToOutline(regular), d);
-  const outline = thick.map((c) => ({ ...c, nodes: c.nodes.map((n) => ({ ...n, x: n.x + d })) }));
+  const { thicken, contrast } = normalizeAxis(font.axis);
+  const d = cellsOf(font, thicken);
+  const regOutline = commandsToOutline(regular);
+  const thick = thickenOutline(regOutline, d, d * contrast);
+  const lines = metricLines(font);
+  const zone = cellsOf(font, font.overshoot ?? 0) + 1e-6;
+  const outline = thick.map((c, ci) => ({
+    ...c,
+    nodes: c.nodes.map((n, ni) => {
+      const y0 = regOutline[ci].nodes[ni].y;
+      const onLine = lines.some((line) => Math.abs(y0 - line) <= zone);
+      return { ...n, x: n.x + d, y: onLine ? y0 : n.y };
+    }),
+  }));
   return boldGlyph(font, glyph, {
-    outline, cols: glyph.cols + (regular.length ? 2 * d : 0), auto: true, source: signature(regular),
+    outline, cols: glyph.cols + (regular.length ? 2 * d : 0), auto: true, source: boldSource(font, regular),
   });
 }
+
+const boldSource = (font, regular) => `${signature(regular)}|${boldParams(font)}`;
 
 // The bold master as a glyph object, so the editor's tools can work on it.
 export function boldGlyph(font, glyph, { outline, cols, lsb = glyph.lsb, rsb = glyph.rsb, auto = false, source = null }) {
@@ -328,7 +363,7 @@ export function refreshBold(font, char) {
     glyph.bold = makeBold(font, glyph);
   } else if (glyph.bold.auto) {
     const regular = normalizeContours(glyphFinalContours(font, glyph));
-    if (glyph.bold.source !== signature(regular)) glyph.bold = makeBold(font, glyph);
+    if (glyph.bold.source !== boldSource(font, regular)) glyph.bold = makeBold(font, glyph);
   }
   return glyph.bold;
 }
@@ -343,7 +378,7 @@ export function masterPair(font, char, seen = new Set()) {
   const regular = outlineToCommands(regOutline);
   // Letters whose bold master was never opened get the automatic one.
   let bold = glyph.bold;
-  if (!bold || (bold.auto && bold.source !== signature(regular))) bold = makeBold(font, glyph);
+  if (!bold || (bold.auto && bold.source !== boldSource(font, regular))) bold = makeBold(font, glyph);
   const own = boldOutline(font, bold);
   const pair = { regular, bold: outlineToCommands(own), advance: [regAdvance, advanceWidth(font, bold)], lsb: [glyph.lsb, bold.lsb] };
   if (!regular.length && !own.length) return { ...pair, status: "empty" };

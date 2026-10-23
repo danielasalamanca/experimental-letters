@@ -305,7 +305,7 @@ export function createFont() {
     allCaps: false,
     // Weight axis: Regular and bold master weights, and how much the
     // automatic bold master thickens (units per side). See masters.js.
-    axis: { min: 400, max: 800, thicken: 20 },
+    axis: { min: 400, max: 800, thicken: 20, contrast: 0.6 },
     active: "a",
     glyphs: { a: createGlyph({ cells: SAMPLE_A }) },
     drafts: [],

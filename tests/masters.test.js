@@ -66,7 +66,8 @@ test("weights between the masters", () => {
   assert.deepEqual(instances({ min: 400, max: 800 }).map((i) => i.name), ["Regular", "Medium", "SemiBold", "Bold", "ExtraBold"]);
   assert.deepEqual(instances({ min: 400, max: 750 }).map((i) => i.weight), [400, 500, 600, 700, 750]);
   assert.equal(weightT({ min: 400, max: 800 }, 600), 0.5);
-  assert.deepEqual(normalizeAxis({ min: 800, max: 400 }), { min: 800, max: 900, thicken: 20 });
+  assert.deepEqual(normalizeAxis({ min: 800, max: 400 }), { min: 800, max: 900, thicken: 20, contrast: 0.6 });
+  assert.equal(normalizeAxis({ contrast: 3 }).contrast, 1);
 });
 
 function font() {
@@ -123,7 +124,7 @@ test("bold masters survive saving", () => {
   const again = normalizeFont(JSON.parse(JSON.stringify(f)));
   assert.equal(again.glyphs.l.bold.auto, false);
   assert.deepEqual(again.glyphs.l.bold.outline, f.glyphs.l.bold.outline);
-  assert.deepEqual(again.axis, { min: 400, max: 800, thicken: 20 });
+  assert.deepEqual(again.axis, { min: 400, max: 800, thicken: 20, contrast: 0.6 });
   assert.equal(makeBold(f, f.glyphs.l).auto, true);
 });
 
@@ -171,4 +172,57 @@ test("contours are matched whatever their order, start point and direction", () 
   assert.deepEqual(outline[1].nodes.map((n) => [n.x, n.y]), [[5, 0], [7, 0], [7, 2], [5, 2]]);
   const tri = commandsToOutline([[{ type: "M", x: 0, y: 0 }, { type: "L", x: 1, y: 0 }, { type: "L", x: 0, y: 1 }, { type: "Z" }]])[0];
   assert.match(matchOutline(regular, [tri, bold[1]]).reason, /4 punto/);
+});
+
+// Heights of the nodes of contours, rounded.
+const nodeYs = (contours) => [...new Set(contours.flatMap((c) => c.filter((q) => q.type !== "Z").map((q) => Math.round(q.y * 1000) / 1000)))].sort((a, b) => a - b);
+
+test("the automatic bold keeps heights and thickens horizontals less (contrast)", () => {
+  const f = font();
+  f.overshoot = 0;
+  const { xHeight } = f.metrics;
+  // A bar floating between the baseline and the x-height, and a stem from
+  // the baseline to the x-height.
+  f.glyphs["-"].cells = ["0,4", "1,4", "2,4"];
+  f.glyphs["-"].cols = 3;
+  f.glyphs.l.cells = Array.from({ length: xHeight }, (_, r) => `0,${r}`);
+  const d = 20 / f.cell;
+  // The stem keeps its height: from the baseline to the x-height.
+  assert.deepEqual(nodeYs(masterPair(f, "l").bold), [0, xHeight]);
+  // The bar grows 60 % of the stems' growth, up and down.
+  const bar = nodeYs(masterPair(f, "-").bold);
+  assert.ok(close(bar[0], 4 - d * 0.6) && close(bar[1], 5 + d * 0.6), bar.join(" "));
+  // With contrast 100 % it grows as much as the stems.
+  f.axis.contrast = 1;
+  const even = nodeYs(masterPair(f, "-").bold);
+  assert.ok(close(even[0], 4 - d) && close(even[1], 5 + d), even.join(" "));
+});
+
+test("a bar on the x-height grows inward, so the letter doesn't get taller", () => {
+  const f = font();
+  f.overshoot = 0;
+  const { xHeight } = f.metrics;
+  // A "T"-like shape: a bar at the top (x-height) on a stem.
+  f.glyphs.t.cols = 3;
+  f.glyphs.t.cells = [...Array.from({ length: xHeight }, (_, r) => `1,${r}`), `0,${xHeight - 1}`, `2,${xHeight - 1}`];
+  const ys = nodeYs(masterPair(f, "t").bold);
+  assert.equal(ys[0], 0);
+  assert.equal(ys[ys.length - 1], xHeight);
+  // The underside of the bar moved down: the bar is thicker.
+  const d = 20 / f.cell;
+  assert.ok(ys.some((y) => close(y, xHeight - 1 - d * 0.6)), ys.join(" "));
+});
+
+test("a stored automatic bold master is made again when its settings change", () => {
+  const f = font();
+  const first = refreshBold(f, "l");
+  const width = (b) => Math.max(...b.outline.flatMap((c) => c.nodes.map((n) => n.x)));
+  f.axis.thicken = 40;
+  const again = refreshBold(f, "l");
+  assert.notEqual(again, first);
+  assert.ok(width(again) > width(first));
+  // An edited one stays as it is.
+  again.auto = false;
+  f.axis.contrast = 0.2;
+  assert.equal(refreshBold(f, "l"), again);
 });

@@ -316,9 +316,14 @@ el dibujo, y uno **grueso** (ExtraBold por defecto). Los pesos intermedios
   gruesos. Las esquinas redondeadas se copian en su lugar original: si
   ensanchas la letra, redondea de nuevo las que se movieron.
 - **Automático:** cada letra empieza con un máster grueso hecho engrosando su
-  Regular (**Engrosar**, en unidades por lado). Mientras no lo toques, sigue
-  al Regular: si cambias el dibujo, se vuelve a engrosar solo. Cuando mueves
-  un punto pasa a ser tuyo; **Engrosar automático** vuelve a él.
+  Regular (**Engrosar**, en unidades por lado de los trazos verticales; los
+  horizontales engrosan el **Contraste** de eso, 60 % por defecto, como en un
+  negrito dibujado). Mantiene las alturas: lo que toca la línea base, la altura
+  de x, la de mayúsculas, la ascendente o la descendente (con su overshoot) no
+  se mueve, y las barras engrosan hacia adentro. Mientras no lo toques, sigue
+  al Regular: si cambias el dibujo, Engrosar o Contraste, se vuelve a hacer
+  solo. Cuando mueves un punto pasa a ser tuyo; **Engrosar automático** vuelve
+  a él.
 - **Compatibles:** para interpolar, los dos másteres deben tener la misma
   cantidad de contornos y de puntos, con las curvas en los mismos tramos (las
   mismas esquinas redondeadas). El orden de los contornos y dónde empieza cada
@@ -327,7 +332,8 @@ el dibujo, y uno **grueso** (ExtraBold por defecto). Los pesos intermedios
   iguales en todos los pesos hasta que las arregles o las regeneres.
 - Las letras con tilde (á, ñ…) arman su máster grueso con los de sus partes.
 - **Panel Pesos (fuente variable):** el peso del Regular (400), cuál es el
-  máster grueso (de Medium a Black) y cuánto engrosa el automático.
+  máster grueso (de Medium a Black) y cuánto engrosa el automático, con su
+  contraste.
 - **Probar:** el control **Peso** muestra el texto en cualquier peso.
 - **Exportar:** en el panel Exportar eliges qué fuente descarga **Exportar
   fuente**: un peso (Regular, Medium, SemiBold, Bold, ExtraBold…) como .otf
