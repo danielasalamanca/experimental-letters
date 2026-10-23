@@ -8,7 +8,7 @@ import {
   kerningValue, setKerning, layoutText, capitalOf, centeredDx, componentEdited, alternates, allChars, addAlternate, removeAlternate,
   componentPoint, componentCellFromParent, componentLocalPoint, syncInvertedGlyphs,
 } from "./model.js";
-import { GROUPS, CHARSET, glyphName, fileName, codepoint, alternateOf, baseChar } from "./charset.js";
+import { GROUPS, CHARSET, glyphName, fileName, codepoint, alternateOf, baseChar, caseOf } from "./charset.js";
 import { drawGlyph, drawText, el, SVG_NS, contoursToPath } from "./render.js";
 import { openLibrary, saveFont, loadFont, deleteFont, newId, fontName } from "./library.js";
 import {
@@ -368,7 +368,7 @@ function updateThumb(char) {
   const label = document.createElement("span");
   label.className = "cm-label";
   const alt = alternateOf(char);
-  label.textContent = alt ? `${alt.base === " " ? "esp" : alt.base}.${alt.n}` : char === " " ? "esp" : char;
+  label.textContent = alt ? `${alt.base === " " ? "esp" : alt.base}.${alt.n}` : char === " " ? "esp" : caseOf(char) ? `${caseOf(char)} may` : char;
   cell.replaceChildren(svg, label);
   if (hasOwnShape(font, g)) cell.appendChild(marker("own-dot", "Usa curvatura o redondeo propio"));
   if (g.grid != null) cell.appendChild(marker("grid-mark", `Grilla propia: ${GRIDS[g.grid]}`));
@@ -385,7 +385,9 @@ function updateThumb(char) {
   cell.classList.toggle("as-capital", !!capital);
   syncCharmapGroups();
   if (char === font.active) drawGlyph($("glyphThumb"), font, g, { frame: "advance" });
-  cell.title = alt ? `${glyphName(char)} · alternativa ${alt.n} de «${alt.base}»` : `${glyphName(char)} · ${codepoint(char)}`;
+  cell.title = alt ? `${glyphName(char)} · alternativa ${alt.n} de «${alt.base}»`
+    : caseOf(char) ? `${glyphName(char)} · acento de las mayúsculas acentuadas`
+    : `${glyphName(char)} · ${codepoint(char)}`;
   if (capital) cell.title += ` · se escribe con «${capital}» (solo mayúsculas)`;
 }
 
@@ -2307,7 +2309,7 @@ function syncGlyphPanel() {
   const alt = alternateOf(char);
   const shown = baseChar(char);
   $("glyphChar").textContent = shown === " " ? "␣" : shown;
-  const kind = alt ? "alternativa" : /^[0-9]$/.test(shown) ? "número"
+  const kind = alt ? "alternativa" : caseOf(char) ? "acento de mayúsculas" : /^[0-9]$/.test(shown) ? "número"
     : shown !== shown.toLowerCase() ? "mayúscula" : shown !== shown.toUpperCase() ? "minúscula" : "signo";
   $("glyphName").textContent = glyphName(char) === shown ? kind : `${kind} · ${glyphName(char)}`;
   $("glyphCode").textContent = alt ? `Alternativa ${alt.n} de «${alt.base}» · ${codepoint(char)}` : codepoint(char);

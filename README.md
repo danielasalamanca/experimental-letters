@@ -32,10 +32,10 @@ grilla:
 ## Qué se puede hacer
 
 ### Mapa de caracteres y glifos
-- A la izquierda está el set completo: A–Z, a–z, 0–9, puntuación básica
-  (. , ; : ! ¡ ? ¿ - ' " ( )), símbolos (& y @), ñ, Ñ, las vocales acentuadas (á é í ó ú y
-  Á É Í Ó Ú), los
-  acentos usados como componentes (´ y ˜) y el espacio.
+- A la izquierda está el set completo: A–Z, a–z, 0–9, puntuación
+  (. , ; : ! ¡ ? ¿ - – — ' " ‘ ’ “ ” « » ( ) /), símbolos (& @ # % $ €), ñ, Ñ,
+  las vocales acentuadas (á é í ó ú ü y Á É Í Ó Ú Ü), los acentos usados como
+  componentes (´ ˜ ¨ y sus versiones para mayúsculas) y el espacio.
 - Cada celda muestra la miniatura del glifo, o el carácter en gris si está
   vacío. Clic para abrirlo en el editor.
 - Marcas en las celdas: **punto azul** = curvatura propia; **cuadrado verde**
@@ -47,8 +47,11 @@ grilla:
 - **Componentes:** un glifo puede reutilizar otro con un desplazamiento en
   columnas (x) y filas (y). Las vocales acentuadas (minúsculas y
   mayúsculas) y la ñ/Ñ ya vienen como letra + acento, así que al editar la
-  "a" o el acento se actualiza la "á"; en las mayúsculas el acento sube a la
-  altura de mayúsculas. "¡" y "¿" son componentes girados 180° de "!" y
+  "a" o el acento se actualiza la "á". Las mayúsculas usan **acentos de
+  mayúsculas** propios (´.case, ˜.case, ¨.case, como en Glyphs): empiezan como
+  el acento de minúscula subido a la altura de mayúsculas, y se pueden dibujar
+  más planos o más bajos sin tocar las minúsculas. El botón ↔ centra un acento
+  sobre la tinta de la letra. "¡" y "¿" son componentes girados 180° de "!" y
   "?": siguen sus dibujos, su grilla, sus columnas y sus márgenes.
   En el lienzo, lo que viene de componentes se ve en gris. **Descomponer**
   copia todo al dibujo propio del glifo.

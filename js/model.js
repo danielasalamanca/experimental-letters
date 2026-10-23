@@ -2,7 +2,7 @@
 // Pure functions only (no DOM), so they can be tested with `node --test`.
 
 import { key, parseKey, windingAt } from "./geometry.js";
-import { CHARSET, COMPOSITES, INVERTED_PUNCTUATION, defaultCols, isCapital, alternateOf, alternateKey } from "./charset.js";
+import { CHARSET, COMPOSITES, INVERTED_PUNCTUATION, defaultCols, alternateOf, alternateKey, caseOf, caseKey } from "./charset.js";
 import { cloneOutline, shiftOutline, outlineToCommands } from "./nodes.js";
 import { pieceContour, contourObjects } from "./pieces.js";
 
@@ -143,13 +143,19 @@ export function defaultGlyph(font, char) {
     const baseCols = font.glyphs[base]?.cols ?? defaultCols(base);
     glyph.cols = baseCols;
     const accentCols = font.glyphs[accent]?.cols ?? defaultCols(accent);
-    const lift = isCapital(char) && !/[0-9]/.test(char) ? font.metrics.capHeight - font.metrics.xHeight : 0;
     glyph.components = [
       { glyph: base, dx: 0, dy: 0 },
-      { glyph: accent, dx: Math.floor((baseCols - accentCols) / 2), dy: lift },
+      { glyph: accent, dx: Math.floor((baseCols - accentCols) / 2), dy: 0 },
     ];
     // Once both are drawn, the accent's ink is centered on the letter's.
     glyph.components[1].dx = centeredDx(font, glyph, 1) ?? glyph.components[1].dx;
+  }
+  // A case mark starts as its accent raised from the x-height to the capitals.
+  const mark = caseOf(char);
+  if (mark) {
+    const accent = font.glyphs[mark];
+    glyph.cols = accent?.cols ?? defaultCols(mark);
+    glyph.components = [{ glyph: mark, dx: 0, dy: caseLift(font) }];
   }
   const source = INVERTED_PUNCTUATION[char];
   if (source) {
@@ -162,10 +168,17 @@ export function defaultGlyph(font, char) {
   return glyph;
 }
 
+// How far a case mark starts above its lowercase accent, in rows.
+const caseLift = (font) => font.metrics.capHeight - font.metrics.xHeight;
+
 // Makes sure every character of the set has a glyph.
 export function ensureCharset(font) {
+  const added = new Set();
   for (const char of CHARSET) {
-    if (!font.glyphs[char]) font.glyphs[char] = defaultGlyph(font, char);
+    if (!font.glyphs[char]) {
+      font.glyphs[char] = defaultGlyph(font, char);
+      added.add(char);
+    }
     // Older fonts may already contain empty inverted-sign glyphs. Link those
     // to their upright counterpart while preserving any hand-drawn inverted sign.
     const glyph = font.glyphs[char];
@@ -184,8 +197,25 @@ export function ensureCharset(font) {
       }
     }
   }
+  useCaseMarks(font, added);
   syncInvertedGlyphs(font);
   return font;
+}
+
+// Fonts from before case marks had their capitals use the lowercase accent,
+// raised. When a case mark is new, those capitals switch to it, placed so
+// they look exactly the same (accents with erased parts are left as they are).
+function useCaseMarks(font, added) {
+  for (const [char, [, mark]] of Object.entries(COMPOSITES)) {
+    const accent = caseOf(mark);
+    const glyph = font.glyphs[char];
+    if (!accent || !added.has(mark) || added.has(char) || !glyph) continue;
+    for (const comp of glyph.components) {
+      if (comp.glyph !== accent || comp.turn === 180 || componentEdited(comp)) continue;
+      comp.glyph = mark;
+      comp.dy -= caseLift(font);
+    }
+  }
 }
 
 export function syncInvertedGlyphs(font) {
@@ -514,7 +544,7 @@ export const exportChars = (font) => allChars(font).filter((k) => !capitalOf(fon
 // Code points of a character in the font files: its own plus, in an all-caps
 // font, those of the lowercase letters it stands for.
 export function charUnicodes(font, char) {
-  if (alternateOf(char)) return [];
+  if (alternateOf(char) || caseOf(char)) return [];
   const extra = Object.keys(font.glyphs).filter((k) => !alternateOf(k) && capitalOf(font, k) === char);
   return [char, ...extra].map((c) => c.codePointAt(0));
 }

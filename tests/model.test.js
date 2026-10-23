@@ -90,8 +90,9 @@ test("every character of the set has a glyph; accents start as composites", asyn
   const font = normalizeFont(null);
   for (const char of CHARSET) assert.ok(font.glyphs[char], `falta ${char}`);
   assert.deepEqual(font.glyphs["á"].components.map((c) => c.glyph), ["a", ACUTE]);
-  assert.equal(font.glyphs["Ñ"].components[1].glyph, TILDE);
-  assert.equal(font.glyphs["Ñ"].components[1].dy, font.metrics.capHeight - font.metrics.xHeight);
+  assert.equal(font.glyphs["Ñ"].components[1].glyph, "˜.case");
+  assert.equal(font.glyphs["Ñ"].components[1].dy, 0);
+  assert.deepEqual(font.glyphs["˜.case"].components, [{ glyph: TILDE, dx: 0, dy: font.metrics.capHeight - font.metrics.xHeight }]);
   assert.equal(font.glyphs[" "].lsb, 0);
 });
 
@@ -151,13 +152,13 @@ test("resetting a letter gives back a fresh one", async () => {
   assert.deepEqual(defaultGlyph(font, "ñ").components.map((c) => c.glyph), ["n", "˜"]);
 });
 
-test("accented capitals are composites with the accent at cap height", async () => {
-  const { CHARSET, ACUTE, glyphName, isCapital } = await import("../js/charset.js");
+test("accented capitals are composites with the case accent", async () => {
+  const { CHARSET, glyphName, isCapital } = await import("../js/charset.js");
   const font = normalizeFont(null);
-  const lift = font.metrics.capHeight - font.metrics.xHeight;
-  for (const [char, base] of [["Á", "A"], ["É", "E"], ["Í", "I"], ["Ó", "O"], ["Ú", "U"]]) {
+  for (const [char, base] of [["Á", "A"], ["É", "E"], ["Í", "I"], ["Ó", "O"], ["Ú", "U"], ["Ü", "U"]]) {
     assert.ok(CHARSET.includes(char));
-    assert.deepEqual(font.glyphs[char].components.map((c) => [c.glyph, c.dy]), [[base, 0], [ACUTE, lift]]);
+    const mark = char === "Ü" ? "¨.case" : "´.case";
+    assert.deepEqual(font.glyphs[char].components.map((c) => [c.glyph, c.dy]), [[base, 0], [mark, 0]]);
   }
   assert.equal(glyphName("Á"), "Aacute");
   assert.ok(isCapital("Á") && isCapital("Ñ") && isCapital("7") && !isCapital("á"));
@@ -205,4 +206,43 @@ test("accents are centered on the ink of their letter, in whole columns", async 
   // Odd differences leave the extra half column on the left.
   font.glyphs.i.cells = ["0,0", "1,0"];
   assert.equal(centeredDx(font, í, 1), -2);
+});
+
+test("case marks: named like Glyphs, no code point, raised accent by default", async () => {
+  const { ACUTE, glyphName, codepoint, isCapital, baseChar } = await import("../js/charset.js");
+  const { charUnicodes, resolvedCells } = await import("../js/model.js");
+  const font = normalizeFont(null);
+  assert.equal(glyphName("´.case"), "acute.case");
+  assert.equal(glyphName("¨.case"), "dieresis.case");
+  assert.equal(codepoint("´.case"), "sin código");
+  assert.deepEqual(charUnicodes(font, "´.case"), []);
+  assert.ok(isCapital("´.case"));
+  assert.equal(baseChar("´.case"), ACUTE);
+  // Drawing the case mark changes the capitals only.
+  font.glyphs[ACUTE].cells = ["1,10"];
+  font.glyphs["´.case"].components = [];
+  font.glyphs["´.case"].cells = ["1,15"];
+  const at = (char) => resolvedCells(font, font.glyphs[char]).filter((k) => +k.split(",")[1] >= 10);
+  const dx = (char) => font.glyphs[char].components[1].dx;
+  assert.deepEqual(at("á"), [`${1 + dx("á")},10`]);
+  assert.deepEqual(at("Á"), [`${1 + dx("Á")},15`]);
+});
+
+test("older fonts switch their capitals to the case marks without changing their look", async () => {
+  const { resolvedCells } = await import("../js/model.js");
+  const font = normalizeFont(null);
+  font.glyphs["´"].cells = ["0,10", "1,11"];
+  font.glyphs.A.cells = ["0,0", "1,1"];
+  const lift = font.metrics.capHeight - font.metrics.xHeight;
+  // As saved before: Á = A + ´ raised by hand, no case marks.
+  const old = JSON.parse(JSON.stringify(font));
+  for (const k of ["´.case", "˜.case", "¨.case"]) delete old.glyphs[k];
+  old.glyphs["Á"].components = [{ glyph: "A", dx: 0, dy: 0 }, { glyph: "´", dx: 3, dy: lift + 1 }];
+  old.glyphs["É"].components = [{ glyph: "E", dx: 0, dy: 0 }, { glyph: "´", dx: 2, dy: lift, erase: ["0,10"] }];
+  const before = resolvedCells(normalizeFont(JSON.parse(JSON.stringify(old))), old.glyphs["Á"]).sort();
+  const loaded = normalizeFont(old);
+  assert.deepEqual(loaded.glyphs["Á"].components[1], { glyph: "´.case", dx: 3, dy: 1 });
+  assert.deepEqual(resolvedCells(loaded, loaded.glyphs["Á"]).sort(), before);
+  // An accent with an erased part stays as it was.
+  assert.equal(loaded.glyphs["É"].components[1].glyph, "´");
 });

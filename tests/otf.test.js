@@ -27,7 +27,7 @@ test("the .otf has every glyph, names, metrics and advance widths", async () => 
   assert.equal(otf.unitsPerEm, 1000);
   assert.equal(otf.ascender, 750);
   assert.equal(otf.descender, -250);
-  assert.equal(otf.glyphs.length, 109); // .notdef + 108 characters
+  assert.equal(otf.glyphs.length, 112); // .notdef + 111 glyphs
   const A = otf.charToGlyph("A");
   assert.equal(A.name, "A");
   assert.equal(A.advanceWidth, advanceWidth(font, font.glyphs.A));
@@ -136,4 +136,13 @@ test(".notdef is a visible box, not a blank", async () => {
   assert.equal(notdef.path.commands.filter((c) => c.type === "M").length, 2);
   const box = notdef.getBoundingBox();
   assert.deepEqual([box.x1, box.y1, box.x2, box.y2], [50, 0, 450, 700]);
+});
+
+test("case marks are exported by name, without a code point", async () => {
+  const otf = opentype.parse(await buildOtf(sampleFont()));
+  const glyphs = Array.from({ length: otf.glyphs.length }, (_, i) => otf.glyphs.get(i));
+  const acuteCase = glyphs.find((g) => g.name === "acute.case");
+  assert.ok(acuteCase);
+  assert.equal(acuteCase.unicode, undefined);
+  assert.equal(otf.charToGlyph("´").name, "acute");
 });

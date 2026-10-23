@@ -19,7 +19,7 @@ test("the variable font has a weight axis with named weights", async () => {
   const buf = await buildVariableTtf(sample());
   const otf = opentype.parse(buf);
   assert.equal(otf.outlinesFormat, "truetype");
-  assert.equal(otf.glyphs.length, 109);
+  assert.equal(otf.glyphs.length, 112);
   const [axis] = otf.tables.fvar.axes;
   assert.deepEqual([axis.tag, axis.minValue, axis.defaultValue, axis.maxValue], ["wght", 400, 400, 800]);
   assert.deepEqual(otf.tables.fvar.instances.map((i) => i.name.en), ["Regular", "Medium", "SemiBold", "Bold", "ExtraBold"]);
