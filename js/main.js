@@ -3,7 +3,7 @@
 import { key, parseKey, windingAt } from "./geometry.js";
 import {
   METRICS, createGlyph, normalizeFont, createBlankFont, defaultGlyph, setMetric, sameMetrics,
-  GRIDS, glyphGrid, glyphRounding, shapeKey, hasOwnShape, resolvedCorners, resolvedPieces, resolvedOutline, glyphShape,
+  GRIDS, glyphGrid, shapeKey, hasOwnShape, resolvedCorners, resolvedPieces, resolvedOutline, glyphShape,
   planFit, applyFit, ROW_ZONES, zoneRows, setZoneRows, metricColor, advanceWidth, resolvedCells, canUseComponent, dependents,
   kernGroup, setKernGroup, groupMembers, groupNames, capitalOf, centeredDx, componentEdited, alternates, allChars, addAlternate, removeAlternate,
   componentPoint, componentCellFromParent, componentLocalPoint, syncInvertedGlyphs, syncAlternates, spacingKey,
@@ -420,7 +420,6 @@ function selectGlyph(char) {
   font.active = char;
   boldView = null;
   if (master === "bold") refreshBold(font, char);
-  if (tool === "nodes") expandLiveCorners();
   updateThumb(prev);
   updateThumb(char);
   thumbs.get(char)?.scrollIntoView({ block: "nearest" });
@@ -482,7 +481,6 @@ function setTool(next) {
     next = tool === "corner" ? "draw" : tool;
   }
   tool = next;
-  if (tool === "nodes") expandLiveCorners();
   $("toolPoly").classList.toggle("active", tool === "poly");
   $("polyGroup").hidden = tool !== "poly";
   if (tool === "poly") syncPolyBar();
@@ -953,27 +951,6 @@ const nodeSel = new Set(); // "contour:node"
 function editableOutline() {
   const g = glyph();
   return g.outline ?? commandsToOutline(ownContours(font, g));
-}
-
-// Nodos shows the real points of the outline, like Illustrator: corners
-// rounded live (with Esquinas, or the letter's rounding) become curve points
-// of the outline when the letter is edited with nodes, like "Expandir".
-// Returns true if anything changed (it can be undone).
-function expandLiveCorners() {
-  const g = glyph();
-  if (!g.outline?.length) return false;
-  const own = new Set(g.outline.flatMap((c) => c.nodes.map((n) => cornerKey(n.x, n.y))));
-  // Corners on this outline's nodes; a 0 keeps a corner sharp under the rounding.
-  const corners = Object.fromEntries(Object.entries(g.corners ?? {}).filter(([k]) => own.has(k)));
-  const rounding = glyphRounding(font, g);
-  if (!(rounding > 0) && !Object.values(corners).some((r) => r === "max" || +r > 0)) return false;
-  checkpoint();
-  g.outline = commandsToOutline(roundedContours(outlineToCommands(g.outline), { rounding, corners }));
-  for (const k of Object.keys(corners)) delete g.corners[k];
-  // The rounding is in the outline now: it isn't applied a second time.
-  if (rounding > 0) g.rounding = 0;
-  toast("Las esquinas redondeadas ahora son puntos de la curva, como «Expandir» en Illustrator (Cmd/Ctrl + Z lo deshace).");
-  return true;
 }
 
 function ensureOutline() {
@@ -2231,22 +2208,25 @@ function copyNodes() {
   const outline = editableOutline();
   const picked = new Set([...nodeSel].map((k) => +k.split(":")[0]));
   const contours = outline.filter((_, ci) => !picked.size || picked.has(ci));
-  // With their live rounded corners applied, so the copy keeps its curves.
-  nodeClipboard = g.outline
-    ? commandsToOutline(roundedContours(outlineToCommands(contours), { rounding: glyphRounding(font, g), corners: g.corners ?? {} }))
-    : cloneOutline(contours);
+  // With the live rounded corners on their nodes, so the copy keeps its
+  // curves and they can still be changed or removed with Esquinas.
+  const onNodes = new Set(contours.flatMap((c) => c.nodes.map((n) => cornerKey(n.x, n.y))));
+  const corners = g.outline ? Object.fromEntries(Object.entries(g.corners ?? {}).filter(([k]) => onNodes.has(k))) : {};
+  nodeClipboard = { contours: cloneOutline(contours), corners };
   lastCopy = "nodes";
   toast(`${contours.length} contorno(s) copiados`);
   return [...picked];
 }
 
 function pasteNodes() {
-  if (!nodeClipboard?.length) return;
+  if (!nodeClipboard?.contours.length) return;
   if (tool !== "nodes") setTool("nodes");
   checkpoint();
   const outline = ensureOutline();
   const start = outline.length;
-  outline.push(...cloneOutline(nodeClipboard));
+  outline.push(...cloneOutline(nodeClipboard.contours));
+  const g = glyph();
+  g.corners = { ...g.corners, ...nodeClipboard.corners };
   // The pasted copy stays selected, ready to drag or move with the arrows.
   nodeSel.clear();
   for (let ci = start; ci < outline.length; ci++) outline[ci].nodes.forEach((_, ni) => nodeSel.add(`${ci}:${ni}`));

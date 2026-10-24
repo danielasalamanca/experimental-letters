@@ -103,11 +103,11 @@ grilla:
     Las curvas se conservan como curvas.
   - La herramienta **Esquinas** también funciona en letras editadas con
     nodos: el redondeo queda "vivo" (el nodo sigue en la esquina y el arco
-    se aplica encima). Al volver a **Nodos**, esas esquinas pasan a ser
-    puntos de la curva, como «Expandir» en Illustrator: todos los puntos
-    quedan sobre la letra y se pueden mover (Cmd/Ctrl + Z lo deshace).
-  - **Copiar y pegar** una letra editada con nodos copia su contorno con las
-    curvas, con cualquier herramienta, y lo pega como nodos en otra letra.
+    se aplica encima), así que se puede cambiar o quitar cuando quieras, y
+    si mueves el nodo, su redondeo lo acompaña.
+  - **Copiar y pegar** una letra editada con nodos copia su contorno con sus
+    esquinas redondeadas, con cualquier herramienta, y lo pega como nodos en
+    otra letra; las esquinas siguen vivas ahí también.
   - La primera vez que cambias un punto, la letra pasa a ser un contorno de
     nodos (como expandir en Illustrator) y se marca con un cuadradito azul en
     el mapa. **Volver a la grilla** (panel Glifo) la devuelve a su dibujo en
