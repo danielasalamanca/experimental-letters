@@ -151,6 +151,42 @@ export function toggleSmooth(outline, ci, ni) {
   node.out = [dx * lo, dy * lo];
 }
 
+// "Enderezar": a curved segment between two chosen nodes of a contour
+// becomes the sharp corner it rounds — where the line arriving at its first
+// node meets the line leaving its last one. The two nodes become that one
+// corner node, so a rounded corner can be undone even after it turned into
+// points (and then rounded again, live, with Esquinas). `picked` holds node
+// indices; returns how many corners were made.
+export function straightenCurves(contour, picked) {
+  const nodes = contour.nodes;
+  const n = nodes.length;
+  const corners = new Map(); // first node index -> the corner replacing it and the next
+  const used = new Set();
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const a = nodes[i], b = nodes[j];
+    if (!picked.has(i) || !picked.has(j) || used.has(i) || used.has(j) || !(a.out || b.in)) continue;
+    const prev = nodes[(i - 1 + n) % n], next = nodes[(j + 1) % n];
+    // Directions of the line arriving at a and of the one leaving b.
+    const d1 = a.in ? [-a.in[0], -a.in[1]] : [a.x - prev.x, a.y - prev.y];
+    const d2 = b.out ? b.out : [next.x - b.x, next.y - b.y];
+    const cross = d1[0] * d2[1] - d1[1] * d2[0];
+    if (Math.abs(cross) < 1e-9) continue; // parallel: no corner to go back to
+    const t = ((b.x - a.x) * d2[1] - (b.y - a.y) * d2[0]) / cross;
+    corners.set(i, { x: a.x + d1[0] * t, y: a.y + d1[1] * t, in: null, out: null });
+    used.add(i);
+    used.add(j);
+  }
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    if (corners.has(i)) out.push(corners.get(i));
+    else if (!used.has(i)) out.push(nodes[i]);
+  }
+  if (!corners.size || out.length < 3) return 0;
+  contour.nodes = out;
+  return corners.size;
+}
+
 // Whether a node's handles are in line (a smooth node): moving one turns
 // the other with it.
 export function isSmooth(node) {

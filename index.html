@@ -6,11 +6,11 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=76" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=77" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=76" : "favicon-light.png?v=76"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=77" : "favicon-light.png?v=77"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=76">
+  <link rel="stylesheet" href="style.css?v=77">
 </head>
 <body>
   <header class="topbar">
@@ -106,6 +106,7 @@
           <button id="nodeAdd" type="button" class="icon-btn" title="Agregar nodo: con este botón activo, clic sobre el borde de la letra agrega un punto (también: doble clic sobre el borde)" aria-label="Agregar nodo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18C7 10 11 9 14 9"/><rect x="2.5" y="16.5" width="3.5" height="3.5" rx=".5"/><path d="M18 5v8M14 9h8"/></svg></button>
           <button id="nodeRemove" type="button" class="icon-btn" title="Quitar nodo: quita los puntos elegidos (Supr)" aria-label="Quitar nodo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18C7 10 11 9 14 9"/><rect x="2.5" y="16.5" width="3.5" height="3.5" rx=".5"/><path d="M14 9h8"/></svg></button>
           <button id="nodeToggle" type="button" class="icon-btn" title="Esquina ↔ Curva: cambia los puntos elegidos (también: doble clic en el punto)" aria-label="Esquina o curva"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18l5-11 4 11"/><path d="M12 18c1-8 8-8 9 0"/></svg></button>
+          <button id="nodeStraighten" type="button" class="icon-btn" title="Enderezar: elige los dos puntos de una curva (o varias) y vuelve a ser la esquina en punta de antes de redondearla. Después la puedes redondear de nuevo con Esquinas." aria-label="Enderezar esquina"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V5h14"/><path d="M5 13a8 8 0 0 1 8-8" stroke-dasharray="2 2.2"/></svg></button>
           <button id="shapeRect" type="button" class="icon-btn" title="Rectángulo: dibújalo arrastrando (Shift: cuadrado). Queda encima, listo para el buscatrazos" aria-label="Rectángulo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="16" height="12" rx="1"/></svg></button>
           <button id="shapeEllipse" type="button" class="icon-btn" title="Elipse: dibújala arrastrando (Shift: círculo). Queda encima, listo para el buscatrazos" aria-label="Elipse"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="12" rx="8.5" ry="6.5"/></svg></button>
         </div>
@@ -543,29 +544,29 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=76",
-        "./js/geometry.js": "./js/geometry.js?v=76",
-        "./js/model.js": "./js/model.js?v=76",
-        "./js/render.js": "./js/render.js?v=76",
-        "./js/tools.js": "./js/tools.js?v=76",
-        "./js/library.js": "./js/library.js?v=76",
-        "./js/history.js": "./js/history.js?v=76",
-        "./js/pieces.js": "./js/pieces.js?v=76",
-        "./js/nodes.js": "./js/nodes.js?v=76",
-        "./js/shapes.js": "./js/shapes.js?v=76",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=76",
-        "./js/outline.js": "./js/outline.js?v=76",
-        "./js/otf.js": "./js/otf.js?v=76",
-        "./js/masters.js": "./js/masters.js?v=76",
-        "./js/variable.js": "./js/variable.js?v=76",
-        "./js/woff.js": "./js/woff.js?v=76",
-        "./js/export.js": "./js/export.js?v=76",
-        "./js/testbar.js": "./js/testbar.js?v=76",
-        "./js/guide.js": "./js/guide.js?v=76",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=76"
+        "./js/charset.js": "./js/charset.js?v=77",
+        "./js/geometry.js": "./js/geometry.js?v=77",
+        "./js/model.js": "./js/model.js?v=77",
+        "./js/render.js": "./js/render.js?v=77",
+        "./js/tools.js": "./js/tools.js?v=77",
+        "./js/library.js": "./js/library.js?v=77",
+        "./js/history.js": "./js/history.js?v=77",
+        "./js/pieces.js": "./js/pieces.js?v=77",
+        "./js/nodes.js": "./js/nodes.js?v=77",
+        "./js/shapes.js": "./js/shapes.js?v=77",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=77",
+        "./js/outline.js": "./js/outline.js?v=77",
+        "./js/otf.js": "./js/otf.js?v=77",
+        "./js/masters.js": "./js/masters.js?v=77",
+        "./js/variable.js": "./js/variable.js?v=77",
+        "./js/woff.js": "./js/woff.js?v=77",
+        "./js/export.js": "./js/export.js?v=77",
+        "./js/testbar.js": "./js/testbar.js?v=77",
+        "./js/guide.js": "./js/guide.js?v=77",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=77"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=76"></script>
+  <script type="module" src="js/main.js?v=77"></script>
 </body>
 </html>

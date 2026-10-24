@@ -105,6 +105,10 @@ grilla:
     nodos: el redondeo queda "vivo" (el nodo sigue en la esquina y el arco
     se aplica encima), así que se puede cambiar o quitar cuando quieras, y
     si mueves el nodo, su redondeo lo acompaña.
+  - **Enderezar** (en Nodos): si una curva ya son puntos (por ejemplo, una
+    letra redondeada en la grilla y pasada a nodos), elige sus dos extremos y
+    vuelve a ser la esquina en punta original, donde se cruzan sus dos tramos.
+    Después se puede redondear de nuevo, en vivo, con Esquinas.
   - **Copiar y pegar** una letra editada con nodos copia su contorno con sus
     esquinas redondeadas, con cualquier herramienta, y lo pega como nodos en
     otra letra; las esquinas siguen vivas ahí también.

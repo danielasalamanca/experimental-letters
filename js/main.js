@@ -23,7 +23,7 @@ import {
 import { squareCorners, effectiveRadii, MAX_RADIUS } from "./outline.js";
 import {
   commandsToOutline, outlineToCommands, cloneOutline, splitSegment, toggleSmooth, deleteNodes,
-  nearestSegment, snapToGrid, isSmooth,
+  nearestSegment, snapToGrid, isSmooth, straightenCurves,
 } from "./nodes.js";
 import { ownContours, glyphRawContours, componentContours } from "./shapes.js";
 import {
@@ -1942,6 +1942,32 @@ $("nodeToggle").addEventListener("click", () => {
     if (outline[ci]?.nodes[ni]) toggleSmooth(outline, ci, ni);
   }
   render();
+});
+// "Enderezar": curves between chosen nodes go back to sharp corners.
+$("nodeStraighten").addEventListener("click", () => {
+  if (nodeSel.size < 2) { toast("Elige los dos puntos de una curva (o más) para enderezarla."); return; }
+  const outline = editableOutline();
+  const picked = new Map();
+  for (const k of nodeSel) {
+    const [ci, ni] = k.split(":").map(Number);
+    if (!picked.has(ci)) picked.set(ci, new Set());
+    picked.get(ci).add(ni);
+  }
+  // Tried on a copy first, so nothing changes (and no undo step) when no
+  // chosen pair is a curve.
+  const trial = cloneOutline(outline);
+  let made = 0;
+  for (const [ci, nodes] of picked) if (trial[ci]) made += straightenCurves(trial[ci], nodes);
+  if (!made) { toast("No hay curvas entre los puntos elegidos: elige los dos extremos de una curva."); return; }
+  checkpoint();
+  const g = glyph();
+  // A letter still on the grid becomes an outline of nodes here.
+  const wasGrid = !g.outline;
+  g.outline = trial;
+  nodeSel.clear();
+  if (wasGrid) syncGlyphPanel();
+  render();
+  toast(`${made} esquina(s) enderezada(s). Puedes redondearlas de nuevo con Esquinas.`);
 });
 $("toolPoly").addEventListener("click", () => setTool("poly"));
 $("polyAdd").addEventListener("click", () => { polyMode = "add"; syncPolyBar(); render(null); });

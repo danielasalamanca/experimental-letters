@@ -138,3 +138,34 @@ test("a glyph edited with nodes gets its rounded corners in the font", async () 
   const otf = opentype.parse(await buildOtf(font));
   assert.equal(otf.charToGlyph("o").path.commands.filter((c) => c.type === "C").length, 2);
 });
+
+import { straightenCurves } from "../js/nodes.js";
+
+const sharp = (x, y) => ({ x, y, in: null, out: null });
+const rounded = (contours, corners) => commandsToOutline(roundedContours(outlineToCommands(contours), { corners }));
+const corners = (contour) => contour.nodes.map((n) => `${Math.round(n.x * 1000) / 1000},${Math.round(n.y * 1000) / 1000}`).sort();
+
+test("Enderezar turns rounded corners that became points back into sharp ones", () => {
+  // The "A" of the report: a trapezoid with its top corners rounded to the max.
+  const trapezoid = [{ closed: true, nodes: [sharp(0, 0), sharp(8, 0), sharp(7, 14), sharp(1, 14)] }];
+  const [contour] = rounded(trapezoid, { "7,14": "max", "1,14": "max" });
+  assert.ok(contour.nodes.length > 4, "rounded: more nodes, with curves");
+  const made = straightenCurves(contour, new Set(contour.nodes.map((_, i) => i)));
+  assert.equal(made, 2);
+  assert.deepEqual(corners(contour), ["0,0", "1,14", "7,14", "8,0"]);
+  assert.ok(contour.nodes.every((n) => !n.in && !n.out));
+});
+
+test("Enderezar only touches curves whose two nodes are chosen", () => {
+  const square = [{ closed: true, nodes: [sharp(0, 0), sharp(6, 0), sharp(6, 6), sharp(0, 6)] }];
+  const [contour] = rounded(square, { "6,6": 2, "0,0": 2 });
+  const before = contour.nodes.length;
+  // The two ends of the curve at the top right: the nodes nearest (6, 6).
+  const near = contour.nodes.map((n, i) => [Math.hypot(n.x - 6, n.y - 6), i]).sort((a, b) => a[0] - b[0]).slice(0, 2).map(([, i]) => i);
+  assert.equal(straightenCurves(contour, new Set(near)), 1);
+  assert.equal(contour.nodes.length, before - 1);
+  assert.ok(contour.nodes.some((n) => Math.abs(n.x - 6) < 1e-9 && Math.abs(n.y - 6) < 1e-9), "the corner is back");
+  assert.ok(contour.nodes.some((n) => n.in || n.out), "the other rounded corner stays");
+  // A single chosen node, or none: nothing to straighten.
+  assert.equal(straightenCurves(contour, new Set([0])), 0);
+});
