@@ -274,11 +274,16 @@ grilla:
 - **Grupos de kerning** (como en Glyphs): en **Esta letra › Grupos de
   kerning** cada letra puede tener un grupo por lado. Si V y W tienen el grupo
   izquierdo «V» y A el derecho «A», un solo valor de AV vale para AV, AW, ÁV,
-  ÁW… Las acentuadas y las alternativas heredan los grupos de su letra. En la
-  barra de kerning, el botón **Grupos A · V** indica que estás ajustando los
-  grupos; clic para convertir ese par en una **excepción** («Solo AW») con su
-  propio valor, y **Quitar** lo devuelve al valor de los grupos. Al exportar,
-  los valores de grupo se escriben como pares de todas sus letras.
+  ÁW… Las acentuadas y las alternativas heredan los grupos de su letra.
+  Como en Glyphs, la barra de kerning muestra cada letra del par con el grupo
+  del lado que kernea (**A @A | @V V**; clic en el grupo, o en «sin grupo»,
+  para asignarlo) y qué se está ajustando: **Grupos @A @V** (vale para todo
+  el grupo), **Excepción AW** (solo ese par, por encima de los grupos) o
+  **Solo el par** (letras sin grupo). Clic en «Grupos» convierte el par en
+  excepción y **Quitar** lo devuelve al valor de los grupos. Sobre el texto
+  de prueba se ve el valor de cada par kerneado: en negro los de grupo, en
+  rosado las excepciones y más claros los pares sueltos. Al exportar, los
+  valores de grupo se escriben como pares de todas sus letras.
 - **Doble clic** en una letra del texto la abre en el editor.
 
 ### Métricas verticales

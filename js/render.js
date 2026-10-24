@@ -304,11 +304,16 @@ export const KERN_COLOR = "#ff52a9";
 // Returns the layout so the caller can map clicks to characters.
 // `weighted(char)`, when given, returns the letter at another weight:
 // { contours (cells), advance, lsb } (see masters.js atWeight).
-export function drawText(svg, font, text, { size, ink, paper, pair = null, metrics = false, weighted = null }) {
+// `kernLabel(left, right, selected)`, when given, labels pairs above the
+// text with their kerning, like Glyphs' kerning mode: it returns
+// { text, kind } ("group", "exception" or "pair") or null for no label.
+export function drawText(svg, font, text, { size, ink, paper, pair = null, metrics = false, weighted = null, kernLabel = null }) {
   const cu = font.cell;
   const m = font.metrics;
   const asc = m.ascender * cu, desc = m.descender * cu;
-  const lineHeight = Math.round((asc - desc) * 1.15);
+  // Room above each line for the kerning labels, about 13 px on screen.
+  const labelSpace = kernLabel ? Math.round((13 * font.upm) / size) : 0;
+  const lineHeight = Math.round((asc - desc) * 1.15) + labelSpace;
   const pad = cu;
   const atWeight = new Map();
   const weightedOf = (char) => {
@@ -318,7 +323,7 @@ export function drawText(svg, font, text, { size, ink, paper, pair = null, metri
   const layout = layoutText(font, text, weighted ? (char) => weightedOf(char).advance : null);
   const w = Math.max(layout.width, cu) + pad * 2;
   const h = layout.lines * lineHeight + pad;
-  const top = -asc - pad / 2;
+  const top = -asc - pad / 2 - labelSpace;
   const scale = size / font.upm;
 
   svg.setAttribute("viewBox", `${-pad} ${top} ${w} ${h}`);
@@ -389,6 +394,27 @@ export function drawText(svg, font, text, { size, ink, paper, pair = null, metri
       x: left.x, y: y - asc, width: left.advance + left.kern, height: asc - desc,
       fill: KERN_COLOR, "fill-opacity": 0.06,
     }));
+  }
+
+  // Kerning values above the pairs: group values in ink, exceptions in
+  // pink, pairs of letters without groups paler.
+  if (kernLabel) {
+    const colors = { group: ink, exception: KERN_COLOR, pair: ink };
+    layout.items.forEach((item, i) => {
+      const next = layout.items[i + 1];
+      if (!next || next.line !== item.line) return;
+      const selected = !!left && left === item;
+      const label = kernLabel(item.char, next.char, selected);
+      if (!label) return;
+      const t = el("text", {
+        x: item.x + item.advance + item.kern / 2, y: lineY(item.line) - asc - labelSpace * 0.25,
+        "font-size": labelSpace * 0.72, "text-anchor": "middle", "font-family": "Courier Prime, ui-monospace, monospace",
+        "font-weight": selected ? 700 : 400, fill: colors[label.kind] ?? ink, "fill-opacity": label.kind === "pair" ? 0.6 : 1,
+        class: "kern-value",
+      });
+      t.textContent = label.text;
+      svg.appendChild(t);
+    });
   }
 
   // Invisible hit areas, one per character.

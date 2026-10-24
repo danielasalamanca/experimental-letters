@@ -2913,6 +2913,15 @@ $("fit").addEventListener("click", () => {
 // --- Text test bar and kerning (see testbar.js) ---
 const testbar = initTestbar({
   getFont: () => font, checkpoint, persist, updateInfo, toast, selectGlyph, isEmptyGlyph,
+  // A letter's kerning groups: "Esta letra › Grupos de kerning", on the field of that side.
+  editGroups: (char, side) => {
+    selectGlyph(char);
+    showPanel("glyph");
+    $("kernGroupsBox").open = true;
+    const field = $(side === "left" ? "groupLeft" : "groupRight");
+    field.scrollIntoView({ block: "nearest" });
+    field.focus();
+  },
 });
 
 // --- Kerning groups of the active letter ---
@@ -2937,7 +2946,7 @@ function syncKernGroups() {
     $(`${id}Info`).textContent = alt
       ? `Usa los grupos de «${alt.base}».`
       : group
-        ? `Se usa ${GROUP_USE[side]}. Grupo «${group}»${own ? "" : ", heredado de su letra"}: ${shown}.`
+        ? `Se usa ${GROUP_USE[side]}. Grupo @${group}${own ? "" : ", heredado de su letra"}: ${shown}.`
         : `Se usa ${GROUP_USE[side]}. Sin grupo: solo kerning por pares.`;
   }
 }

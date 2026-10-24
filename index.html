@@ -6,11 +6,11 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=78" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=79" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=78" : "favicon-light.png?v=78"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=79" : "favicon-light.png?v=79"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=78">
+  <link rel="stylesheet" href="style.css?v=79">
 </head>
 <body>
   <header class="topbar">
@@ -424,6 +424,10 @@
       <div class="kern" id="kernBox">
         <span class="kern-label">Kerning</span>
         <strong id="kernPair" class="kern-pair">—</strong>
+        <span class="kern-sides" id="kernSides" hidden>
+          <span class="kern-side"><strong id="kernLeftChar"></strong><button id="kernLeftGroup" type="button" class="kern-group"></button></span>
+          <span class="kern-side"><button id="kernRightGroup" type="button" class="kern-group"></button><strong id="kernRightChar"></strong></span>
+        </span>
         <button id="kernScope" type="button" class="kern-scope" hidden></button>
         <button id="kernMinus" type="button" class="square" title="Juntar (← · Shift: ×5)">−</button>
         <input id="kernValue" type="number" step="10" aria-label="Kerning del par en unidades">
@@ -438,7 +442,7 @@
     <div class="test-foot">
       <span id="testCount" class="counter"></span>
       <div id="kernList" class="kern-list"></div>
-      <span class="test-hint">clic entre dos letras para ajustar el kerning&nbsp; ← →</span>
+      <span class="test-hint">clic entre dos letras para ajustar el kerning&nbsp; ← → · <span class="kern-legend group">grupos</span> <span class="kern-legend exception">excepción</span> <span class="kern-legend pair">par</span></span>
     </div>
   </section>
 
@@ -544,29 +548,29 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=78",
-        "./js/geometry.js": "./js/geometry.js?v=78",
-        "./js/model.js": "./js/model.js?v=78",
-        "./js/render.js": "./js/render.js?v=78",
-        "./js/tools.js": "./js/tools.js?v=78",
-        "./js/library.js": "./js/library.js?v=78",
-        "./js/history.js": "./js/history.js?v=78",
-        "./js/pieces.js": "./js/pieces.js?v=78",
-        "./js/nodes.js": "./js/nodes.js?v=78",
-        "./js/shapes.js": "./js/shapes.js?v=78",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=78",
-        "./js/outline.js": "./js/outline.js?v=78",
-        "./js/otf.js": "./js/otf.js?v=78",
-        "./js/masters.js": "./js/masters.js?v=78",
-        "./js/variable.js": "./js/variable.js?v=78",
-        "./js/woff.js": "./js/woff.js?v=78",
-        "./js/export.js": "./js/export.js?v=78",
-        "./js/testbar.js": "./js/testbar.js?v=78",
-        "./js/guide.js": "./js/guide.js?v=78",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=78"
+        "./js/charset.js": "./js/charset.js?v=79",
+        "./js/geometry.js": "./js/geometry.js?v=79",
+        "./js/model.js": "./js/model.js?v=79",
+        "./js/render.js": "./js/render.js?v=79",
+        "./js/tools.js": "./js/tools.js?v=79",
+        "./js/library.js": "./js/library.js?v=79",
+        "./js/history.js": "./js/history.js?v=79",
+        "./js/pieces.js": "./js/pieces.js?v=79",
+        "./js/nodes.js": "./js/nodes.js?v=79",
+        "./js/shapes.js": "./js/shapes.js?v=79",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=79",
+        "./js/outline.js": "./js/outline.js?v=79",
+        "./js/otf.js": "./js/otf.js?v=79",
+        "./js/masters.js": "./js/masters.js?v=79",
+        "./js/variable.js": "./js/variable.js?v=79",
+        "./js/woff.js": "./js/woff.js?v=79",
+        "./js/export.js": "./js/export.js?v=79",
+        "./js/testbar.js": "./js/testbar.js?v=79",
+        "./js/guide.js": "./js/guide.js?v=79",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=79"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=78"></script>
+  <script type="module" src="js/main.js?v=79"></script>
 </body>
 </html>

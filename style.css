@@ -551,7 +551,21 @@ label.check { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
 }
 /* No pair chosen: just "Kerning − +", faded. */
 .kern:has(#kernValue:disabled) { opacity: 0.35; padding-right: 8px; }
-.kern:has(#kernValue:disabled) :is(.kern-pair, #kernValue, #kernClear) { display: none; }
+.kern:has(#kernValue:disabled) :is(.kern-pair, .kern-sides, .kern-scope, #kernValue, #kernClear) { display: none; }
+/* Each letter of the pair with the group of the side that kerns: the
+   right group of the first letter and the left group of the second. */
+.kern-sides { display: inline-flex; align-items: center; gap: 2px; }
+.kern-sides:not([hidden]) + .kern-scope { margin-left: 4px; }
+.kern-side { display: inline-flex; align-items: center; gap: 3px; padding: 0 2px; }
+.kern-side strong { min-width: 14px; text-align: center; font-weight: 600; font-size: 15px; }
+.kern-side + .kern-side { padding-left: 6px; border-left: 1px solid var(--line); }
+.kern .kern-group { min-height: 24px; padding: 0 7px; font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--fg); background: var(--bg); }
+.kern .kern-group.none { color: var(--muted); font-style: italic; }
+.kern-legend { font-family: var(--mono); }
+.kern-legend::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 3px; border-radius: 2px; vertical-align: 0; }
+.kern-legend.group::before { background: var(--fg); }
+.kern-legend.exception::before { background: #ff52a9; }
+.kern-legend.pair::before { background: var(--fg); opacity: 0.45; }
 .kern-label { margin-right: 2px; }
 .kern-pair { min-width: 24px; text-align: center; font-weight: 600; }
 .kern button { background: transparent; }
@@ -576,6 +590,7 @@ label.check { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
 .kern-chip.exception::before { content: "≠ "; }
 .kern-scope { min-height: 26px; padding: 0 10px; font-size: 12.5px; font-family: var(--mono); font-weight: 400; white-space: nowrap; box-shadow: inset 0 0 0 1px var(--fg); }
 .kern-scope.exception { background: var(--acid) !important; box-shadow: none; }
+.kern-scope.pair { box-shadow: none; color: var(--muted); }
 
 /* ---------- Ribbon and credits ---------- */
 .ribbon { overflow: hidden; background: var(--acid); border-top: 1px solid var(--fg); height: 32px; display: flex; align-items: center; }

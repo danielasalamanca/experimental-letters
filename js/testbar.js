@@ -5,7 +5,7 @@
 import { drawText } from "./render.js";
 import {
   layoutText, capitalOf, kerningValue, setKerning, removeKerning, setGroupKerning, kerningTarget,
-  pairGroups, kernGroup, groupMembers,
+  pairGroups, pairKerning, kernGroup, groupMembers,
 } from "./model.js";
 import { atWeight, normalizeAxis, instances } from "./masters.js";
 
@@ -28,10 +28,10 @@ const TEST_KEY = "experimental-letters:test-hidden";
 
 // Wires the test bar. `getFont()` gives the open font; `checkpoint`,
 // `persist` and `updateInfo` are the editor's undo step, save and status;
-// `selectGlyph` opens a letter; `isEmptyGlyph` tells drawn letters apart.
-// Returns what the editor calls: renderTest, scheduleTest, clearPair and
-// toggle (show or hide the bar).
-export function initTestbar({ getFont, checkpoint, persist, updateInfo, toast, selectGlyph, isEmptyGlyph }) {
+// `selectGlyph` opens a letter; `editGroups(char, side)` opens its kerning
+// groups; `isEmptyGlyph` tells drawn letters apart. Returns what the editor
+// calls: renderTest, scheduleTest, clearPair and toggle (show or hide the bar).
+export function initTestbar({ getFont, checkpoint, persist, updateInfo, toast, selectGlyph, editGroups, isEmptyGlyph }) {
   let kernPair = null; // { left, right, line, index } — line/index when it is in the text
   let testLayout = null;
   let testFrame = 0;
@@ -62,6 +62,13 @@ export function initTestbar({ getFont, checkpoint, persist, updateInfo, toast, s
     testLayout = drawText($("testSvg"), font, t.text, {
       size: t.size, ink, paper, pair: kernPair?.line != null ? kernPair : null,
       weighted: weight > axis.min ? (char) => atWeight(font, char, weight) : null,
+      // Every kerned pair shows its value; the chosen one even at 0.
+      kernLabel: (left, right, selected) => {
+        const value = kerningValue(font, left, right);
+        if (!value && !selected) return null;
+        const own = pairKerning(font, left, right) !== undefined;
+        return { text: String(value), kind: own ? (pairGroups(font, left, right) ? "exception" : "pair") : "group" };
+      },
     });
     $("testView").style.background = paper;
     // How many of the characters in the text are drawn.
@@ -80,21 +87,41 @@ export function initTestbar({ getFont, checkpoint, persist, updateInfo, toast, s
     $("testInvert").setAttribute("aria-pressed", t.inverted);
 
     const has = !!kernPair;
-    $("kernPair").textContent = has ? `${kernPair.left}${kernPair.right}` : "—";
+    $("kernPair").hidden = true;
     $("kernValue").value = has ? kerningValue(font, kernPair.left, kernPair.right) : "";
     for (const id of ["kernMinus", "kernValue", "kernPlus", "kernClear"]) $(id).disabled = !has;
-    // Whether the value belongs to the pair's groups or to the pair alone.
-    const groups = has ? pairGroups(font, kernPair.left, kernPair.right) : null;
+    // Each letter with the group of the side that kerns, like Glyphs: the
+    // first letter's right group and the second's left group.
+    $("kernSides").hidden = !has;
     const scope = $("kernScope");
-    scope.hidden = !groups;
-    if (groups) {
-      const pair = `${kernPair.left}${kernPair.right}`;
-      const onGroups = kerningTarget(font, kernPair.left, kernPair.right) === "group";
-      scope.textContent = onGroups ? `Grupos ${groups[0]} · ${groups[1]}` : `Solo ${pair}`;
-      scope.classList.toggle("exception", !onGroups);
-      scope.title = onGroups
-        ? `Cambia todos los pares de los grupos ${groups[0]} y ${groups[1]}. Clic: excepción solo para ${pair}`
-        : `Excepción: solo ${pair}. Clic: volver al kerning de los grupos ${groups[0]} · ${groups[1]}`;
+    scope.hidden = !has;
+    const groups = has ? pairGroups(font, kernPair.left, kernPair.right) : null;
+    if (has) {
+      const { left, right } = kernPair;
+      const shown = (c) => (c === " " ? "␣" : c);
+      $("kernLeftChar").textContent = shown(left);
+      $("kernRightChar").textContent = shown(right);
+      for (const [id, char, side, use] of [
+        ["kernLeftGroup", left, "right", "cuando va primera"],
+        ["kernRightGroup", right, "left", "cuando va segunda"],
+      ]) {
+        const group = kernGroup(font, char, side);
+        const b = $(id);
+        b.textContent = group ? `@${group}` : "sin grupo";
+        b.classList.toggle("none", !group);
+        b.title = `${group ? `Grupo ${side === "right" ? "derecho" : "izquierdo"} de «${char}»: «${group}»` : `«${char}» no tiene grupo ${side === "right" ? "derecho" : "izquierdo"}`} (se usa ${use}). Clic: asignar o cambiar el grupo.`;
+      }
+      // What the value belongs to: the groups, an exception, or a pair of
+      // letters without groups.
+      const pair = `${shown(left)}${shown(right)}`;
+      const kind = !groups ? "pair" : kerningTarget(font, left, right) === "group" ? "group" : "exception";
+      scope.className = `kern-scope ${kind}`;
+      scope.textContent = { group: `Grupos @${groups?.[0]} @${groups?.[1]}`, exception: `Excepción ${pair}`, pair: `Solo el par ${pair}` }[kind];
+      scope.title = {
+        group: `El valor vale para todos los pares de @${groups?.[0]} con @${groups?.[1]}. Clic: excepción solo para ${pair}.`,
+        exception: `Excepción: el valor es solo para ${pair}, por encima de los grupos. Clic: volver al valor de los grupos @${groups?.[0]} @${groups?.[1]}.`,
+        pair: `Estas letras no tienen grupo en el lado que kernea: el valor es solo para ${pair}. Dales grupo con «sin grupo».`,
+      }[kind];
     }
 
     const list = $("kernList");
@@ -119,7 +146,7 @@ export function initTestbar({ getFont, checkpoint, persist, updateInfo, toast, s
     for (const [a, row] of Object.entries(font.groupKerning)) {
       for (const [b, value] of Object.entries(row)) {
         const active = has && groups?.[0] === a && groups?.[1] === b && kerningTarget(font, kernPair.left, kernPair.right) === "group";
-        chip(`${a}·${b} ${signed(value)}`, active, `Grupos ${a} (lado derecho) y ${b} (lado izquierdo)`, () => {
+        chip(`@${a} @${b} ${signed(value)}`, active, `Grupos @${a} (lado derecho) y @${b} (lado izquierdo)`, () => {
           // A pair of the groups in the text, else their first letters.
           const at = testLayout.items.find((it, i, all) => all[i + 1]?.line === it.line
             && kernGroup(font, it.char, "right") === a && kernGroup(font, all[i + 1].char, "left") === b);
@@ -149,6 +176,10 @@ export function initTestbar({ getFont, checkpoint, persist, updateInfo, toast, s
     if (!kernPair) return;
     const font = getFont();
     const { left, right } = kernPair;
+    if (!pairGroups(font, left, right)) {
+      toast("Para kernear por grupos, dales grupo a las dos letras: clic en «sin grupo».");
+      return;
+    }
     checkpoint();
     if (kerningTarget(font, left, right) === "group") {
       font.kerning[left + right] = kerningValue(font, left, right);
@@ -251,6 +282,10 @@ export function initTestbar({ getFont, checkpoint, persist, updateInfo, toast, s
   });
 
   for (const text of PRESETS) $("testPreset").appendChild(new Option(text, text));
+
+  // The group chips open that letter's kerning groups.
+  $("kernLeftGroup").addEventListener("click", () => kernPair && editGroups(kernPair.left, "right"));
+  $("kernRightGroup").addEventListener("click", () => kernPair && editGroups(kernPair.right, "left"));
 
   // --- Collapsible test bar ---
   function setHidden(hidden) {
