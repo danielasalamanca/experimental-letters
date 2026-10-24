@@ -373,7 +373,7 @@ el dibujo, y uno **grueso** (ExtraBold por defecto). Los pesos intermedios
   - **Eliminar:** la quita del navegador, después de confirmar.
   - Cada tipografía tiene su propio historial de deshacer.
 - Panel **Fuente**: nombre de la familia, estilo (Regular, Bold…),
-  diseñadora y versión.
+  diseñador/a y versión.
 - **Descargar .json** guarda un archivo con todo (glifos, métricas, kerning,
   metadatos y preferencias), para respaldar o llevar la tipografía a otro
   computador o navegador. **Abrir .json** la agrega como una tipografía nueva
