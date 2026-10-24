@@ -158,8 +158,13 @@ input[type="range"]:disabled { opacity: 0.35; cursor: default; }
   background: linear-gradient(to bottom, var(--acid), var(--bg));
 }
 /* The wordmark: "EXPERIMENTAL LETTERS" set in Letritas, as outlines. Sized
-   by its width, so it keeps its place in the top bar. */
-.brand { --wm-w: 461px; grid-area: brand; margin: 0; line-height: 0; width: var(--wm-w); }
+   by its width, so it keeps its place in the top bar. Its box keeps the room
+   the earlier drawing had (as tall as a 7.5th of its width, letters 8/461 of
+   the width from the top), which sets the height of the top bar. */
+.brand {
+  --wm-w: 461px; grid-area: brand; margin: 0; line-height: 0; width: var(--wm-w);
+  height: calc(var(--wm-w) / 7.5); padding-top: calc(var(--wm-w) * 8 / 461);
+}
 .wordmark { display: block; width: var(--wm-w); height: auto; pointer-events: none; }
 .font-picker {
   grid-area: picker; justify-self: center;
