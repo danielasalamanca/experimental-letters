@@ -157,10 +157,10 @@ input[type="range"]:disabled { opacity: 0.35; cursor: default; }
   padding: 24px var(--gutter) 12px;
   background: linear-gradient(to bottom, var(--acid), var(--bg));
 }
-/* The wordmark's frame has empty room on its right: the brand column only
-   reserves the drawn part, and the rest overflows under the font picker. */
-.brand { --wm-h: 61.5px; grid-area: brand; margin: 0; line-height: 0; width: calc(var(--wm-h) * 7.5); }
-.wordmark { display: block; width: auto; height: var(--wm-h); pointer-events: none; }
+/* The wordmark: "EXPERIMENTAL LETTERS" set in Letritas, as outlines. Sized
+   by its width, so it keeps its place in the top bar. */
+.brand { --wm-w: 461px; grid-area: brand; margin: 0; line-height: 0; width: var(--wm-w); }
+.wordmark { display: block; width: var(--wm-w); height: auto; pointer-events: none; }
 .font-picker {
   grid-area: picker; justify-self: center;
   display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%;
@@ -656,7 +656,7 @@ dialog.help { max-width: 540px; }
   .app { grid-template-columns: 232px minmax(0, 1fr) 290px; }
   .tool kbd { display: none; }
   .tools-pill .tool { padding: 0 11px; }
-  .brand { --wm-h: 44px; }
+  .brand { --wm-w: 330px; }
 }
 
 @media (max-width: 1100px) {
@@ -668,7 +668,7 @@ dialog.help { max-width: 540px; }
 
 @media (max-width: 900px) {
   :root { --gutter: 16px; }
-  .brand { --wm-h: 34px; }
+  .brand { --wm-w: 255px; }
   .topbar { grid-template-columns: minmax(0, 1fr); grid-template-areas: "brand" "actions" "picker" "history"; }
   .top-actions { justify-self: start; flex-wrap: wrap; }
   .font-picker { flex-wrap: wrap; }
