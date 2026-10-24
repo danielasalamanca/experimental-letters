@@ -154,9 +154,10 @@ grilla:
   piezas y polígonos): muestra las esquinas de la letra como
   puntos. **Arrastra** una esquina hacia adentro para elegir su radio (en
   medias celdas), o haz **clic** para aplicarle el radio del control **Radio**
-  (de ½ a 12 celdas; al máximo, que es el valor inicial, se redondea todo lo
-  que la forma permite). Otro clic con el mismo radio la devuelve al redondeo
-  global y **Shift + clic** la deja en punta. Junto a cada esquina redondeada
+  (de 0 a 12 celdas; en 0 queda en punta, y al máximo, que es el valor
+  inicial, se redondea todo lo que la forma permite). Otro clic con el mismo
+  radio la devuelve al redondeo global; **Shift + clic**, o arrastrarla de
+  vuelta hasta la esquina, también la deja en punta. Junto a cada esquina redondeada
   se ve el radio que realmente obtuvo. Un radio exterior de 2 alrededor de un interior de 1 da un
   arco concéntrico de una celda de grosor (como la "n" de un alfabeto
   modular). Cada radio se limita solo para no comerse una contraforma ni la

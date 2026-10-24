@@ -1815,8 +1815,8 @@ function setCorners(targets, value) {
 }
 
 // Press on a corner: a click applies the toolbar radius (or, if the corner
-// already has it, returns it to the global rounding; Shift leaves it sharp);
-// dragging inward sets the radius to the distance dragged.
+// already has it, returns it to the global rounding; Shift or a radius of 0
+// leaves it sharp); dragging inward sets the radius to the distance dragged.
 function startCorner(evt) {
   const hit = cornerTargets(evt);
   if (!hit) {
@@ -1832,7 +1832,8 @@ function dragCorner(evt) {
   const reach = Math.max(Math.abs(x - action.px), Math.abs(y - action.py));
   if (!action.dragged && reach < 0.3) return;
   action.dragged = true;
-  const r = Math.min(MAX_RADIUS, Math.max(0.5, Math.round(reach * 2) / 2));
+  // Back at the corner (radius 0), it is left sharp.
+  const r = Math.min(MAX_RADIUS, Math.max(0, Math.round(reach * 2) / 2));
   if (glyph().corners[action.k] !== r) setCorners(action.targets, r);
 }
 

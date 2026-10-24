@@ -6,11 +6,11 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=77" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=78" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=77" : "favicon-light.png?v=77"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=78" : "favicon-light.png?v=78"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=77">
+  <link rel="stylesheet" href="style.css?v=78">
 </head>
 <body>
   <header class="topbar">
@@ -117,10 +117,10 @@
           <button id="pfExclude" type="button" class="icon-btn" title="Excluir: quita las partes donde se superponen" aria-label="Excluir"><svg class="ico pf" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" fill-rule="evenodd" d="M3 3h11v12H3zM10 9h11v12H10z"/><rect x="10" y="9" width="4" height="6" fill="var(--acid)"/></svg></button>
         </div>
         <div class="tool-group" id="cornerGroup">
-          <label id="cornerRadiusBox" class="corner-radius wide-cell" title="Radio al hacer clic en una esquina, en celdas. Al máximo, cada esquina se redondea todo lo que la forma permite.">
+          <label id="cornerRadiusBox" class="corner-radius wide-cell" title="Radio al hacer clic en una esquina, en celdas. En 0 la esquina queda en punta; al máximo, se redondea todo lo que la forma permite.">
             <span>Radio</span>
             <output id="cornerRadiusOut">máx</output>
-            <input type="range" id="cornerRadius" min="0.5" max="12" step="0.5" value="12" aria-label="Radio">
+            <input type="range" id="cornerRadius" min="0" max="12" step="0.5" value="12" aria-label="Radio">
           </label>
         </div>
         <div class="tool-group" id="polyGroup" hidden>
@@ -544,29 +544,29 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=77",
-        "./js/geometry.js": "./js/geometry.js?v=77",
-        "./js/model.js": "./js/model.js?v=77",
-        "./js/render.js": "./js/render.js?v=77",
-        "./js/tools.js": "./js/tools.js?v=77",
-        "./js/library.js": "./js/library.js?v=77",
-        "./js/history.js": "./js/history.js?v=77",
-        "./js/pieces.js": "./js/pieces.js?v=77",
-        "./js/nodes.js": "./js/nodes.js?v=77",
-        "./js/shapes.js": "./js/shapes.js?v=77",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=77",
-        "./js/outline.js": "./js/outline.js?v=77",
-        "./js/otf.js": "./js/otf.js?v=77",
-        "./js/masters.js": "./js/masters.js?v=77",
-        "./js/variable.js": "./js/variable.js?v=77",
-        "./js/woff.js": "./js/woff.js?v=77",
-        "./js/export.js": "./js/export.js?v=77",
-        "./js/testbar.js": "./js/testbar.js?v=77",
-        "./js/guide.js": "./js/guide.js?v=77",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=77"
+        "./js/charset.js": "./js/charset.js?v=78",
+        "./js/geometry.js": "./js/geometry.js?v=78",
+        "./js/model.js": "./js/model.js?v=78",
+        "./js/render.js": "./js/render.js?v=78",
+        "./js/tools.js": "./js/tools.js?v=78",
+        "./js/library.js": "./js/library.js?v=78",
+        "./js/history.js": "./js/history.js?v=78",
+        "./js/pieces.js": "./js/pieces.js?v=78",
+        "./js/nodes.js": "./js/nodes.js?v=78",
+        "./js/shapes.js": "./js/shapes.js?v=78",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=78",
+        "./js/outline.js": "./js/outline.js?v=78",
+        "./js/otf.js": "./js/otf.js?v=78",
+        "./js/masters.js": "./js/masters.js?v=78",
+        "./js/variable.js": "./js/variable.js?v=78",
+        "./js/woff.js": "./js/woff.js?v=78",
+        "./js/export.js": "./js/export.js?v=78",
+        "./js/testbar.js": "./js/testbar.js?v=78",
+        "./js/guide.js": "./js/guide.js?v=78",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=78"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=77"></script>
+  <script type="module" src="js/main.js?v=78"></script>
 </body>
 </html>
