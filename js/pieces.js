@@ -10,6 +10,10 @@
 //   pill     – a capsule: the box with its short ends fully round (slits
 //              and rounded strokes, like the counters of a bubbly display
 //              face); `corner` means nothing for these two
+//   star     – a star with `n` points (3–12) and inner radius `inner` (a
+//              fraction of the outer one), stretched to fill the box
+//   ngon     – a regular polygon with `n` sides (5–12) filling the box
+//              (`flip` points them down; `corner` means nothing for these)
 // `corner` is "bl", "br", "tl" or "tr" (y up); `mode` is "add" or "cut".
 // Pieces apply in order on top of the drawn cells.
 //
@@ -21,7 +25,12 @@
 import ClipperLib from "./vendor/clipper.js";
 import { squareContours, MAX_RADIUS, snapRadius } from "./outline.js";
 
-export const PIECE_SHAPES = { tri: "Triángulo", quarter: "Cuarto de elipse", spandrel: "Esquina curva", ellipse: "Elipse", pill: "Cápsula", poly: "Polígono" };
+export const PIECE_SHAPES = { tri: "Triángulo", quarter: "Cuarto de elipse", spandrel: "Esquina curva", ellipse: "Elipse", pill: "Cápsula", poly: "Polígono", star: "Estrella", ngon: "Polígono regular" };
+
+export const STAR_DEFAULT = { n: 5, inner: 0.4 };
+export const NGON_DEFAULT = { n: 6 };
+export const STAR_POINTS = [3, 12], NGON_SIDES = [5, 12], STAR_INNER = [0.1, 0.9];
+const clampInt = (v, [lo, hi], d) => Number.isFinite(+v) ? Math.min(hi, Math.max(lo, Math.round(+v))) : d;
 
 const SCALE = 1e5;          // Clipper works in integers: 1 cell = 100 000
 const STEP = 0.05;          // flattening step along curves, in cells
@@ -55,6 +64,13 @@ export function normalizePiece(p) {
     const xs = out.points.map((q) => q[0]), ys = out.points.map((q) => q[1]);
     Object.assign(out, { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) });
   }
+  if (shape === "star") {
+    out.n = clampInt(p.n, STAR_POINTS, STAR_DEFAULT.n);
+    const r = Number.isFinite(+p.inner) ? +p.inner : STAR_DEFAULT.inner;
+    out.inner = Math.min(STAR_INNER[1], Math.max(STAR_INNER[0], r));
+  }
+  if (shape === "ngon") out.n = clampInt(p.n, NGON_SIDES, NGON_DEFAULT.n);
+  if ((shape === "star" || shape === "ngon") && p.flip) out.flip = true;
   return out;
 }
 
@@ -157,7 +173,23 @@ export function pieceContour(piece) {
   }
   if (p.shape === "quarter") return [M(C), L(A), arc(C, A, B), { type: "Z" }];
   if (p.shape === "ellipse" || p.shape === "pill") return roundBox(p, M, L, arc);
+  if (p.shape === "star" || p.shape === "ngon") return regularPoints(p).map((q, i) => (i ? L(q) : M(q))).concat({ type: "Z" });
   return [M(C), L(A), arc(O, A, B), { type: "Z" }]; // spandrel
+}
+
+// Vertices (counter-clockwise, y up) of a star or regular polygon with a tip
+// pointing up, stretched so that it exactly fills the box.
+function regularPoints({ x0, y0, x1, y1, shape, n, inner, flip }) {
+  const raw = [];
+  const count = shape === "star" ? 2 * n : n;
+  for (let i = 0; i < count; i++) {
+    const a = Math.PI / 2 + (2 * Math.PI * i) / count;
+    const r = shape === "star" && i % 2 ? inner : 1;
+    raw.push([r * Math.cos(a), (flip ? -1 : 1) * r * Math.sin(a)]);
+  }
+  const xs = raw.map((q) => q[0]), ys = raw.map((q) => q[1]);
+  const [lx, hx, ly, hy] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  return raw.map(([x, y]) => [x0 + ((x - lx) / (hx - lx)) * (x1 - x0), y0 + ((y - ly) / (hy - ly)) * (y1 - y0)]);
 }
 
 // An ellipse filling the box, or a capsule: the box with half circles on
@@ -702,6 +734,7 @@ export function mirrorPiece(p, { h = null, v = null } = {}) {
   }
   if (v !== null) {
     q = { ...q, y0: v - q.y1, y1: v - q.y0, corner: (q.corner[0] === "b" ? "t" : "b") + q.corner[1] };
+    if (q.shape === "star" || q.shape === "ngon") q.flip = !q.flip;
     if (q.points) q.points = q.points.map(([x, y]) => [x, v - y]);
   }
   return q;

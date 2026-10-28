@@ -121,6 +121,7 @@ const transformedPiece = (font, comp, p) => {
     ...p, x0: Math.min(ax, bx), x1: Math.max(ax, bx),
     y0: Math.min(ay, by), y1: Math.max(ay, by),
     corner: corners[p.corner] ?? p.corner,
+    ...(p.shape === "star" || p.shape === "ngon" ? { flip: !p.flip } : {}),
     ...(p.points ? { points: p.points.map(([x, y]) => point(x, y)) } : {}),
   };
 };

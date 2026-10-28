@@ -491,3 +491,32 @@ test("outlines: corners buried inside another shape are not offered", () => {
   assert.ok(!found.includes("2,2") && !found.includes("2,4"));
   assert.ok(found.includes("8,2") && found.includes("6,6"));
 });
+
+test("stars and regular polygons fill their box and follow their settings", () => {
+  const box = { x0: 1, y0: 2, x1: 5, y1: 6, corner: "bl", mode: "add" };
+  const pts = (piece) => pieceContour(piece).filter((c) => c.type !== "Z").map((c) => [c.x, c.y]);
+  const star = pts({ ...box, shape: "star" });
+  assert.equal(star.length, 10); // five points by default
+  assert.equal(pts({ ...box, shape: "star", n: 7 }).length, 14);
+  assert.equal(pts({ ...box, shape: "ngon" }).length, 6); // hexagon by default
+  assert.equal(pts({ ...box, shape: "ngon", n: 99 }).length, 12); // clamped to 5–12
+  assert.equal(pts({ ...box, shape: "ngon", n: 2 }).length, 5);
+  for (const shape of ["star", "ngon"]) {
+    const q = pts({ ...box, shape });
+    assert.deepEqual([Math.min(...q.map((a) => a[0])), Math.max(...q.map((a) => a[0]))], [1, 5]);
+    assert.deepEqual([Math.min(...q.map((a) => a[1])), Math.max(...q.map((a) => a[1]))], [2, 6]);
+  }
+  // A smaller inner radius makes sharper points.
+  const inner = (p) => Math.hypot(p[0] - 3, p[1] - 4);
+  assert.ok(inner(pts({ ...box, shape: "star", inner: 0.2 })[1]) < inner(pts({ ...box, shape: "star", inner: 0.7 })[1]));
+  // Mirrored upside down, the tip points down.
+  const flipped = mirrorPiece(normalizePiece({ ...box, shape: "star" }), { v: 8 });
+  assert.equal(pts(flipped)[0][1], pts(flipped).reduce((m, q) => Math.min(m, q[1]), 99));
+});
+
+test("a star cut from a block leaves a hole with its points", () => {
+  const cells = [];
+  for (let c = 0; c < 8; c++) for (let r = 0; r < 8; r++) cells.push(`${c},${r}`);
+  const out = squareGlyphContours(cells, { pieces: [{ shape: "star", mode: "cut", x0: 1, y0: 1, x1: 7, y1: 7, corner: "bl" }] });
+  assert.equal(out.length, 2);
+});

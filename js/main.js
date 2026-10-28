@@ -32,7 +32,7 @@ import {
 } from "./masters.js";
 import {
   pieceContour, normalizePiece, mirrorPiece, PIECE_SHAPES, pieceGlyphCorners, cornerKey, roundedContours,
-  pieceHandles, movePieceHandle, contourCorners, contourObjects, pathfinder, polygonArea,
+  pieceHandles, movePieceHandle, STAR_DEFAULT, NGON_DEFAULT, NGON_SIDES, STAR_POINTS, contourCorners, contourObjects, pathfinder, polygonArea,
 } from "./pieces.js";
 
 
@@ -788,8 +788,8 @@ board.addEventListener("pointerdown", (evt) => {
       return;
     }
     const { x, y } = toCells(evt);
-    // Grid points; with Shift, half cells (thin slits, small dots).
-    const step = evt.shiftKey ? 0.5 : 1;
+    // Grid points; with Alt, half cells (thin slits, small dots).
+    const step = evt.altKey ? 0.5 : 1;
     const sx = Math.round(x / step) * step, sy = Math.round(y / step) * step;
     action = { type: "piece", x0: sx, y0: sy, x1: sx, y1: sy, moved: false, at: { x, y } };
     return;
@@ -894,8 +894,14 @@ window.addEventListener("pointermove", (evt) => {
     }
     case "piece": {
       const { x, y } = toCells(evt);
-      const step = evt.shiftKey ? 0.5 : 1;
-      const x1 = Math.round(x / step) * step, y1 = Math.round(y / step) * step;
+      const step = evt.altKey ? 0.5 : 1;
+      let x1 = Math.round(x / step) * step, y1 = Math.round(y / step) * step;
+      if (evt.shiftKey) {
+        // Shift: as wide as tall (a square box: circle, regular star…).
+        const side = Math.max(Math.abs(x1 - action.x0), Math.abs(y1 - action.y0));
+        x1 = action.x0 + side * (x1 < action.x0 ? -1 : 1);
+        y1 = action.y0 + side * (y1 < action.y0 ? -1 : 1);
+      }
       if (x1 !== action.x1 || y1 !== action.y1) {
         action.x1 = x1; action.y1 = y1;
         action.moved = x1 !== action.x0 || y1 !== action.y0;
@@ -1458,7 +1464,7 @@ function endPiece(done) {
   const piece = normalizePiece({
     x0: done.x0, y0: done.y0, x1: done.x1, y1: done.y1,
     corner: (done.y0 <= done.y1 ? "b" : "t") + (done.x0 <= done.x1 ? "l" : "r"),
-    shape: $("pieceShape").value, mode: pieceMode,
+    shape: $("pieceShape").value, mode: pieceMode, ...pieceParams(),
   });
   if (!piecesLive()) {
     joinOutline(piece);
@@ -1469,6 +1475,10 @@ function endPiece(done) {
   }
   placePiece(piece);
 }
+
+// Settings of the star and regular polygon pieces (toolbar sliders).
+const pieceSettings = { star: { ...STAR_DEFAULT }, ngon: { ...NGON_DEFAULT } };
+const pieceParams = () => pieceSettings[$("pieceShape").value] ?? {};
 
 // Pieces are part of the grid drawing, on either grid, and stay editable;
 // only in a letter edited with nodes do they join the outline instead.
@@ -1724,7 +1734,7 @@ function drawPieceMarkers(layer) {
     const p = normalizePiece({
       x0: action.x0, y0: action.y0, x1: action.x1, y1: action.y1,
       corner: (action.y0 <= action.y1 ? "b" : "t") + (action.x0 <= action.x1 ? "l" : "r"),
-      shape: $("pieceShape").value, mode: pieceMode,
+      shape: $("pieceShape").value, mode: pieceMode, ...pieceParams(),
     });
     const color = pieceMode === "cut" ? "#ff52a9" : PIECE_COLOR;
     layer.appendChild(el("path", {
@@ -2003,6 +2013,24 @@ document.querySelectorAll(".piece-shape").forEach((b) => b.addEventListener("cli
   syncToolbar();
 }));
 $("pieceCut").addEventListener("click", () => { pieceMode = "cut"; syncToolbar(); });
+// The sliders set the next star/polygon and change the selected one if it
+// has that shape.
+function setPieceParam(key, value) {
+  const shape = $("pieceShape").value;
+  if (!pieceSettings[shape]) return;
+  pieceSettings[shape][key] = value;
+  const g = glyph();
+  const sel = selectedPiece !== null ? g.pieces[selectedPiece] : null;
+  if (sel && piecesLive() && normalizePiece(sel).shape === shape) {
+    checkpoint("piece-param");
+    g.pieces[selectedPiece] = normalizePiece({ ...sel, [key]: value });
+    render();
+    syncPieceList();
+  }
+  syncToolbar();
+}
+$("pieceN").addEventListener("input", (e) => setPieceParam("n", +e.target.value));
+$("pieceInner").addEventListener("input", (e) => setPieceParam("inner", +e.target.value / 100));
 $("cornerRadius").addEventListener("input", (e) => {
   $("cornerRadiusOut").textContent = +e.target.value >= MAX_RADIUS ? "máx" : String(+e.target.value).replace(".5", "½").replace(/^0½/, "½");
 });
@@ -2058,6 +2086,21 @@ function syncToolbar() {
   $("pieceAdd").classList.toggle("active", pieceMode === "add");
   $("pieceCut").classList.toggle("active", pieceMode === "cut");
   document.querySelectorAll(".piece-shape").forEach((b) => b.classList.toggle("active", b.dataset.shape === $("pieceShape").value));
+  const pieceKind = $("pieceShape").value;
+  $("pieceNBox").hidden = !pieceSettings[pieceKind];
+  $("pieceInnerBox").hidden = pieceKind !== "star";
+  if (pieceSettings[pieceKind]) {
+    const [lo, hi] = pieceKind === "star" ? STAR_POINTS : NGON_SIDES;
+    Object.assign($("pieceN"), { min: lo, max: hi, value: pieceSettings[pieceKind].n });
+    $("pieceNOut").textContent = pieceSettings[pieceKind].n;
+    $("pieceNLabel").textContent = pieceKind === "star" ? "Puntas" : "Lados";
+    $("pieceNBox").title = pieceKind === "star" ? "Puntas de la estrella" : "Lados del polígono";
+    $("pieceN").setAttribute("aria-label", pieceKind === "star" ? "Puntas" : "Lados");
+    if (pieceKind === "star") {
+      $("pieceInner").value = Math.round(pieceSettings.star.inner * 100);
+      $("pieceInnerOut").textContent = Math.round(pieceSettings.star.inner * 100) + "%";
+    }
+  }
   $("mirrorH").classList.toggle("active", font.view.mirrorH);
   $("mirrorV").classList.toggle("active", font.view.mirrorV);
   $("mirrorH").setAttribute("aria-pressed", font.view.mirrorH);

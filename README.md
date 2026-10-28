@@ -199,8 +199,13 @@ grilla:
   - **Cápsula:** el rectángulo con sus lados cortos en medio círculo.
     Recortada, hace ranuras de puntas redondas (la contraforma angosta de
     una "P", una "D" o una "U"); agregada, trazos de puntas redondas.
-  - Con **Shift** el arrastre se ajusta a medias celdas, para puntos y
-    ranuras más finos que una celda.
+  - **Estrella:** de 5 puntas por defecto; el control **Puntas** (3 a 12) y
+    el **Radio interno** cambian su forma. **Polígono regular:** de 6 lados
+    por defecto, con el control **Lados** (5 a 12). Los controles también
+    cambian la pieza seleccionada si es del mismo tipo.
+  - Con **Shift** la pieza mide lo mismo de ancho que de alto (círculo,
+    estrella regular…). Con **Alt** el arrastre se ajusta a medias celdas,
+    para puntos y ranuras más finos que una celda.
   - Para letras como las de una tipografía display redonda: rellena un
     bloque, redondea sus esquinas exteriores al máximo con **Esquinas** y
     recorta puntos y ranuras con la Elipse y la Cápsula.

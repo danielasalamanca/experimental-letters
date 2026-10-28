@@ -6,11 +6,11 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=83" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=85" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=83" : "favicon-light.png?v=83"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=85" : "favicon-light.png?v=85"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,11 +18,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=83">
+  <link rel="stylesheet" href="style.css?v=85">
 </head>
 <body>
   <header class="topbar">
-    <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=83" width="461" height="33" alt="Experimental Letters"></h1>
+    <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=85" width="461" height="33" alt="Experimental Letters"></h1>
     <div class="font-picker">
       <label for="fontSelect" class="sr-only">Tipografía abierta</label>
       <select id="fontSelect" title="Tus tipografías en este navegador"></select>
@@ -138,6 +138,19 @@
           <button type="button" class="icon-btn piece-shape" data-shape="spandrel" title="Esquina curva" aria-label="Esquina curva"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V5h14A14 14 0 0 0 5 19z" fill="currentColor" fill-opacity=".35"/></svg></button>
           <button type="button" class="icon-btn piece-shape" data-shape="ellipse" title="Elipse: puntos y contraformas redondas" aria-label="Elipse"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="12" rx="7" ry="7" fill="currentColor" fill-opacity=".35"/></svg></button>
           <button type="button" class="icon-btn piece-shape" data-shape="pill" title="Cápsula: ranuras y trazos de puntas redondas" aria-label="Cápsula"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="4" width="6" height="16" rx="3" fill="currentColor" fill-opacity=".35"/></svg></button>
+          <button type="button" class="icon-btn piece-shape" data-shape="star" title="Estrella: puntas y radio interno ajustables" aria-label="Estrella"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 6 6.4.6-4.8 4.3 1.4 6.3L12 17l-5.6 3.2 1.4-6.3L3 9.6 9.4 9z" fill="currentColor" fill-opacity=".35"/></svg></button>
+          <button type="button" class="icon-btn piece-shape" data-shape="ngon" title="Polígono regular: de 5 a 12 lados" aria-label="Polígono regular"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l7.4 4.25v8.5L12 20.5l-7.4-4.25v-8.5z" fill="currentColor" fill-opacity=".35"/></svg></button>
+          <span class="grid-gap" aria-hidden="true"></span>
+          <label id="pieceNBox" class="corner-radius wide-cell" title="Puntas de la estrella">
+            <span id="pieceNLabel">Puntas</span>
+            <output id="pieceNOut">5</output>
+            <input type="range" id="pieceN" min="3" max="12" step="1" value="5" aria-label="Puntas">
+          </label>
+          <label id="pieceInnerBox" class="corner-radius wide-cell" title="Radio interno de la estrella, respecto al externo">
+            <span>Radio interno</span>
+            <output id="pieceInnerOut">40%</output>
+            <input type="range" id="pieceInner" min="10" max="90" step="5" value="40" aria-label="Radio interno">
+          </label>
           <span class="grid-gap" aria-hidden="true"></span>
           <button id="pieceAdd" type="button" class="icon-btn" title="Agregar: la pieza agrega tinta" aria-label="Agregar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
           <button id="pieceCut" type="button" class="icon-btn" title="Recortar: la pieza recorta tinta" aria-label="Recortar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="7" r="2.5"/><circle cx="6" cy="17" r="2.5"/><path d="M8 8.5L20 17M8 15.5L20 7"/></svg></button>
@@ -153,7 +166,7 @@
           <span class="hint-inline" id="boldHint"></span>
           <span class="hint-inline" id="polyHint"></span>
           <span class="hint-inline" id="cornerHint">Clic en una esquina para redondearla · arrástrala para elegir el radio · Shift + clic: en punta</span>
-          <span class="hint-inline" id="pieceHint">Arrastra de un punto a otro (Shift: medias celdas) · arrastra sus nodos para ajustarla</span>
+          <span class="hint-inline" id="pieceHint">Arrastra de un punto a otro (Shift: ancho = alto · Alt: medias celdas) · arrastra sus nodos para ajustarla</span>
         </div>
         <div class="view-tools" role="toolbar" aria-label="Vista">
           <button id="mirrorH" type="button" title="Simetría al dibujar: lo que dibujas se repite a la izquierda y a la derecha" aria-label="Simetría izquierda–derecha al dibujar">Espejo H</button>
@@ -567,29 +580,29 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=83",
-        "./js/geometry.js": "./js/geometry.js?v=83",
-        "./js/model.js": "./js/model.js?v=83",
-        "./js/render.js": "./js/render.js?v=83",
-        "./js/tools.js": "./js/tools.js?v=83",
-        "./js/library.js": "./js/library.js?v=83",
-        "./js/history.js": "./js/history.js?v=83",
-        "./js/pieces.js": "./js/pieces.js?v=83",
-        "./js/nodes.js": "./js/nodes.js?v=83",
-        "./js/shapes.js": "./js/shapes.js?v=83",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=83",
-        "./js/outline.js": "./js/outline.js?v=83",
-        "./js/otf.js": "./js/otf.js?v=83",
-        "./js/masters.js": "./js/masters.js?v=83",
-        "./js/variable.js": "./js/variable.js?v=83",
-        "./js/woff.js": "./js/woff.js?v=83",
-        "./js/export.js": "./js/export.js?v=83",
-        "./js/testbar.js": "./js/testbar.js?v=83",
-        "./js/guide.js": "./js/guide.js?v=83",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=83"
+        "./js/charset.js": "./js/charset.js?v=85",
+        "./js/geometry.js": "./js/geometry.js?v=85",
+        "./js/model.js": "./js/model.js?v=85",
+        "./js/render.js": "./js/render.js?v=85",
+        "./js/tools.js": "./js/tools.js?v=85",
+        "./js/library.js": "./js/library.js?v=85",
+        "./js/history.js": "./js/history.js?v=85",
+        "./js/pieces.js": "./js/pieces.js?v=85",
+        "./js/nodes.js": "./js/nodes.js?v=85",
+        "./js/shapes.js": "./js/shapes.js?v=85",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=85",
+        "./js/outline.js": "./js/outline.js?v=85",
+        "./js/otf.js": "./js/otf.js?v=85",
+        "./js/masters.js": "./js/masters.js?v=85",
+        "./js/variable.js": "./js/variable.js?v=85",
+        "./js/woff.js": "./js/woff.js?v=85",
+        "./js/export.js": "./js/export.js?v=85",
+        "./js/testbar.js": "./js/testbar.js?v=85",
+        "./js/guide.js": "./js/guide.js?v=85",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=85"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=83"></script>
+  <script type="module" src="js/main.js?v=85"></script>
 </body>
 </html>
