@@ -2,7 +2,7 @@
 // Pure functions only (no DOM), so they can be tested with `node --test`.
 
 import { key, parseKey, windingAt } from "./geometry.js";
-import { CHARSET, COMPOSITES, INVERTED_PUNCTUATION, defaultCols, alternateOf, alternateKey, caseOf, caseKey } from "./charset.js";
+import { CHARSET, COMPOSITES, INVERTED_PUNCTUATION, defaultCols, alternateOf, alternateKey, caseOf, caseKey, isDingbat } from "./charset.js";
 import { cloneOutline, shiftOutline, outlineToCommands } from "./nodes.js";
 import { pieceContour, contourObjects } from "./pieces.js";
 
@@ -561,19 +561,50 @@ export const alternates = (font, base) =>
     .sort((a, b) => alternateOf(a).n - alternateOf(b).n);
 
 // Every glyph of the font: the character set, then the alternates (in the
-// order of their characters).
+// order of their characters), then the dingbats (by code point, each
+// followed by its own alternates).
 export function allChars(font) {
   const order = new Map(CHARSET.map((c, i) => [c, i]));
   const extra = Object.keys(font.glyphs).filter((k) => !order.has(k));
   const rank = (k) => {
     const alt = alternateOf(k);
-    return alt ? [order.get(alt.base) ?? Infinity, alt.n] : [Infinity, 0];
+    const base = alt ? alt.base : k;
+    if (!order.has(base)) return [Infinity, base.codePointAt(0), alt ? alt.n : 0];
+    return [order.get(base), 0, alt ? alt.n : 0];
   };
   extra.sort((a, b) => {
-    const [ra, na] = rank(a), [rb, nb] = rank(b);
-    return ra - rb || na - nb || (a < b ? -1 : 1);
+    const [ra, ca, na] = rank(a), [rb, cb, nb] = rank(b);
+    return (ra === rb ? 0 : ra < rb ? -1 : 1) || ca - cb || na - nb;
   });
   return [...CHARSET.filter((c) => font.glyphs[c]), ...extra];
+}
+
+// --- Dingbats ---
+// Optional glyphs on real Unicode code points (★, ✂, ➔…), outside the
+// character set: they exist only if the person making the font adds them.
+
+// The dingbats of the font, by code point.
+export const dingbats = (font) =>
+  Object.keys(font.glyphs).filter(isDingbat).sort((a, b) => a.codePointAt(0) - b.codePointAt(0));
+
+// Adds an empty glyph for `char` (if it isn't there yet). Returns true if it
+// was added.
+export function addDingbat(font, char) {
+  if (font.glyphs[char]) return false;
+  font.glyphs[char] = defaultGlyph(font, char);
+  return true;
+}
+
+// Deletes a dingbat with its alternates, the components that used them and
+// its kerning and groups.
+export function removeDingbat(font, char) {
+  if (!isDingbat(char) || !font.glyphs[char]) return;
+  const gone = new Set([char, ...alternates(font, char)]);
+  for (const k of gone) delete font.glyphs[k];
+  for (const g of allGlyphs(font)) g.components = g.components.filter((c) => !gone.has(c.glyph));
+  for (const pair of Object.keys(font.kerning)) if ([...pair].some((c) => gone.has(c))) delete font.kerning[pair];
+  for (const side of GROUP_SIDES) for (const k of gone) delete font.groups?.[side]?.[k];
+  if (gone.has(font.active)) font.active = "a";
 }
 
 // --- All-caps fonts ("Solo mayúsculas") ---

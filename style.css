@@ -641,6 +641,15 @@ dialog input[type="text"], dialog select { background-color: var(--bg); }
 dialog input[type="text"] { width: 220px; }
 dialog .buttons { margin-top: 20px; display: flex; justify-content: flex-end; }
 dialog.help { max-width: 540px; }
+dialog.dingbats { max-width: 560px; }
+.dingbat-picker { max-height: 46vh; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+.dingbat-picker h4:first-child { margin-top: 0; }
+.dingbat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 4px; }
+.dingbat-opt { min-height: 38px; padding: 0; font-size: 20px; line-height: 1; background: var(--bg); border-color: transparent; }
+.dingbat-opt[aria-pressed="true"] { background: var(--fg); color: var(--acid); }
+.dingbat-opt.have, .dingbat-opt.have:disabled { background: var(--acid); color: var(--fg); opacity: 1; }
+#addDingbats { margin-top: 14px; }
+.filter[data-filter="dingbats"] { font-weight: 400; }
 .steps { margin: 0; padding-left: 20px; line-height: 1.6; }
 .shortcuts { display: grid; grid-template-columns: auto 1fr; gap: 7px 16px; margin: 0; font-size: 13px; }
 .shortcuts dt { font-family: var(--mono); white-space: nowrap; }

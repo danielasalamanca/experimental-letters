@@ -6,11 +6,11 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=82" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=83" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=82" : "favicon-light.png?v=82"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=83" : "favicon-light.png?v=83"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,11 +18,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=82">
+  <link rel="stylesheet" href="style.css?v=83">
 </head>
 <body>
   <header class="topbar">
-    <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=82" width="461" height="33" alt="Experimental Letters"></h1>
+    <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=83" width="461" height="33" alt="Experimental Letters"></h1>
     <div class="font-picker">
       <label for="fontSelect" class="sr-only">Tipografía abierta</label>
       <select id="fontSelect" title="Tus tipografías en este navegador"></select>
@@ -51,6 +51,7 @@
         <button type="button" class="filter" data-filter="lower" aria-pressed="false" title="Minúsculas" aria-label="Minúsculas">abc</button>
         <button type="button" class="filter" data-filter="digits" aria-pressed="false" title="Números" aria-label="Números">123</button>
         <button type="button" class="filter" data-filter="signs" aria-pressed="false" title="Signos: puntuación, símbolos y acentos" aria-label="Signos">!?&amp;</button>
+        <button type="button" class="filter" data-filter="dingbats" aria-pressed="false" title="Dingbats" aria-label="Dingbats" id="dingbatFilter" hidden>✦</button>
       </div>
       <span class="label">Estado</span>
       <div class="filters states" id="stateFilters" role="group" aria-label="Estado">
@@ -60,6 +61,7 @@
       </div>
       <div id="charmap"></div>
       <p class="info" id="charmapEmpty" hidden>No hay letras con este filtro.</p>
+      <button id="addDingbats" type="button" class="ghost wide" title="Añade glifos opcionales con códigos Unicode reales (★ ✂ ➔…)">Añadir dingbats…</button>
       <details class="drafts">
         <summary>Borradores</summary>
         <p class="hint">Clic para copiar al glifo actual · doble clic para borrar</p>
@@ -196,6 +198,7 @@
           <button id="clear" type="button" class="ghost" title="Borra el dibujo de esta letra">Limpiar</button>
           <button id="save" type="button" class="ghost" title="Guarda una copia en Borradores (abajo a la izquierda)">Borrador</button>
         </div>
+        <button id="removeDingbat" type="button" class="link danger" hidden title="Quita este dingbat de la tipografía">Quitar este dingbat</button>
         <button id="resetGlyph" type="button" class="link regular-only" title="Vuelve esta letra a como empieza en una tipografía nueva: sin dibujo, nodos, esquinas ni piezas, con ancho y márgenes por defecto">Reiniciar letra (partir de cero)</button>
       </div>
 
@@ -522,6 +525,22 @@
     </form>
   </dialog>
 
+  <dialog id="dingbatDialog" class="dingbats">
+    <form method="dialog">
+      <h3>Añadir dingbats</h3>
+      <p>Elige los que quieras dibujar: cada uno se exporta con su código Unicode real. Los que ya están en la tipografía aparecen marcados. Es opcional: sin dingbats la tipografía queda igual.</p>
+      <div id="dingbatPicker" class="dingbat-picker"></div>
+      <label class="row">Otro carácter o código
+        <input type="text" id="dingbatCustom" autocomplete="off" placeholder="✺ o U+273A" title="Un carácter o su código Unicode en hexadecimal">
+      </label>
+      <p class="hint" id="dingbatCount"></p>
+      <div class="buttons">
+        <button value="cancel" formnovalidate>Cancelar</button>
+        <button value="add" class="primary" id="dingbatOk">Añadir</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="confirmDialog">
     <form method="dialog">
       <h3 id="confirmTitle"></h3>
@@ -548,29 +567,29 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=82",
-        "./js/geometry.js": "./js/geometry.js?v=82",
-        "./js/model.js": "./js/model.js?v=82",
-        "./js/render.js": "./js/render.js?v=82",
-        "./js/tools.js": "./js/tools.js?v=82",
-        "./js/library.js": "./js/library.js?v=82",
-        "./js/history.js": "./js/history.js?v=82",
-        "./js/pieces.js": "./js/pieces.js?v=82",
-        "./js/nodes.js": "./js/nodes.js?v=82",
-        "./js/shapes.js": "./js/shapes.js?v=82",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=82",
-        "./js/outline.js": "./js/outline.js?v=82",
-        "./js/otf.js": "./js/otf.js?v=82",
-        "./js/masters.js": "./js/masters.js?v=82",
-        "./js/variable.js": "./js/variable.js?v=82",
-        "./js/woff.js": "./js/woff.js?v=82",
-        "./js/export.js": "./js/export.js?v=82",
-        "./js/testbar.js": "./js/testbar.js?v=82",
-        "./js/guide.js": "./js/guide.js?v=82",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=82"
+        "./js/charset.js": "./js/charset.js?v=83",
+        "./js/geometry.js": "./js/geometry.js?v=83",
+        "./js/model.js": "./js/model.js?v=83",
+        "./js/render.js": "./js/render.js?v=83",
+        "./js/tools.js": "./js/tools.js?v=83",
+        "./js/library.js": "./js/library.js?v=83",
+        "./js/history.js": "./js/history.js?v=83",
+        "./js/pieces.js": "./js/pieces.js?v=83",
+        "./js/nodes.js": "./js/nodes.js?v=83",
+        "./js/shapes.js": "./js/shapes.js?v=83",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=83",
+        "./js/outline.js": "./js/outline.js?v=83",
+        "./js/otf.js": "./js/otf.js?v=83",
+        "./js/masters.js": "./js/masters.js?v=83",
+        "./js/variable.js": "./js/variable.js?v=83",
+        "./js/woff.js": "./js/woff.js?v=83",
+        "./js/export.js": "./js/export.js?v=83",
+        "./js/testbar.js": "./js/testbar.js?v=83",
+        "./js/guide.js": "./js/guide.js?v=83",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=83"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=82"></script>
+  <script type="module" src="js/main.js?v=83"></script>
 </body>
 </html>

@@ -32,6 +32,49 @@ export const GROUPS = [
 ];
 
 export const CHARSET = GROUPS.flatMap((g) => g.chars);
+const CHARSET_KEYS = new Set(CHARSET);
+
+// Dingbats: optional glyphs on real Unicode code points, outside the set
+// above. The person making the font picks which ones to add (see model.js,
+// addDingbat); this is the catalogue offered, grouped, and any other
+// character of the Basic Multilingual Plane can be added by its code.
+const span = (from, to) => {
+  const out = [];
+  for (let c = from; c <= to; c++) out.push(String.fromCodePoint(c));
+  return out;
+};
+const list = (s) => [...s];
+
+export const DINGBAT_GROUPS = [
+  { name: "Estrellas y flores", chars: [...list("★☆"), ...span(0x2726, 0x274B)] },
+  { name: "Marcas y cruces", chars: [...span(0x2713, 0x2725), ...list("☑☒")] },
+  { name: "Formas", chars: list("■□▪▫▲△▼▽◆◇○●◐◑◒◓◀▶❍❏❐❑❒") },
+  { name: "Corazones y adornos", chars: list("♥♡❤❣❥❦❧☙♠♣♦♤♧♢") },
+  { name: "Flechas", chars: [...list("←↑→↓↔↕↖↗↘↙"), ...span(0x2794, 0x27BE)] },
+  { name: "Números en círculo", chars: [...span(0x2776, 0x2793)] },
+  { name: "Cosas", chars: list("✁✂✃✄☎✆✈✉✌✍✎✏✐☀☁☂☃☺☻☼☽☾♪♫☮☯☭") },
+  { name: "Comillas y adornos de texto", chars: [...list("❝❞❛❜❡❢"), ...span(0x2768, 0x2775)] },
+];
+
+export const DINGBATS = DINGBAT_GROUPS.flatMap((g) => g.chars);
+
+// True for a glyph key that is a dingbat: a single character outside the
+// character set (alternates and case marks have their own keys).
+export const isDingbat = (key) => !CHARSET_KEYS.has(key) && !alternateOf(key) && !caseOf(key)
+  && [...key].length === 1 && key.codePointAt(0) > 0x7f;
+
+// What the person typed in the "add dingbat" box: a character or a code
+// ("2605", "U+2605", "u2605"). Returns the character, or null if it isn't a
+// valid, usable one (only the Basic Multilingual Plane, no letters of the set).
+export function parseDingbat(text) {
+  const t = String(text ?? "").trim();
+  const hex = /^(?:u\+?|0x)?([0-9a-f]{4,5})$/i.exec(t);
+  const char = [...t].length === 1 ? t : hex ? String.fromCodePoint(parseInt(hex[1], 16)) : null;
+  if (!char || /[\p{C}\p{Z}\p{M}]/u.test(char)) return null;
+  const cp = char.codePointAt(0);
+  if (cp <= 0x7f || cp > 0xffff || CHARSET_KEYS.has(char)) return null;
+  return char;
+}
 
 const DIGITS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
 
@@ -69,7 +112,10 @@ export function glyphName(char) {
   if (mark) return `${glyphName(mark)}.case`;
   if (NAMES[char]) return NAMES[char];
   if (/[0-9]/.test(char)) return DIGITS[+char];
-  return char;
+  if (/^[A-Za-z]$/.test(char)) return char;
+  // Anything else (dingbats…): "uni2605", as fonts name glyphs without a
+  // standard name.
+  return "uni" + char.codePointAt(0).toString(16).toUpperCase().padStart(4, "0");
 }
 
 // Safe file name: avoids "a.svg" and "A.svg" clashing on macOS.

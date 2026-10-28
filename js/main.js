@@ -5,10 +5,10 @@ import {
   METRICS, createGlyph, normalizeFont, createBlankFont, defaultGlyph, setMetric, sameMetrics,
   GRIDS, glyphGrid, shapeKey, hasOwnShape, resolvedCorners, resolvedPieces, resolvedOutline, glyphShape,
   planFit, applyFit, ROW_ZONES, zoneRows, setZoneRows, metricColor, advanceWidth, resolvedCells, canUseComponent, dependents,
-  kernGroup, setKernGroup, groupMembers, groupNames, capitalOf, centeredDx, componentEdited, alternates, allChars, addAlternate, removeAlternate,
+  kernGroup, setKernGroup, groupMembers, groupNames, capitalOf, centeredDx, componentEdited, alternates, allChars, addAlternate, removeAlternate, dingbats, addDingbat, removeDingbat,
   componentPoint, componentCellFromParent, componentLocalPoint, syncInvertedGlyphs, syncAlternates, spacingKey,
 } from "./model.js";
-import { GROUPS, CHARSET, glyphName, codepoint, alternateOf, baseChar, caseOf } from "./charset.js";
+import { GROUPS, CHARSET, DINGBAT_GROUPS, glyphName, codepoint, alternateOf, baseChar, caseOf, isDingbat, parseDingbat } from "./charset.js";
 import { drawGlyph, el, SVG_NS, contoursToPath } from "./render.js";
 import { openLibrary, saveFont, loadFont, deleteFont, newId, fontName } from "./library.js";
 import { History } from "./history.js";
@@ -267,6 +267,7 @@ function renderCharmap() {
     for (const group of GROUPS) map.appendChild(charmapGroup(group.name, group.chars));
   }
   syncAlternateGroup();
+  syncDingbatGroup();
   allChars(font).forEach(updateThumb);
 }
 
@@ -302,7 +303,8 @@ const KINDS = {
   upper: (c) => c !== c.toLowerCase(),
   lower: (c) => c !== c.toUpperCase(),
   digits: (c) => /^[0-9]$/.test(c),
-  signs: (c) => c.toLowerCase() === c.toUpperCase() && !/^[0-9]$/.test(c),
+  signs: (c) => c.toLowerCase() === c.toUpperCase() && !/^[0-9]$/.test(c) && !isDingbat(c),
+  dingbats: (c) => isDingbat(c),
 };
 const STATES = {
   drawn: (cell) => !cell.classList.contains("empty"),
@@ -357,15 +359,35 @@ document.querySelectorAll("#stateFilters .state").forEach((b) => b.addEventListe
 // are added or deleted.
 let alternateSignature = null;
 function syncAlternateGroup() {
-  const keys = allChars(font).filter((k) => alternateOf(k));
+  const keys = allChars(font).filter((k) => alternateOf(k) && !isDingbat(baseChar(k)));
   const signature = keys.join("\u0000");
   if (signature === alternateSignature) return;
   alternateSignature = signature;
-  for (const k of [...thumbs.keys()]) if (alternateOf(k)) thumbs.delete(k);
+  for (const k of [...thumbs.keys()]) if (alternateOf(k) && !isDingbat(baseChar(k))) thumbs.delete(k);
   $("charmap").querySelector(".cm-alternates")?.remove();
   if (!keys.length) return;
   const box = charmapGroup("Alternativas", keys);
   box.classList.add("cm-alternates");
+  $("charmap").appendChild(box);
+}
+
+// The "Dingbats" group, which exists only once some have been added; the
+// filter button appears with it.
+let dingbatSignature = null;
+function syncDingbatGroup() {
+  const keys = allChars(font).filter((k) => isDingbat(baseChar(k)));
+  const signature = keys.join("\u0000");
+  if (signature === dingbatSignature) return;
+  dingbatSignature = signature;
+  for (const k of [...thumbs.keys()]) if (isDingbat(baseChar(k))) thumbs.delete(k);
+  $("charmap").querySelector(".cm-dingbats")?.remove();
+  $("dingbatFilter").hidden = !keys.length;
+  if (!keys.length) {
+    if (charFilter.kind === "dingbats") $("charFilters").querySelector('[data-filter="all"]').click();
+    return;
+  }
+  const box = charmapGroup("Dingbats", keys);
+  box.classList.add("cm-dingbats");
   $("charmap").appendChild(box);
 }
 
@@ -2369,10 +2391,11 @@ function syncGlyphPanel() {
   const alt = alternateOf(char);
   const shown = baseChar(char);
   $("glyphChar").textContent = shown === " " ? "␣" : shown;
-  const kind = alt ? "alternativa" : caseOf(char) ? "acento de mayúsculas" : /^[0-9]$/.test(shown) ? "número"
+  const kind = alt ? "alternativa" : isDingbat(char) ? "dingbat" : caseOf(char) ? "acento de mayúsculas" : /^[0-9]$/.test(shown) ? "número"
     : shown !== shown.toLowerCase() ? "mayúscula" : shown !== shown.toUpperCase() ? "minúscula" : "signo";
   $("glyphName").textContent = glyphName(char) === shown ? kind : `${kind} · ${glyphName(char)}`;
   $("glyphCode").textContent = alt ? `Alternativa ${alt.n} de «${alt.base}» · ${codepoint(char)}` : codepoint(char);
+  $("removeDingbat").hidden = !isDingbat(shown);
   $("boardChar").textContent = $("glyphChar").textContent;
   $("boardInfo").textContent = `${codepoint(char)} · ${g.cols} col`;
   drawGlyph($("glyphThumb"), font, g, { frame: "advance" });
@@ -2572,6 +2595,94 @@ function renderAlternates() {
   $("addAlt").textContent = alt ? "Crear otra alternativa" : "Crear alternativa";
   $("removeAlt").hidden = !alt;
 }
+
+// --- Dingbats ---
+// Optional glyphs on real Unicode code points. The picker offers a
+// catalogue (and any other character by its code); nothing is added unless
+// the person chooses it.
+const dingbatPick = new Set();
+
+function renderDingbatPicker() {
+  const picker = $("dingbatPicker");
+  picker.replaceChildren();
+  for (const group of DINGBAT_GROUPS) {
+    const h = document.createElement("h4");
+    h.textContent = group.name;
+    const grid = document.createElement("div");
+    grid.className = "dingbat-grid";
+    for (const char of group.chars) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "dingbat-opt";
+      b.textContent = char;
+      b.dataset.char = char;
+      const have = !!font.glyphs[char];
+      b.title = `${codepoint(char)}${have ? " · ya está en la tipografía" : ""}`;
+      b.disabled = have;
+      b.classList.toggle("have", have);
+      b.setAttribute("aria-pressed", dingbatPick.has(char));
+      b.addEventListener("click", () => {
+        if (dingbatPick.has(char)) dingbatPick.delete(char); else dingbatPick.add(char);
+        b.setAttribute("aria-pressed", dingbatPick.has(char));
+        syncDingbatDialog();
+      });
+      grid.appendChild(b);
+    }
+    picker.append(h, grid);
+  }
+}
+
+// What the dialog would add: the chosen ones plus the typed character.
+function dingbatsToAdd() {
+  const typed = $("dingbatCustom").value.trim();
+  const extra = typed ? parseDingbat(typed) : null;
+  return { typed, extra, chars: [...new Set([...dingbatPick, ...(extra ? [extra] : [])])].filter((c) => !font.glyphs[c]) };
+}
+
+function syncDingbatDialog() {
+  const { typed, extra, chars } = dingbatsToAdd();
+  const bad = typed && !extra;
+  $("dingbatCustom").setCustomValidity("");
+  $("dingbatCount").textContent = bad ? "Ese carácter o código no vale: usa un símbolo Unicode (por ejemplo ✺ o U+273A) que no sea una letra, número ni signo de la tipografía."
+    : chars.length ? `Se añadirán ${chars.length}.` : "Aún no has elegido ninguno.";
+  $("dingbatOk").disabled = !chars.length;
+}
+
+$("addDingbats").addEventListener("click", () => {
+  dingbatPick.clear();
+  $("dingbatCustom").value = "";
+  renderDingbatPicker();
+  syncDingbatDialog();
+  const dialog = $("dingbatDialog");
+  dialog.returnValue = "";
+  dialog.onclose = () => {
+    if (dialog.returnValue !== "add") return;
+    const { chars } = dingbatsToAdd();
+    if (!chars.length) return;
+    checkpoint();
+    for (const c of chars) addDingbat(font, c);
+    renderCharmap();
+    selectGlyph(chars[0]);
+    toast(chars.length === 1 ? `Añadido «${chars[0]}» (${codepoint(chars[0])})` : `Añadidos ${chars.length} dingbats`);
+  };
+  dialog.showModal();
+});
+$("dingbatCustom").addEventListener("input", syncDingbatDialog);
+
+$("removeDingbat").addEventListener("click", async () => {
+  const char = baseChar(font.active);
+  if (!isDingbat(char)) return;
+  const ok = await confirmAction({
+    title: "Quitar dingbat",
+    message: `Se quita «${char}» (${codepoint(char)}) de la tipografía, con su dibujo y sus alternativas. Se puede deshacer con Cmd/Ctrl + Z.`,
+    ok: "Quitar",
+  });
+  if (!ok) return;
+  checkpoint();
+  removeDingbat(font, char);
+  renderCharmap();
+  selectGlyph(font.active);
+});
 
 $("addAlt").addEventListener("click", () => {
   checkpoint();
