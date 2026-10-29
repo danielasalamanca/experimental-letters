@@ -18,7 +18,7 @@ import { initGuide } from "./guide.js";
 import {
   AXES, axisRows, mirrorKeys, translate, cellsInRect, connectedCells,
   selectionExtras, translateCorner, translatePiece,
-  transformMap, cellsBox, transformCells, transformCorner, transformPiece, transformContour, outlineBox, flips,
+  transformMap, cellsBox, transformCells, transformCorner, transformPiece, resizePiece, transformContour, outlineBox, flips,
 } from "./tools.js";
 import { squareCorners, effectiveRadii, MAX_RADIUS } from "./outline.js";
 import {
@@ -779,6 +779,12 @@ board.addEventListener("pointerdown", (evt) => {
   }
 
   if (tool === "piece") {
+    const handle = piecesLive() ? scaleHandleAt(evt) : null;
+    if (handle) {
+      checkpoint();
+      action = { type: "scale", ...handle, orig: structuredClone(glyph().pieces) };
+      return;
+    }
     const node = piecesLive() ? nodeAt(evt) : null;
     if (node) {
       checkpoint();
@@ -876,6 +882,10 @@ window.addEventListener("pointermove", (evt) => {
       dragNode(evt);
       break;
     }
+    case "scale": {
+      dragScale(evt);
+      break;
+    }
     case "polyPress": {
       if (action.node && Math.hypot(evt.clientX - action.sx, evt.clientY - action.sy) > 4) {
         checkpoint();
@@ -962,7 +972,7 @@ window.addEventListener("pointerup", () => {
   if (done.type === "move" && done.lifted === floating && floating) { floating.dc += done.dc; floating.dr += done.dr; }
   if (done.type === "corner") { endCorner(done); return; }
   if (done.type === "piece") { endPiece(done); return; }
-  if (done.type === "node") { render(); syncPieceList(); return; }
+  if (done.type === "node" || done.type === "scale") { render(); syncPieceList(); return; }
   if (["nodes", "handle", "nodeMarquee", "shapeDraw"].includes(done.type)) { endNodeAction(done); return; }
   render(done.type === "metric" ? "font" : "glyph");
 });
@@ -1623,7 +1633,7 @@ function nodeAt(evt) {
   // The selected piece wins when nodes overlap.
   const order = [...pieces.keys()].sort((a, b) => (b === selectedPiece) - (a === selectedPiece));
   for (const index of order) {
-    for (const h of pieceHandles(pieces[index])) {
+    for (const h of nodeHandles(pieces[index])) {
       const dist = Math.hypot(x - h.x, y - h.y);
       if (dist < bestDist) { best = { index, id: h.id }; bestDist = dist; }
     }
@@ -1645,9 +1655,58 @@ function mirrorPartners(index) {
   for (const opt of options) {
     const image = mirrorPiece(p, opt);
     const j = g.pieces.findIndex((q, k) => k !== index && same(q, image));
-    if (j >= 0) out.push({ index: j, map: opt.map });
+    if (j >= 0) out.push({ index: j, map: opt.map, mirror: { h: opt.h ?? null, v: opt.v ?? null } });
   }
   return out;
+}
+
+// Pieces that fill their box (the corner nodes would just stretch it) have
+// no nodes: their corners are the scale handles.
+const fillsBox = (p) => ["ellipse", "pill", "star", "ngon"].includes(normalizePiece(p).shape);
+const nodeHandles = (p) => (fillsBox(p) ? [] : pieceHandles(p));
+
+// Scale handles of the selected piece, one on each corner of its box (pushed
+// a little outside when the corner holds a node). `id` is the corner.
+function scaleHandles(p) {
+  const n = normalizePiece(p);
+  const off = fillsBox(n) ? 0 : 0.3;
+  return [["bl", n.x0, n.y0, -1, -1], ["br", n.x1, n.y0, 1, -1], ["tl", n.x0, n.y1, -1, 1], ["tr", n.x1, n.y1, 1, 1]]
+    .map(([id, x, y, sx, sy]) => ({ id, x: x + sx * off, y: y + sy * off }));
+}
+
+function scaleHandleAt(evt) {
+  if (selectedPiece === null || !glyph().pieces[selectedPiece]) return null;
+  const { x, y } = toCells(evt);
+  const hit = scaleHandles(glyph().pieces[selectedPiece]).find((h) => Math.hypot(x - h.x, y - h.y) < 0.35);
+  return hit ? { index: selectedPiece, id: hit.id, partners: mirrorPartners(selectedPiece) } : null;
+}
+
+// Drags a corner of the piece's box with the opposite one fixed. Shift keeps
+// the proportions, Alt snaps to half cells; dragging past the opposite
+// corner flips the piece. Its mirror images follow.
+function dragScale(evt) {
+  const g = glyph();
+  const from = normalizePiece(action.orig[action.index]);
+  const { x, y } = toCells(evt);
+  const step = evt.altKey ? 0.5 : 1;
+  const left = action.id[1] === "l", bottom = action.id[0] === "b";
+  const fixed = [left ? from.x1 : from.x0, bottom ? from.y1 : from.y0];
+  let px = Math.round(x / step) * step, py = Math.round(y / step) * step;
+  if (evt.shiftKey) {
+    const w = from.x1 - from.x0, h = from.y1 - from.y0;
+    const f = Math.max(Math.abs(px - fixed[0]) / w, Math.abs(py - fixed[1]) / h);
+    px = fixed[0] + Math.sign(px - fixed[0] || (left ? -1 : 1)) * Math.round(f * w / step) * step;
+    py = fixed[1] + Math.sign(py - fixed[1] || (bottom ? -1 : 1)) * Math.round(f * h / step) * step;
+  }
+  if (px === fixed[0] || py === fixed[1]) return;
+  const to = {
+    x0: left ? px : fixed[0], x1: left ? fixed[0] : px,
+    y0: bottom ? py : fixed[1], y1: bottom ? fixed[1] : py,
+  };
+  const q = normalizePiece(resizePiece(from, from, to));
+  g.pieces[action.index] = q;
+  for (const p of action.partners) g.pieces[p.index] = normalizePiece(mirrorPiece(q, p.mirror));
+  render();
 }
 
 function dragNode(evt) {
@@ -1721,7 +1780,7 @@ function drawPieceMarkers(layer) {
   // Draggable nodes, on top.
   pieces.forEach((p, i) => {
     const selected = i === selectedPiece;
-    for (const h of pieceHandles(p)) {
+    for (const h of nodeHandles(p)) {
       const size = cu * (selected ? 0.26 : 0.2);
       layer.appendChild(el("rect", {
         x: h.x * cu - size / 2, y: -h.y * cu - size / 2, width: size, height: size,
@@ -1729,6 +1788,15 @@ function drawPieceMarkers(layer) {
       }));
     }
   });
+  // Scale handles of the selected piece.
+  if (pieces[selectedPiece]) {
+    for (const h of scaleHandles(pieces[selectedPiece])) {
+      layer.appendChild(el("circle", {
+        cx: h.x * cu, cy: -h.y * cu, r: cu * 0.17,
+        fill: "#fff", stroke: PIECE_COLOR, "stroke-width": 2, "vector-effect": "non-scaling-stroke",
+      }));
+    }
+  }
   // Preview while dragging.
   if (action?.type === "piece" && action.moved && action.x0 !== action.x1 && action.y0 !== action.y1) {
     const p = normalizePiece({

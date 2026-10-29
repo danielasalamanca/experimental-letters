@@ -163,6 +163,16 @@ export function transformPiece(p, point) {
   return q;
 }
 
+// The piece stretched so that its box `from` ({ x0, y0, x1, y1 }, the piece's
+// own) becomes `to`. `to` may come back reversed (a corner dragged past the
+// opposite one), which flips the piece.
+export function resizePiece(p, from, to) {
+  const fx = (to.x1 - to.x0) / (from.x1 - from.x0), fy = (to.y1 - to.y0) / (from.y1 - from.y0);
+  const q = transformPiece(p, ([x, y]) => [to.x0 + (x - from.x0) * fx, to.y0 + (y - from.y0) * fy]);
+  if (fy < 0 && (p.shape === "star" || p.shape === "ngon")) q.flip = !p.flip;
+  return q;
+}
+
 // Outline contours (see nodes.js). A flip turns a contour around, so it is
 // reversed to keep the ink on the same side of the path.
 export function transformContour(contour, { point, vector }, reverse = false) {

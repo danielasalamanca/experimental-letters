@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { axisRows, mirrorKeys, translate, cellsInRect, connectedCells } from "../js/tools.js";
+import { axisRows, mirrorKeys, translate, cellsInRect, connectedCells, resizePiece } from "../js/tools.js";
 
 const m = { ascender: 15, capHeight: 14, xHeight: 9, descender: -5 };
 const sorted = (a) => [...a].sort();
@@ -125,4 +125,17 @@ test("every piece shape keeps its exact outline when turned or flipped", () => {
       }
     }
   }
+});
+
+test("resizePiece stretches the box and the hand-moved nodes", () => {
+  const box = { x0: 1, y0: 2, x1: 3, y1: 4 };
+  const q = resizePiece({ x0: 1, y0: 2, x1: 3, y1: 4, corner: "bl", shape: "tri", mode: "add", points: [[1, 2], [3, 2], [1, 4]] }, box, { x0: 1, y0: 2, x1: 5, y1: 8 });
+  assert.deepEqual([q.x0, q.y0, q.x1, q.y1, q.corner], [1, 2, 5, 8, "bl"]);
+  assert.deepEqual(q.points, [[1, 2], [5, 2], [1, 8]]);
+});
+
+test("resizePiece flips when dragged past the opposite corner", () => {
+  const p = { x0: 0, y0: 0, x1: 2, y1: 2, corner: "bl", shape: "star", mode: "add", n: 5, inner: 0.4 };
+  const q = resizePiece(p, p, { x0: 0, y0: 0, x1: 2, y1: -2 });
+  assert.deepEqual([q.y0, q.y1, q.corner, q.flip], [-2, 0, "tl", true]);
 });
