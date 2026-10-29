@@ -6,11 +6,11 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=86" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=87" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=86" : "favicon-light.png?v=86"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=87" : "favicon-light.png?v=87"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,11 +18,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=86">
+  <link rel="stylesheet" href="style.css?v=87">
 </head>
 <body>
   <header class="topbar">
-    <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=86" width="461" height="33" alt="Experimental Letters"></h1>
+    <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=87" width="461" height="33" alt="Experimental Letters"></h1>
     <div class="font-picker">
       <label for="fontSelect" class="sr-only">Tipografía abierta</label>
       <select id="fontSelect" title="Tus tipografías en este navegador"></select>
@@ -103,6 +103,8 @@
           <button id="rotCw" type="button" class="icon-btn" title="Girar 90° a la derecha (R). Sin selección, toda la letra." aria-label="Girar 90° a la derecha"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 9a8 8 0 1 0-1 7"/><path d="M19 4v5h-5"/></svg></button>
           <button id="flipH" type="button" class="icon-btn" title="Espejar izquierda–derecha (Shift + H)" aria-label="Espejar izquierda–derecha"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18" stroke-dasharray="2 2.5"/><path d="M9 7L3 17h6z"/><path d="M15 7l6 10h-6z"/></svg></button>
           <button id="flipV" type="button" class="icon-btn" title="Espejar arriba–abajo (Shift + V)" aria-label="Espejar arriba–abajo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18" stroke-dasharray="2 2.5"/><path d="M7 9L17 3v6z"/><path d="M7 15l10 6v-6z"/></svg></button>
+          <button id="scale2" type="button" class="icon-btn" title="Agrandar ×2 (toda la letra, o la selección). Cada celda pasa a ser 2×2." aria-label="Agrandar ×2">×2</button>
+          <button id="scale3" type="button" class="icon-btn" title="Agrandar ×3 (toda la letra, o la selección). Cada celda pasa a ser 3×3." aria-label="Agrandar ×3">×3</button>
         </div>
         <div class="tool-group" id="nodeGroup">
           <button id="nodeAdd" type="button" class="icon-btn" title="Agregar nodo: con este botón activo, clic sobre el borde de la letra agrega un punto (también: doble clic sobre el borde)" aria-label="Agregar nodo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18C7 10 11 9 14 9"/><rect x="2.5" y="16.5" width="3.5" height="3.5" rx=".5"/><path d="M18 5v8M14 9h8"/></svg></button>
@@ -580,29 +582,29 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=86",
-        "./js/geometry.js": "./js/geometry.js?v=86",
-        "./js/model.js": "./js/model.js?v=86",
-        "./js/render.js": "./js/render.js?v=86",
-        "./js/tools.js": "./js/tools.js?v=86",
-        "./js/library.js": "./js/library.js?v=86",
-        "./js/history.js": "./js/history.js?v=86",
-        "./js/pieces.js": "./js/pieces.js?v=86",
-        "./js/nodes.js": "./js/nodes.js?v=86",
-        "./js/shapes.js": "./js/shapes.js?v=86",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=86",
-        "./js/outline.js": "./js/outline.js?v=86",
-        "./js/otf.js": "./js/otf.js?v=86",
-        "./js/masters.js": "./js/masters.js?v=86",
-        "./js/variable.js": "./js/variable.js?v=86",
-        "./js/woff.js": "./js/woff.js?v=86",
-        "./js/export.js": "./js/export.js?v=86",
-        "./js/testbar.js": "./js/testbar.js?v=86",
-        "./js/guide.js": "./js/guide.js?v=86",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=86"
+        "./js/charset.js": "./js/charset.js?v=87",
+        "./js/geometry.js": "./js/geometry.js?v=87",
+        "./js/model.js": "./js/model.js?v=87",
+        "./js/render.js": "./js/render.js?v=87",
+        "./js/tools.js": "./js/tools.js?v=87",
+        "./js/library.js": "./js/library.js?v=87",
+        "./js/history.js": "./js/history.js?v=87",
+        "./js/pieces.js": "./js/pieces.js?v=87",
+        "./js/nodes.js": "./js/nodes.js?v=87",
+        "./js/shapes.js": "./js/shapes.js?v=87",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=87",
+        "./js/outline.js": "./js/outline.js?v=87",
+        "./js/otf.js": "./js/otf.js?v=87",
+        "./js/masters.js": "./js/masters.js?v=87",
+        "./js/variable.js": "./js/variable.js?v=87",
+        "./js/woff.js": "./js/woff.js?v=87",
+        "./js/export.js": "./js/export.js?v=87",
+        "./js/testbar.js": "./js/testbar.js?v=87",
+        "./js/guide.js": "./js/guide.js?v=87",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=87"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=86"></script>
+  <script type="module" src="js/main.js?v=87"></script>
 </body>
 </html>

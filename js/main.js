@@ -18,7 +18,7 @@ import { initGuide } from "./guide.js";
 import {
   AXES, axisRows, mirrorKeys, translate, cellsInRect, connectedCells,
   selectionExtras, translateCorner, translatePiece,
-  transformMap, cellsBox, transformCells, transformCorner, transformPiece, resizePiece, transformContour, outlineBox, flips,
+  transformMap, cellsBox, transformCells, transformCorner, transformPiece, resizePiece, scaleCells, scalePoint, transformContour, outlineBox, flips,
 } from "./tools.js";
 import { squareCorners, effectiveRadii, MAX_RADIUS } from "./outline.js";
 import {
@@ -2313,6 +2313,55 @@ function transformShape(kind) {
   toast(TRANSFORM_NAMES[kind]);
 }
 
+// --- Scale ---
+// Enlarges the selection (or the whole letter) by a whole factor, from the
+// bottom-left corner of its box: each cell becomes k × k cells, with its
+// corners and pieces. A letter drawn with nodes scales smoothly.
+function scaleShape(k) {
+  const g = glyph();
+  if (tool === "nodes" || g.outline) return scaleOutline(k);
+  const whole = !selection.size;
+  if (whole) g.cells.forEach((c) => selection.add(c));
+  if (!selection.size) return;
+  checkpoint();
+  const lifted = liftSelection();
+  const { base, dc, dr } = lifted;
+  const moving = translate(base.moving, dc, dr);
+  const { x0, y0 } = cellsBox(moving);
+  const point = scalePoint(x0, y0, k);
+  const moved = scaleCells(moving, x0, y0, k);
+  const carried = {};
+  for (const [c, v] of Object.entries(base.carried)) carried[transformCorner(translateCorner(c, dc, dr), point)] = v;
+  const pieces = base.pieces.map(([i, p]) => [i, transformPiece(translatePiece(p, dc, dr), point)]);
+  const next = { ...base, moving: moved, carried, pieces };
+  const sx = keepInside(cellsBox(moved));
+  applyShift(next, sx, 0);
+  floating = lifted === floating ? { base: next, dc: sx, dr: 0 } : null;
+  if (whole && tool !== "select") selection.clear();
+  render();
+  syncPieceList();
+  toast(`Agrandado ×${k}`);
+}
+
+function scaleOutline(k) {
+  const g = glyph();
+  const outline = tool === "nodes" ? ensureOutline() : g.outline;
+  const picked = new Set([...nodeSel].map((c) => +c.split(":")[0]));
+  const targets = outline.map((_, ci) => ci).filter((ci) => !picked.size || picked.has(ci));
+  if (!targets.length) return;
+  checkpoint();
+  const { x0, y0 } = outlineBox(targets.map((ci) => outline[ci]));
+  const map = { point: scalePoint(x0, y0, k), vector: ([x, y]) => [x * k, y * k] };
+  keepInside(outlineBox(targets.map((ci) => transformContour(outline[ci], map))));
+  const onNodes = new Set(targets.flatMap((ci) => outline[ci].nodes.map((n) => cornerKey(n.x, n.y))));
+  const corners = {};
+  for (const [c, v] of Object.entries(g.corners ?? {})) corners[onNodes.has(c) ? transformCorner(c, map.point) : c] = v;
+  g.corners = corners;
+  for (const ci of targets) outline[ci] = transformContour(outline[ci], map);
+  render();
+  toast(`Agrandado ×${k}`);
+}
+
 // Columns to shift a turned shape by so it doesn't start left of the
 // letter's first column; the letter widens if the shape no longer fits.
 function keepInside({ x0, x1 }) {
@@ -3256,6 +3305,8 @@ $("helpBtn").addEventListener("click", () => $("helpDialog").showModal());
 for (const [id, kind] of [["rotCcw", "ccw"], ["rotCw", "cw"], ["flipH", "h"], ["flipV", "v"]]) {
   $(id).addEventListener("click", () => transformShape(kind));
 }
+
+for (const k of [2, 3]) $("scale" + k).addEventListener("click", () => scaleShape(k));
 
 // --- Masters and weights ---
 function setMaster(next) {

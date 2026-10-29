@@ -163,6 +163,19 @@ export function transformPiece(p, point) {
   return q;
 }
 
+// Scaling a drawing by a whole factor `k` around the corner (x0, y0): every
+// cell becomes k × k cells, and points (corners, pieces, nodes) move along.
+export const scalePoint = (x0, y0, k) => ([x, y]) => [x0 + (x - x0) * k, y0 + (y - y0) * k];
+
+export function scaleCells(cells, x0, y0, k) {
+  const out = [];
+  for (const cell of cells) {
+    const [c, r] = parseKey(cell);
+    for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) out.push(key(x0 + (c - x0) * k + i, y0 + (r - y0) * k + j));
+  }
+  return out;
+}
+
 // The piece stretched so that its box `from` ({ x0, y0, x1, y1 }, the piece's
 // own) becomes `to`. `to` may come back reversed (a corner dragged past the
 // opposite one), which flips the piece.

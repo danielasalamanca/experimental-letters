@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { axisRows, mirrorKeys, translate, cellsInRect, connectedCells, resizePiece } from "../js/tools.js";
+import { axisRows, mirrorKeys, translate, cellsInRect, connectedCells, resizePiece, scaleCells, scalePoint } from "../js/tools.js";
 
 const m = { ascender: 15, capHeight: 14, xHeight: 9, descender: -5 };
 const sorted = (a) => [...a].sort();
@@ -138,4 +138,9 @@ test("resizePiece flips when dragged past the opposite corner", () => {
   const p = { x0: 0, y0: 0, x1: 2, y1: 2, corner: "bl", shape: "star", mode: "add", n: 5, inner: 0.4 };
   const q = resizePiece(p, p, { x0: 0, y0: 0, x1: 2, y1: -2 });
   assert.deepEqual([q.y0, q.y1, q.corner, q.flip], [-2, 0, "tl", true]);
+});
+
+test("scaleCells turns each cell into k × k cells around the corner", () => {
+  assert.deepEqual(sorted(scaleCells(["2,3", "3,3"], 2, 3, 2)), ["2,3", "2,4", "3,3", "3,4", "4,3", "4,4", "5,3", "5,4"]);
+  assert.deepEqual(scalePoint(2, 3, 2)([4, 5]), [6, 7]);
 });
