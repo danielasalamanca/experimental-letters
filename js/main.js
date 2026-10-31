@@ -896,6 +896,10 @@ window.addEventListener("pointermove", (evt) => {
       dragScale(evt);
       break;
     }
+    case "outScale": {
+      dragOutlineScale(evt);
+      break;
+    }
     case "selScale": {
       dragSelScale(evt);
       break;
@@ -992,7 +996,7 @@ window.addEventListener("pointerup", () => {
     render(); syncPieceList(); return;
   }
   if (done.type === "node" || done.type === "scale") { render(); syncPieceList(); return; }
-  if (["nodes", "handle", "nodeMarquee", "shapeDraw"].includes(done.type)) { endNodeAction(done); return; }
+  if (["nodes", "handle", "nodeMarquee", "shapeDraw", "outScale"].includes(done.type)) { endNodeAction(done); return; }
   render(done.type === "metric" ? "font" : "glyph");
 });
 
@@ -1137,6 +1141,14 @@ function startNodeAction(evt) {
   const p = toCells(evt);
   const outline = editableOutline();
   const tol = pxToCells(8);
+  const grip = outlineScaleHandles().find((q) => Math.hypot(p.x - q.x, p.y - q.y) < pxToCells(9));
+  if (grip) {
+    checkpoint();
+    const { targets, from } = outlineScaleBox();
+    ensureOutline();
+    action = { type: "outScale", id: grip.id, targets, from, orig: cloneOutline(glyph().outline), origCorners: { ...glyph().corners } };
+    return;
+  }
   const h = handleHit(outline, p, tol);
   if (h) {
     checkpoint();
@@ -1290,6 +1302,70 @@ function endNodeAction(done) {
     return;
   }
   render("glyph");
+}
+
+// --- Scale the outline ---
+// Four handles just outside the corners of the box around the contours with a
+// chosen node (or all of them). Dragging one stretches them freely, the
+// opposite corner staying put; Shift keeps the proportions, and dragging past
+// the opposite corner flips them.
+function outlineScaleBox() {
+  const outline = editableOutline();
+  const picked = new Set([...nodeSel].map((k) => +k.split(":")[0]));
+  const targets = outline.map((_, ci) => ci).filter((ci) => !picked.size || picked.has(ci));
+  if (!targets.length || targets.every((ci) => !outline[ci].nodes.length)) return { targets: [], from: null };
+  return { targets, from: outlineBox(targets.map((ci) => outline[ci])) };
+}
+
+function outlineScaleHandles() {
+  if (shapeMode || nodeAddMode || action) return [];
+  const { from } = outlineScaleBox();
+  if (!from) return [];
+  const o = pxToCells(14);
+  return [["bl", from.x0 - o, from.y0 - o], ["br", from.x1 + o, from.y0 - o], ["tl", from.x0 - o, from.y1 + o], ["tr", from.x1 + o, from.y1 + o]]
+    .map(([id, x, y]) => ({ id, x, y }));
+}
+
+function dragOutlineScale(evt) {
+  const { from, id, orig, targets, origCorners } = action;
+  const left = id[1] === "l", bottom = id[0] === "b";
+  const fixed = [left ? from.x1 : from.x0, bottom ? from.y1 : from.y0];
+  const o = pxToCells(14);
+  const p = toCells(evt);
+  // The pointer is on the handle, which sits a little outside the corner.
+  let px = Math.max(0, p.x + (left ? o : -o)), py = p.y + (bottom ? o : -o);
+  const w = from.x1 - from.x0, h = from.y1 - from.y0;
+  const sx = Math.max(Math.abs(px - fixed[0]), 0.1) / (w || 1), sy = Math.max(Math.abs(py - fixed[1]), 0.1) / (h || 1);
+  const dirX = Math.sign(px - fixed[0]) || (left ? -1 : 1), dirY = Math.sign(py - fixed[1]) || (bottom ? -1 : 1);
+  let fx = dirX * sx, fy = dirY * sy;
+  if (evt.shiftKey) {
+    const f = Math.max(sx, sy);
+    fx = dirX * f; fy = dirY * f;
+  }
+  if (fx * w + fixed[0] > 24) return;
+  const map = {
+    point: ([x, y]) => [fixed[0] + (x - fixed[0]) * fx, fixed[1] + (y - fixed[1]) * fy],
+    vector: ([x, y]) => [x * fx, y * fy],
+  };
+  const reverse = fx * fy < 0;
+  const g = glyph();
+  const outline = orig.map((c, ci) => (targets.includes(ci) ? transformContour(c, map, reverse) : structuredClone(c)));
+  // Rounded corners sitting on the stretched nodes go with them.
+  const onNodes = new Set(targets.flatMap((ci) => orig[ci].nodes.map((n) => cornerKey(n.x, n.y))));
+  const corners = {};
+  for (const [k, v] of Object.entries(origCorners)) if (!onNodes.has(k)) corners[k] = v;
+  for (const ci of targets) orig[ci].nodes.forEach((n, ni) => {
+    const v = origCorners[cornerKey(n.x, n.y)];
+    if (v === undefined) return;
+    const m = outline[ci].nodes[reverse ? orig[ci].nodes.length - 1 - ni : ni];
+    corners[cornerKey(m.x, m.y)] = v;
+  });
+  g.outline = outline;
+  g.corners = corners;
+  if (reverse) nodeSel.clear();
+  const right = Math.max(...targets.flatMap((ci) => outline[ci].nodes.map((n) => n.x)));
+  if (right > g.cols) { g.cols = Math.min(24, Math.ceil(right)); syncControls(); }
+  render();
 }
 
 // Shift: snap a vector to multiples of 45°.
@@ -1451,6 +1527,12 @@ function drawNodeMarkers(layer) {
       fill: selected ? NODE_COLOR : "#fff", stroke: NODE_COLOR, "stroke-width": 1.2, "vector-effect": "non-scaling-stroke",
     }));
   }));
+  for (const h of outlineScaleHandles()) {
+    layer.appendChild(el("circle", {
+      cx: h.x * cu, cy: -h.y * cu, r: 6 * px,
+      fill: "#fff", stroke: NODE_COLOR, "stroke-width": 2, "vector-effect": "non-scaling-stroke",
+    }));
+  }
   if (action?.type === "shapeDraw" && action.x1 !== action.x0 && action.y1 !== action.y0) {
     layer.appendChild(el("path", {
       d: contoursToPath(outlineToCommands([shapeContour(shapeMode, action)]), cu),
