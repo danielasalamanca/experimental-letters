@@ -344,31 +344,63 @@ export const cornerKey = (x, y) => {
   return `${f(x)},${f(y)}`;
 };
 
-// Vertices of the shape where two straight edges meet at an angle.
+// Vertices of the shape where two edges meet at an angle. Edges may be
+// curves (a bowl meeting a stem, two arcs meeting in a point): those corners
+// are `curved`, and their directions are the curves' tangents there.
 function findCorners(book, shape) {
   const found = [];
   shape.forEach((path, pi) => {
     const n = path.length;
+    const edges = path.map((P, i) => book.edgeCurve(P, path[(i + 1) % n]));
     for (let i = 0; i < n; i++) {
       const P = path[(i - 1 + n) % n], V = path[i], Q = path[(i + 1) % n];
-      if (book.edgeCurve(P, V) || book.edgeCurve(V, Q)) continue;
-      const ax = V.X - P.X, ay = V.Y - P.Y, bx = Q.X - V.X, by = Q.Y - V.Y;
-      const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
-      if (!la || !lb) continue;
-      const cross = (ax * by - ay * bx) / (la * lb), dot = (ax * bx + ay * by) / (la * lb);
-      if (Math.abs(cross) < 1e-3 && dot > 0) continue; // straight on
+      const ein = edges[(i - 1 + n) % n], eout = edges[i];
+      const curved = !!(ein || eout);
+      const dirIn = ein ? book.tangent(ein, "end") : unit(V.X - P.X, V.Y - P.Y);
+      const dirOut = eout ? book.tangent(eout, "start") : unit(Q.X - V.X, Q.Y - V.Y);
+      if (!dirIn || !dirOut) continue;
+      const [ax, ay] = dirIn, [bx, by] = dirOut;
+      const dot = ax * bx + ay * by;
+      let cross = ax * by - ay * bx;
+      if (Math.abs(cross) < (curved ? 5e-3 : 1e-3)) {
+        if (dot > 0) continue; // straight on
+        // A cusp (the edges turn right back): look further along them.
+        cross = curved ? cuspTurn(path, i) : cross;
+        if (!cross) continue;
+      }
       const x = V.X / SCALE, y = V.Y / SCALE;
       found.push({
-        path: pi, index: i, x, y, key: cornerKey(x, y),
+        path: pi, index: i, x, y, key: cornerKey(x, y), curved,
         // Ink is on the left of every path, so a left turn is an outer corner.
         turn: cross > 0 ? 1 : 3,
-        a: [ax / la, ay / la], b: [bx / lb, by / lb], la: la / SCALE, lb: lb / SCALE,
+        a: dirIn, b: dirOut,
+        la: Math.hypot(V.X - P.X, V.Y - P.Y) / SCALE, lb: Math.hypot(Q.X - V.X, Q.Y - V.Y) / SCALE,
         // Neighbouring corners on the same edges share their length.
-        prevCorner: !book.edgeCurve(path[(i - 2 + n) % n], P), nextCorner: !book.edgeCurve(Q, path[(i + 2) % n]),
+        prevCorner: !ein && !book.edgeCurve(path[(i - 2 + n) % n], P), nextCorner: !eout && !book.edgeCurve(Q, path[(i + 2) % n]),
       });
     }
   });
   return found;
+}
+
+const unit = (x, y) => {
+  const l = Math.hypot(x, y);
+  return l ? [x / l, y / l] : null;
+};
+
+// Which way a cusp turns, from points a little way along both edges.
+function cuspTurn(path, i) {
+  const n = path.length, V = path[i];
+  let back = null, fwd = null;
+  for (let k = 1; k < n; k++) {
+    const P = path[(i - k + n) % n], Q = path[(i + k) % n];
+    if (!back && Math.hypot(P.X - V.X, P.Y - V.Y) > 0.1 * SCALE) back = P;
+    if (!fwd && Math.hypot(Q.X - V.X, Q.Y - V.Y) > 0.1 * SCALE) fwd = Q;
+    if (back && fwd) break;
+  }
+  if (!back || !fwd) return 0;
+  const c = (V.X - back.X) * (fwd.Y - V.Y) - (V.Y - back.Y) * (fwd.X - V.X);
+  return Math.abs(c) > 1 ? c : 0;
 }
 
 // Rounds corners with fillets: an outer corner loses the bit between the
@@ -384,19 +416,21 @@ function roundCorners(book, shape, found, base, wanted, join = true) {
   if (join) found = joinTouchingCorners(shape, found, want);
   // Distance from the corner to where the arc starts, per unit of radius.
   const per = found.map((c) => {
+    if (c.curved) return 1; // its radius is the arc's own (see curvedFillet)
     const cos = Math.min(1, Math.max(-1, c.a[0] * c.b[0] + c.a[1] * c.b[1]));
     return Math.tan(Math.acos(cos) / 2);
   });
   let d = want.map((r, i) => r * per[i]);
   // Never past the edges; corners on the same edge share it.
   found.forEach((c, i) => {
+    if (c.curved) return;
     d[i] = Math.min(d[i], c.prevCorner ? Infinity : c.la, c.nextCorner ? Infinity : c.lb);
   });
   const byPos = new Map(found.map((c, i) => [`${c.path}:${c.index}`, i]));
   for (let pass = 0; pass < 2; pass++) {
     found.forEach((c, i) => {
       const j = byPos.get(c.next ?? `${c.path}:${(c.index + 1) % shape[c.path].length}`);
-      if (j === undefined) return;
+      if (j === undefined || c.curved || found[j].curved) return;
       const L = c.lb;
       if (d[i] + d[j] <= L + 1e-9) return;
       if (d[i] >= L / 2 && d[j] >= L / 2) d[i] = d[j] = L / 2;
@@ -407,10 +441,14 @@ function roundCorners(book, shape, found, base, wanted, join = true) {
   const radii = d.map((dist, i) => (per[i] > 1e-9 ? dist / per[i] : 0));
 
   const outer = [], inner = [];
+  const cornerAt = new Set(found.map((c) => `${c.path}:${c.index}`));
+  const make = (c, r, per) => (c.curved ? curvedFillet(shape, c, r, cornerAt) : fillet(c, r, per));
   found.forEach((c, i) => {
     if (radii[i] < 1e-6) return;
     const fits = (r) => {
-      const region = orient(book.paths([fillet(c, r, per[i])]));
+      const cmds = make(c, r, per[i]);
+      if (!cmds) return false;
+      const region = orient(book.paths([cmds]));
       const test = c.turn === 1
         ? clipperOp(ClipperLib.ClipType.ctDifference, region, shape)
         : clipperOp(ClipperLib.ClipType.ctIntersection, region, shape);
@@ -427,7 +465,9 @@ function roundCorners(book, shape, found, base, wanted, join = true) {
     }
     if (wanted[c.key] !== undefined) radii[i] = snapRadius(radii[i]);
     if (radii[i] < 1e-6) return;
-    (c.turn === 1 ? outer : inner).push(...orient(book.paths([fillet(c, radii[i], per[i])])));
+    const cmds = make(c, radii[i], per[i]);
+    if (!cmds) { radii[i] = 0; return; }
+    (c.turn === 1 ? outer : inner).push(...orient(book.paths([cmds])));
   });
   let rounded = shape;
   if (outer.length) rounded = clipperOp(ClipperLib.ClipType.ctDifference, rounded, outer);
@@ -488,6 +528,98 @@ function fillet(c, r, per) {
   }
   cmds.push({ type: "Z" });
   return cmds;
+}
+
+// The same bit for a corner with a curve on one side or both: the arc of
+// radius r tangent to both edges, found where their offset lines (r to the
+// ink side for an outer corner, to the other for an inner one) cross. The
+// two edges are followed along the flattened outline up to the next corner.
+// Returns null if no such arc exists.
+function curvedFillet(shape, c, r, cornerAt) {
+  const path = shape[c.path], n = path.length;
+  const reach = 6 * r + 1;
+  const chain = (dir) => {
+    const pts = [{ x: c.x, y: c.y }];
+    let len = 0;
+    for (let k = 1; k < n; k++) {
+      const j = (c.index + dir * k + n * k) % n;
+      const q = { x: path[j].X / SCALE, y: path[j].Y / SCALE };
+      const last = pts[pts.length - 1];
+      len += Math.hypot(q.x - last.x, q.y - last.y);
+      pts.push(q);
+      if (len > reach || cornerAt.has(`${c.path}:${j}`)) break;
+    }
+    return pts;
+  };
+  const back = chain(-1), fwd = chain(1);
+  const side = c.turn === 1 ? 1 : -1;
+  // Offset segments of a chain, each with its own normal (to the left of travel).
+  const offsets = (pts, forward) => pts.slice(1).map((q, k) => {
+    const p = pts[k];
+    const [dx, dy] = forward ? [q.x - p.x, q.y - p.y] : [p.x - q.x, p.y - q.y];
+    const l = Math.hypot(dx, dy) || 1;
+    const nx = (-dy / l) * side * r, ny = (dx / l) * side * r;
+    return { p, q, nx, ny, a: { x: p.x + nx, y: p.y + ny }, b: { x: q.x + nx, y: q.y + ny } };
+  });
+  const A = offsets(back, false), B = offsets(fwd, true);
+  let best = null;
+  for (let ia = 0; ia < A.length; ia++) for (let ib = 0; ib < B.length; ib++) {
+    const hit = crossSegments(A[ia], B[ib]);
+    if (!hit) continue;
+    const dist = Math.hypot(hit.x - c.x, hit.y - c.y);
+    if (!best || dist < best.dist) best = { ...hit, dist, ia, ib };
+  }
+  if (!best) return null;
+  const sa = A[best.ia], sb = B[best.ib];
+  const T1 = { x: best.x - sa.nx, y: best.y - sa.ny }, T2 = { x: best.x - sb.nx, y: best.y - sb.ny };
+  const center = { x: best.x, y: best.y };
+  // From V back to T1 along the outline, then the arc, then on to T2.
+  const cmds = [];
+  cmds.push({ type: "M", x: T1.x, y: T1.y });
+  for (let k = best.ia - 1; k >= 0; k--) cmds.push({ type: "L", x: back[k + 1].x, y: back[k + 1].y });
+  cmds.push({ type: "L", x: c.x, y: c.y });
+  for (let k = 1; k <= best.ib; k++) cmds.push({ type: "L", x: fwd[k].x, y: fwd[k].y });
+  cmds.push({ type: "L", x: T2.x, y: T2.y });
+  // The arc from T2 back to T1, through the side facing the corner.
+  const a2 = Math.atan2(T2.y - center.y, T2.x - center.x), a1 = Math.atan2(T1.y - center.y, T1.x - center.x);
+  let sweep = a1 - a2;
+  while (sweep > Math.PI) sweep -= 2 * Math.PI;
+  while (sweep <= -Math.PI) sweep += 2 * Math.PI;
+  const toward = Math.atan2(c.y - center.y, c.x - center.x);
+  const facing = (s) => {
+    const m = a2 + s / 2;
+    return Math.cos(m - toward);
+  };
+  const other = sweep > 0 ? sweep - 2 * Math.PI : sweep + 2 * Math.PI;
+  if (facing(other) > facing(sweep)) sweep = other;
+  const parts = Math.max(1, Math.ceil(Math.abs(sweep) / (Math.PI / 2)));
+  for (let k = 0; k < parts; k++) {
+    const s0 = a2 + (sweep * k) / parts, s1 = a2 + (sweep * (k + 1)) / parts;
+    const kk = (4 / 3) * Math.tan((s1 - s0) / 4) * r;
+    const p0 = [center.x + r * Math.cos(s0), center.y + r * Math.sin(s0)];
+    const p3 = [center.x + r * Math.cos(s1), center.y + r * Math.sin(s1)];
+    cmds.push({
+      type: "C",
+      x1: p0[0] - kk * Math.sin(s0), y1: p0[1] + kk * Math.cos(s0),
+      x2: p3[0] + kk * Math.sin(s1), y2: p3[1] - kk * Math.cos(s1),
+      x: k === parts - 1 ? T1.x : p3[0], y: k === parts - 1 ? T1.y : p3[1],
+    });
+  }
+  cmds.push({ type: "Z" });
+  return cmds;
+}
+
+// Where two segments (each from `a` to `b`) cross, a hair of slack allowed
+// at the ends since flattened offsets leave tiny gaps.
+function crossSegments(s, t) {
+  const rx = s.b.x - s.a.x, ry = s.b.y - s.a.y, qx = t.b.x - t.a.x, qy = t.b.y - t.a.y;
+  const den = rx * qy - ry * qx;
+  if (Math.abs(den) < 1e-12) return null;
+  const u = ((t.a.x - s.a.x) * qy - (t.a.y - s.a.y) * qx) / den;
+  const v = ((t.a.x - s.a.x) * ry - (t.a.y - s.a.y) * rx) / den;
+  const slack = 0.02;
+  if (u < -slack || u > 1 + slack || v < -slack || v > 1 + slack) return null;
+  return { x: s.a.x + rx * u, y: s.a.y + ry * u };
 }
 
 function clipperOp(type, subject, clip) {
@@ -658,6 +790,22 @@ class CurveBook {
     return null;
   }
 
+  // Direction of travel along an edge (from `edgeCurve`) at its first or last
+  // end: the curve's tangent there.
+  tangent(e, at) {
+    const c = this.curves[e.curve];
+    const dir = Math.sign(e.tb - e.ta) || 1;
+    const t = at === "start" ? e.ta : e.tb;
+    for (const step of [0, 0.01, 0.05]) {
+      // A zero derivative (a control point on the end): look a bit inside.
+      const u = Math.min(1, Math.max(0, at === "start" ? t + dir * step : t - dir * step));
+      const d = bezierDerivative(c, u);
+      const v = unit(d[0] * dir, d[1] * dir);
+      if (v) return v;
+    }
+    return null;
+  }
+
   // A Clipper path back to commands: straight edges stay lines and every run
   // of edges along one source curve becomes that curve's exact piece.
   refit(path) {
@@ -697,6 +845,11 @@ const sameRun = (a, b) => !!a && !!b && a.curve === b.curve && Math.sign(a.tb - 
 function bezier({ p0, p1, p2, p3 }, t) {
   const u = 1 - t;
   return [0, 1].map((i) => u * u * u * p0[i] + 3 * u * u * t * p1[i] + 3 * u * t * t * p2[i] + t * t * t * p3[i]);
+}
+
+function bezierDerivative({ p0, p1, p2, p3 }, t) {
+  const u = 1 - t;
+  return [0, 1].map((i) => 3 * (u * u * (p1[i] - p0[i]) + 2 * u * t * (p2[i] - p1[i]) + t * t * (p3[i] - p2[i])));
 }
 
 function curveLength(c) {

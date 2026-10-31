@@ -520,3 +520,50 @@ test("a star cut from a block leaves a hole with its points", () => {
   const out = squareGlyphContours(cells, { pieces: [{ shape: "star", mode: "cut", x0: 1, y0: 1, x1: 7, y1: 7, corner: "bl" }] });
   assert.equal(out.length, 2);
 });
+
+test("corners next to curves can be rounded too", () => {
+  const cells = block(0, 0, 2, 14);
+  const q = (x0, y0, x1, y1, corner) => ({ shape: "quarter", mode: "add", x0, y0, x1, y1, corner });
+  // Two bowls overlapping: a straight edge meets an arc, and the tips meet.
+  const pieces = [q(2, 0, 7, 8, "tl"), q(2, 6, 8, 14, "bl")];
+  const found = pieceGlyphCorners(cells, { pieces });
+  const keys = found.map((c) => c.key);
+  assert.ok(keys.includes("8,6") && keys.includes("6.842,6"), "line meeting a curve is a corner");
+  const corners = { "8,6": 1, "6.842,6": 0.5 };
+  const contours = squareGlyphContours(cells, { pieces, corners });
+  const rounded = pieceGlyphCorners(cells, { pieces, corners });
+  assert.ok(rounded.find((c) => c.key === "8,6").radius > 0.3);
+  assert.ok(rounded.find((c) => c.key === "6.842,6").radius > 0.1);
+  const polys = flatten(contours);
+  for (let i = 0; i < 3000; i++) {
+    const p = [((i * 0.6180339887) % 1) * 10 - 1, ((i * 0.7548776662 + 0.1) % 1) * 16 - 1];
+    assert.ok([0, 1].includes(winding(polys, p)), `winding ${winding(polys, p)} at ${p}`);
+  }
+  // The outer corner at (8,6) loses ink; the exact curves stay curves.
+  assert.equal(winding(polys, [7.98, 6.02]), 0);
+  assert.ok(contours.flat().every((c) => ["M", "L", "C", "Z"].includes(c.type)));
+});
+
+test("two arcs meeting in a point (a cusp) can be rounded", () => {
+  const cells = [];
+  const pieces = [
+    { shape: "ellipse", mode: "add", x0: 0, y0: 0, x1: 6, y1: 6, corner: "bl" },
+    { shape: "ellipse", mode: "add", x0: 4, y0: 0, x1: 10, y1: 6, corner: "bl" },
+  ];
+  const found = pieceGlyphCorners(cells, { pieces });
+  const notches = found.filter((c) => c.turn === 3);
+  assert.equal(notches.length, 2, "the two notches where the circles cross");
+  const corners = Object.fromEntries(notches.map((c) => [c.key, 1]));
+  const contours = squareGlyphContours(cells, { pieces, corners });
+  const polys = flatten(contours);
+  for (const n of notches) {
+    const rounded = pieceGlyphCorners(cells, { pieces, corners }).find((c) => c.key === n.key);
+    assert.ok(rounded.radius > 0.5, "gets its radius");
+    // The pointed notch is filled in a little.
+    assert.equal(winding(polys, [n.x, n.y + (n.y > 3 ? -0.05 : 0.05)]), 1);
+  }
+  for (let i = 0; i < 3000; i++) {
+    const p = [((i * 0.6180339887) % 1) * 12 - 1, ((i * 0.7548776662 + 0.1) % 1) * 8 - 1];
+    assert.ok([0, 1].includes(winding(polys, p)), `winding ${winding(polys, p)} at ${p}`);
+  }
+});
