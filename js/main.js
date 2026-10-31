@@ -2034,7 +2034,7 @@ function dragCorner(evt) {
   if (!action.dragged && reach < 0.3) return;
   action.dragged = true;
   // Back at the corner (radius 0), it is left sharp.
-  const r = Math.min(MAX_RADIUS, Math.max(0, Math.round(reach * 2) / 2));
+  const r = Math.min(MAX_RADIUS, Math.max(0, Math.round(reach * 4) / 4));
   if (glyph().corners[action.k] !== r) setCorners(action.targets, r);
 }
 
@@ -2200,8 +2200,12 @@ function setPieceParam(key, value) {
 }
 $("pieceN").addEventListener("input", (e) => setPieceParam("n", +e.target.value));
 $("pieceInner").addEventListener("input", (e) => setPieceParam("inner", +e.target.value / 100));
+const radiusLabel = (r) => {
+  const whole = Math.floor(r), frac = { 0.25: "¼", 0.5: "½", 0.75: "¾" }[r - whole] ?? "";
+  return whole ? `${whole}${frac}` : frac || "0";
+};
 $("cornerRadius").addEventListener("input", (e) => {
-  $("cornerRadiusOut").textContent = +e.target.value >= MAX_RADIUS ? "máx" : String(+e.target.value).replace(".5", "½").replace(/^0½/, "½");
+  $("cornerRadiusOut").textContent = +e.target.value >= MAX_RADIUS ? "máx" : radiusLabel(+e.target.value);
 });
 
 for (const id of ["mirrorH", "mirrorV"]) {

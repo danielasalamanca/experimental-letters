@@ -228,11 +228,11 @@ function holeContour(P, geo) {
 export const MAX_STROKE = 0.45;
 export const MAX_RADIUS = 12;
 
-// Corners with their own radius (Esquinas) use half-cell increments. Always
+// Corners with their own radius (Esquinas) use quarter-cell increments. Always
 // round down so the snapped radius remains within the geometric space
 // available to the corner. The global rounding (0–1, radii up to half a cell)
 // is not snapped: it would all round down to sharp corners.
-export const snapRadius = (radius) => Math.floor((Math.max(0, radius) + 1e-9) * 2) / 2;
+export const snapRadius = (radius) => Math.floor((Math.max(0, radius) + 1e-9) * 4) / 4;
 
 export function squareContours(cells, options) {
   const t = Math.min(Math.max(options.stroke ?? 0, 0), MAX_STROKE);

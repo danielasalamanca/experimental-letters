@@ -277,10 +277,10 @@ test("a big radius stops before eating a counter", () => {
   const corners = { "0,8": "max" };
   const radius = pieceGlyphCorners(cells, { pieces, corners }).find((c) => c.key === "0,8").radius;
   // The arc may reach the hole's corner (2, 6) but not go past it:
-  // √2 (r − 2) ≤ r  ⇒  r ≤ 2√2 / (√2 − 1) ≈ 6.83, rounded down to half a
+  // √2 (r − 2) ≤ r  ⇒  r ≤ 2√2 / (√2 − 1) ≈ 6.83, rounded down to a quarter of a
   // cell like every radius set with Esquinas.
   const limit = (2 * Math.SQRT2) / (Math.SQRT2 - 1);
-  assert.equal(radius, Math.floor(limit * 2) / 2, `radio ${radius}`);
+  assert.equal(radius, Math.floor(limit * 4) / 4, `radio ${radius}`);
   const polys = flatten(squareGlyphContours(cells, { pieces, corners }));
   // The wall beside the hole is still there.
   assert.equal(winding(polys, [1, 2]), 1);

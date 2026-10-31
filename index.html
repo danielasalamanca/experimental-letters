@@ -6,11 +6,11 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=90" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=91" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=90" : "favicon-light.png?v=90"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=91" : "favicon-light.png?v=91"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,11 +18,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=90">
+  <link rel="stylesheet" href="style.css?v=91">
 </head>
 <body>
   <header class="topbar">
-    <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=90" width="461" height="33" alt="Experimental Letters"></h1>
+    <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=91" width="461" height="33" alt="Experimental Letters"></h1>
     <div class="font-picker">
       <label for="fontSelect" class="sr-only">Tipografía abierta</label>
       <select id="fontSelect" title="Tus tipografías en este navegador"></select>
@@ -122,7 +122,7 @@
           <label id="cornerRadiusBox" class="corner-radius wide-cell" title="Radio al hacer clic en una esquina, en celdas. En 0 la esquina queda en punta; al máximo, se redondea todo lo que la forma permite.">
             <span>Radio</span>
             <output id="cornerRadiusOut">máx</output>
-            <input type="range" id="cornerRadius" min="0" max="12" step="0.5" value="12" aria-label="Radio">
+            <input type="range" id="cornerRadius" min="0" max="12" step="0.25" value="12" aria-label="Radio">
           </label>
         </div>
         <div class="tool-group" id="polyGroup" hidden>
@@ -580,29 +580,29 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=90",
-        "./js/geometry.js": "./js/geometry.js?v=90",
-        "./js/model.js": "./js/model.js?v=90",
-        "./js/render.js": "./js/render.js?v=90",
-        "./js/tools.js": "./js/tools.js?v=90",
-        "./js/library.js": "./js/library.js?v=90",
-        "./js/history.js": "./js/history.js?v=90",
-        "./js/pieces.js": "./js/pieces.js?v=90",
-        "./js/nodes.js": "./js/nodes.js?v=90",
-        "./js/shapes.js": "./js/shapes.js?v=90",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=90",
-        "./js/outline.js": "./js/outline.js?v=90",
-        "./js/otf.js": "./js/otf.js?v=90",
-        "./js/masters.js": "./js/masters.js?v=90",
-        "./js/variable.js": "./js/variable.js?v=90",
-        "./js/woff.js": "./js/woff.js?v=90",
-        "./js/export.js": "./js/export.js?v=90",
-        "./js/testbar.js": "./js/testbar.js?v=90",
-        "./js/guide.js": "./js/guide.js?v=90",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=90"
+        "./js/charset.js": "./js/charset.js?v=91",
+        "./js/geometry.js": "./js/geometry.js?v=91",
+        "./js/model.js": "./js/model.js?v=91",
+        "./js/render.js": "./js/render.js?v=91",
+        "./js/tools.js": "./js/tools.js?v=91",
+        "./js/library.js": "./js/library.js?v=91",
+        "./js/history.js": "./js/history.js?v=91",
+        "./js/pieces.js": "./js/pieces.js?v=91",
+        "./js/nodes.js": "./js/nodes.js?v=91",
+        "./js/shapes.js": "./js/shapes.js?v=91",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=91",
+        "./js/outline.js": "./js/outline.js?v=91",
+        "./js/otf.js": "./js/otf.js?v=91",
+        "./js/masters.js": "./js/masters.js?v=91",
+        "./js/variable.js": "./js/variable.js?v=91",
+        "./js/woff.js": "./js/woff.js?v=91",
+        "./js/export.js": "./js/export.js?v=91",
+        "./js/testbar.js": "./js/testbar.js?v=91",
+        "./js/guide.js": "./js/guide.js?v=91",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=91"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=90"></script>
+  <script type="module" src="js/main.js?v=91"></script>
 </body>
 </html>
