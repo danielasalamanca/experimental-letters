@@ -18,7 +18,7 @@ import { initGuide } from "./guide.js";
 import {
   AXES, axisRows, mirrorKeys, translate, cellsInRect, connectedCells,
   selectionExtras, translateCorner, translatePiece,
-  transformMap, cellsBox, transformCells, transformCorner, transformPiece, resizePiece, scaleCells, scalePoint, transformContour, outlineBox, flips,
+  transformMap, cellsBox, transformCells, transformCorner, transformPiece, resizePiece, resampleCells, stretchPoint, transformContour, outlineBox, flips,
 } from "./tools.js";
 import { squareCorners, effectiveRadii, MAX_RADIUS } from "./outline.js";
 import {
@@ -223,6 +223,14 @@ function decorate() {
       x: c * cu, y: -(r + 1) * cu, width: cu, height: cu,
       fill: "#2f80ed", "fill-opacity": 0.18, stroke: "#2f80ed", "stroke-width": 1, "vector-effect": "non-scaling-stroke",
     }));
+  }
+  if (tool === "select" && selection.size && !action) {
+    for (const h of selScaleHandles()) {
+      layer.appendChild(el("circle", {
+        cx: h.x * cu, cy: -h.y * cu, r: cu * 0.17,
+        fill: "#fff", stroke: "#2f80ed", "stroke-width": 2, "vector-effect": "non-scaling-stroke",
+      }));
+    }
   }
   if (tool === "corner") drawCornerMarkers(layer);
   if (tool === "piece") drawPieceMarkers(layer);
@@ -820,6 +828,8 @@ board.addEventListener("pointerdown", (evt) => {
   // Select tool: drag a selected cell to move the selection,
   // otherwise drag a rectangle (or click a cell) to select.
   const p = toCells(evt);
+  const grip = selection.size ? selScaleHandles().find((h) => Math.hypot(p.x - h.x, p.y - h.y) < 0.4) : null;
+  if (grip) { startSelScale(grip.id); return; }
   if (k && selection.has(k) && !evt.shiftKey) {
     checkpoint();
     const lifted = liftSelection();
@@ -884,6 +894,10 @@ window.addEventListener("pointermove", (evt) => {
     }
     case "scale": {
       dragScale(evt);
+      break;
+    }
+    case "selScale": {
+      dragSelScale(evt);
       break;
     }
     case "polyPress": {
@@ -972,6 +986,11 @@ window.addEventListener("pointerup", () => {
   if (done.type === "move" && done.lifted === floating && floating) { floating.dc += done.dc; floating.dr += done.dr; }
   if (done.type === "corner") { endCorner(done); return; }
   if (done.type === "piece") { endPiece(done); return; }
+  if (done.type === "selScale") {
+    if (done.lifted === floating && done.last) floating = { base: done.last, dc: 0, dr: 0 };
+    else floating = null;
+    render(); syncPieceList(); return;
+  }
   if (done.type === "node" || done.type === "scale") { render(); syncPieceList(); return; }
   if (["nodes", "handle", "nodeMarquee", "shapeDraw"].includes(done.type)) { endNodeAction(done); return; }
   render(done.type === "metric" ? "font" : "glyph");
@@ -2313,53 +2332,58 @@ function transformShape(kind) {
   toast(TRANSFORM_NAMES[kind]);
 }
 
-// --- Scale ---
-// Enlarges the selection (or the whole letter) by a whole factor, from the
-// bottom-left corner of its box: each cell becomes k × k cells, with its
-// corners and pieces. A letter drawn with nodes scales smoothly.
-function scaleShape(k) {
-  const g = glyph();
-  if (tool === "nodes" || g.outline) return scaleOutline(k);
-  const whole = !selection.size;
-  if (whole) g.cells.forEach((c) => selection.add(c));
-  if (!selection.size) return;
+// --- Scale the selection ---
+// Four handles on the corners of the selected cells' box. Dragging one
+// stretches the selection (with its rounded corners and pieces) to any size,
+// the opposite corner staying put; Shift keeps the proportions, and dragging
+// past the opposite corner flips it.
+function selScaleHandles() {
+  const { x0, y0, x1, y1 } = cellsBox([...selection]);
+  return [["bl", x0, y0], ["br", x1, y0], ["tl", x0, y1], ["tr", x1, y1]].map(([id, x, y]) => ({ id, x, y }));
+}
+
+function startSelScale(id) {
   checkpoint();
   const lifted = liftSelection();
   const { base, dc, dr } = lifted;
   const moving = translate(base.moving, dc, dr);
-  const { x0, y0 } = cellsBox(moving);
-  const point = scalePoint(x0, y0, k);
-  const moved = scaleCells(moving, x0, y0, k);
-  const carried = {};
-  for (const [c, v] of Object.entries(base.carried)) carried[transformCorner(translateCorner(c, dc, dr), point)] = v;
-  const pieces = base.pieces.map(([i, p]) => [i, transformPiece(translatePiece(p, dc, dr), point)]);
-  const next = { ...base, moving: moved, carried, pieces };
-  const sx = keepInside(cellsBox(moved));
-  applyShift(next, sx, 0);
-  floating = lifted === floating ? { base: next, dc: sx, dr: 0 } : null;
-  if (whole && tool !== "select") selection.clear();
-  render();
-  syncPieceList();
-  toast(`Agrandado ×${k}`);
+  action = {
+    type: "selScale", id, lifted, moving, from: cellsBox(moving),
+    carried: Object.fromEntries(Object.entries(base.carried).map(([c, v]) => [translateCorner(c, dc, dr), v])),
+    pieces: base.pieces.map(([i, p]) => [i, translatePiece(p, dc, dr)]),
+  };
 }
 
-function scaleOutline(k) {
+function dragSelScale(evt) {
+  const { from, id } = action;
+  const left = id[1] === "l", bottom = id[0] === "b";
+  const fixed = [left ? from.x1 : from.x0, bottom ? from.y1 : from.y0];
+  const { x, y } = toCells(evt);
+  let px = Math.min(24, Math.max(0, Math.round(x))), py = Math.round(y);
+  if (evt.shiftKey) {
+    const w = from.x1 - from.x0, h = from.y1 - from.y0;
+    const f = Math.max(Math.abs(px - fixed[0]) / w, Math.abs(py - fixed[1]) / h);
+    px = fixed[0] + Math.sign(px - fixed[0] || (left ? -1 : 1)) * Math.round(f * w);
+    py = fixed[1] + Math.sign(py - fixed[1] || (bottom ? -1 : 1)) * Math.round(f * h);
+    if (px < 0 || px > 24) return;
+  }
+  if (px === fixed[0] || py === fixed[1]) return;
+  const to = { x0: left ? px : fixed[0], x1: left ? fixed[0] : px, y0: bottom ? py : fixed[1], y1: bottom ? fixed[1] : py };
+  const point = stretchPoint(from, to);
+  const pieces = action.pieces.map(([i, p]) => [i, transformPiece(p, point)]);
+  // A piece squashed flat would vanish: wait for a bigger size.
+  if (pieces.some(([, p]) => p.x0 === p.x1 || p.y0 === p.y1)) return;
+  const moved = resampleCells(action.moving, from, to);
+  if (!moved.length) return;
+  const carried = {};
+  for (const [c, v] of Object.entries(action.carried)) carried[transformCorner(c, point)] = v;
+  const next = { ...action.lifted.base, moving: moved, carried, pieces };
   const g = glyph();
-  const outline = tool === "nodes" ? ensureOutline() : g.outline;
-  const picked = new Set([...nodeSel].map((c) => +c.split(":")[0]));
-  const targets = outline.map((_, ci) => ci).filter((ci) => !picked.size || picked.has(ci));
-  if (!targets.length) return;
-  checkpoint();
-  const { x0, y0 } = outlineBox(targets.map((ci) => outline[ci]));
-  const map = { point: scalePoint(x0, y0, k), vector: ([x, y]) => [x * k, y * k] };
-  keepInside(outlineBox(targets.map((ci) => transformContour(outline[ci], map))));
-  const onNodes = new Set(targets.flatMap((ci) => outline[ci].nodes.map((n) => cornerKey(n.x, n.y))));
-  const corners = {};
-  for (const [c, v] of Object.entries(g.corners ?? {})) corners[onNodes.has(c) ? transformCorner(c, map.point) : c] = v;
-  g.corners = corners;
-  for (const ci of targets) outline[ci] = transformContour(outline[ci], map);
+  g.cols = Math.max(g.cols, Math.max(to.x0, to.x1));
+  syncControls();
+  applyShift(next, 0, 0);
+  action.last = next;
   render();
-  toast(`Agrandado ×${k}`);
 }
 
 // Columns to shift a turned shape by so it doesn't start left of the
@@ -3305,8 +3329,6 @@ $("helpBtn").addEventListener("click", () => $("helpDialog").showModal());
 for (const [id, kind] of [["rotCcw", "ccw"], ["rotCw", "cw"], ["flipH", "h"], ["flipV", "v"]]) {
   $(id).addEventListener("click", () => transformShape(kind));
 }
-
-for (const k of [2, 3]) $("scale" + k).addEventListener("click", () => scaleShape(k));
 
 // --- Masters and weights ---
 function setMaster(next) {

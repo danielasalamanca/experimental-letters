@@ -163,17 +163,30 @@ export function transformPiece(p, point) {
   return q;
 }
 
-// Scaling a drawing by a whole factor `k` around the corner (x0, y0): every
-// cell becomes k × k cells, and points (corners, pieces, nodes) move along.
-export const scalePoint = (x0, y0, k) => ([x, y]) => [x0 + (x - x0) * k, y0 + (y - y0) * k];
-
-export function scaleCells(cells, x0, y0, k) {
+// Stretching a drawing from the box `from` to the box `to` ({ x0, y0, x1, y1 }
+// in whole cells; `to` comes reversed when dragged past the opposite corner,
+// which flips the drawing). Cells are resampled (each new cell takes the old
+// cell under its centre), so any size works; points move proportionally.
+export function resampleCells(cells, from, to) {
+  const have = new Set(cells);
+  const lo = (a, b) => Math.min(a, b), hi = (a, b) => Math.max(a, b);
   const out = [];
-  for (const cell of cells) {
-    const [c, r] = parseKey(cell);
-    for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) out.push(key(x0 + (c - x0) * k + i, y0 + (r - y0) * k + j));
+  for (let c = lo(to.x0, to.x1); c < hi(to.x0, to.x1); c++) {
+    const u = (c + 0.5 - to.x0) / (to.x1 - to.x0);
+    for (let r = lo(to.y0, to.y1); r < hi(to.y0, to.y1); r++) {
+      const v = (r + 0.5 - to.y0) / (to.y1 - to.y0);
+      const k = key(Math.floor(from.x0 + u * (from.x1 - from.x0)), Math.floor(from.y0 + v * (from.y1 - from.y0)));
+      if (have.has(k)) out.push(key(c, r));
+    }
   }
   return out;
+}
+
+// The point map of that stretch, on half cells.
+export function stretchPoint(from, to) {
+  const half = (n) => Math.round(n * 2) / 2 + 0;
+  const fx = (to.x1 - to.x0) / (from.x1 - from.x0), fy = (to.y1 - to.y0) / (from.y1 - from.y0);
+  return ([x, y]) => [half(to.x0 + (x - from.x0) * fx), half(to.y0 + (y - from.y0) * fy)];
 }
 
 // The piece stretched so that its box `from` ({ x0, y0, x1, y1 }, the piece's
