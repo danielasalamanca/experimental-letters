@@ -1185,7 +1185,7 @@ function startNodeAction(evt) {
   const corner = evt.shiftKey ? null : roundedCornerAt(p, tol);
   if (corner) {
     checkpoint();
-    action = { type: "corner", ...corner, shift: false, dragged: false, fromNodes: true, before: glyph().corners[corner.k] };
+    action = { type: "corner", ...corner, shift: false, dragged: false, fromNodes: true, radius: outlineCorners().get(corner.k).radius, before: glyph().corners[corner.k] };
     return;
   }
   // A component, where the letter's own outline has no ink: drag it.
@@ -1586,7 +1586,11 @@ function roundedCornerAt(p, tol) {
       const d = Math.hypot(corner.x - n.x, corner.y - n.y);
       if (corner.radius > 0 && d <= corner.radius * 1.5 + 0.1 && d < bestDist) { best = { k, ...corner }; bestDist = d; }
     }
-    if (best) return cornerHit(best);
+    if (best) {
+      // The node slides along its edge, away from or towards the corner.
+      const len = Math.hypot(n.x - best.x, n.y - best.y) || 1;
+      return { ...cornerHit(best), dir: [(n.x - best.x) / len, (n.y - best.y) / len] };
+    }
   }
   return null;
 }
@@ -2147,8 +2151,11 @@ function startCorner(evt) {
 
 function dragCorner(evt) {
   const { x, y } = toCells(evt);
-  const reach = Math.max(Math.abs(x - action.px), Math.abs(y - action.py));
-  if (!action.dragged && reach < 0.3) return;
+  // Grabbed by a node of its curve: how far along that node's edge.
+  const reach = action.dir
+    ? Math.max(0, (x - action.px) * action.dir[0] + (y - action.py) * action.dir[1])
+    : Math.max(Math.abs(x - action.px), Math.abs(y - action.py));
+  if (!action.dragged && (action.dir ? Math.abs(reach - action.radius) < 0.1 : reach < 0.3)) return;
   action.dragged = true;
   // Back at the corner (radius 0), it is left sharp.
   const r = Math.min(MAX_RADIUS, Math.max(0, Math.round(reach * 4) / 4));
