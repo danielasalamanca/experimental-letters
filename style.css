@@ -154,7 +154,7 @@ input[type="range"]:disabled { opacity: 0.35; cursor: default; }
   align-items: center;
   column-gap: 24px;
   row-gap: 4px;
-  padding: 24px var(--gutter) 12px;
+  padding: 16px var(--gutter) 8px;
   background: linear-gradient(to bottom, var(--acid), var(--bg));
 }
 /* The wordmark: "EXPERIMENTAL LETTERS" set in Letritas, as outlines. Sized
@@ -194,18 +194,21 @@ input[type="range"]:disabled { opacity: 0.35; cursor: default; }
 /* ---------- Layout ---------- */
 .app {
   display: grid;
-  grid-template-columns: 256px minmax(0, 1fr) 316px;
+  --lw: 256px; --rw: 316px;
+  grid-template-columns: var(--lw) minmax(0, 1fr) var(--rw);
   column-gap: 0;
-  /* Leaves room for the test bar, so the test text is on screen with the
-     grid (down to 560px; below that the page scrolls). */
-  height: max(560px, calc(100vh - 160px - var(--test-h)));
+  /* Fills what the header and the test bar leave (main.js measures them into
+     --chrome-h; down to 560px, below that the page scrolls). */
+  height: max(560px, calc(100vh - var(--chrome-h, calc(160px + var(--test-h)))));
   padding: 12px var(--gutter) 0;
 }
 .zone { min-height: 0; overflow: auto; scrollbar-width: thin; }
 .zone-left { padding: 0 2px 20px 0; }
 .zone-center { margin-left: 12px; border-left: 1px solid var(--line); padding: 0 0 4px 23px; }
 .zone-right { padding: 0 2px 20px 0; margin-left: 20px; }
-.app.letters-hidden { grid-template-columns: 0 minmax(0, 1fr) 316px; }
+.app.letters-hidden { --lw: 0px; }
+.app.props-hidden { --rw: 0px; }
+.app.props-hidden .zone-right { visibility: hidden; padding: 0; margin: 0; }
 .app.letters-hidden .zone-left { visibility: hidden; padding: 0; }
 .app.letters-hidden .zone-center { margin-left: 0; border-left: 0; padding-left: 0; }
 
@@ -355,7 +358,7 @@ body.master-bold .board-card { box-shadow: 0 0 0 2px var(--fg); }
   border-radius: 24px;
   overflow: hidden;
 }
-.board-wrap { position: relative; order: 2; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 6px 24px 64px; }
+.board-wrap { position: relative; order: 2; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 16px 56px; }
 #board { width: 100%; height: 100%; touch-action: none; cursor: crosshair; user-select: none; }
 #board text { font-family: var(--mono); }
 #board .metric-label.draggable { cursor: ns-resize; }
@@ -519,7 +522,7 @@ label.check { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
 
 /* ---------- Test bar ---------- */
 .testbar {
-  margin: 20px var(--gutter) 12px;
+  margin: 12px var(--gutter) 12px;
   background: var(--surface);
   border-radius: 24px;
   padding: 18px 24px 16px;
@@ -667,7 +670,7 @@ dialog.dingbats { max-width: 560px; }
 
 /* ---------- Smaller screens ---------- */
 @media (max-width: 1280px) {
-  .app { grid-template-columns: 232px minmax(0, 1fr) 290px; }
+  .app { --lw: 232px; --rw: 290px; }
   .tool kbd { display: none; }
   .tools-pill .tool { padding: 0 11px; }
   .brand { --wm-w: 330px; }

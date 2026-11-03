@@ -1503,29 +1503,62 @@ function runPathfinder(op) {
   if (!added.length) toast("No quedó nada: las formas no se superponían.");
 }
 
+// Corner nodes are squares, smooth ones (collinear handles) green circles;
+// handles are small hollow circles and the first node of each contour carries
+// an arrow showing its direction, as in Glyphs.
+const SMOOTH_COLOR = "#2ca05a";
+const isSmoothNode = (n) => {
+  if (!n.in || !n.out) return false;
+  const cross = n.in[0] * n.out[1] - n.in[1] * n.out[0];
+  const dot = n.in[0] * n.out[0] + n.in[1] * n.out[1];
+  return dot < 0 && Math.abs(cross) <= 1e-6 * (Math.hypot(...n.in) * Math.hypot(...n.out) || 1);
+};
+
 function drawNodeMarkers(layer) {
   const cu = font.cell;
   const outline = editableOutline();
   const px = 1 / board.getScreenCTM().a; // one screen pixel, in units
   layer.appendChild(el("path", {
     d: contoursToPath(outlineToCommands(outline), cu), fill: "none", stroke: NODE_COLOR,
-    "stroke-width": 1.5, "vector-effect": "non-scaling-stroke",
+    "stroke-width": 1, "vector-effect": "non-scaling-stroke",
   }));
   outline.forEach((c, ci) => c.nodes.forEach((n, ni) => {
     const selected = nodeSel.has(`${ci}:${ni}`);
+    const nx = n.x * cu, ny = -n.y * cu;
     if (selected) {
       for (const which of ["in", "out"]) {
         if (!n[which]) continue;
         const hx = (n.x + n[which][0]) * cu, hy = -(n.y + n[which][1]) * cu;
-        layer.appendChild(el("line", { x1: n.x * cu, y1: -n.y * cu, x2: hx, y2: hy, stroke: NODE_COLOR, "stroke-width": 1, "vector-effect": "non-scaling-stroke" }));
-        layer.appendChild(el("circle", { cx: hx, cy: hy, r: 4 * px, fill: NODE_COLOR }));
+        layer.appendChild(el("line", { x1: nx, y1: ny, x2: hx, y2: hy, stroke: NODE_COLOR, "stroke-width": 0.75, "vector-effect": "non-scaling-stroke" }));
+        layer.appendChild(el("circle", { cx: hx, cy: hy, r: 3 * px, fill: "#fff", stroke: NODE_COLOR, "stroke-width": 1, "vector-effect": "non-scaling-stroke" }));
       }
     }
-    const size = 7 * px;
-    layer.appendChild(el("rect", {
-      x: n.x * cu - size / 2, y: -n.y * cu - size / 2, width: size, height: size,
-      fill: selected ? NODE_COLOR : "#fff", stroke: NODE_COLOR, "stroke-width": 1.2, "vector-effect": "non-scaling-stroke",
-    }));
+    const color = isSmoothNode(n) ? SMOOTH_COLOR : NODE_COLOR;
+    const attrs = { fill: selected ? color : "#fff", stroke: color, "stroke-width": 1.2, "vector-effect": "non-scaling-stroke" };
+    if (isSmoothNode(n)) layer.appendChild(el("circle", { cx: nx, cy: ny, r: 3 * px, ...attrs }));
+    else {
+      const size = 5.5 * px;
+      layer.appendChild(el("rect", { x: nx - size / 2, y: ny - size / 2, width: size, height: size, ...attrs }));
+    }
+    if (ni === 0 && c.nodes.length > 1) {
+      const next = c.nodes[1];
+      let dx = n.out ? n.out[0] : 0, dy = n.out ? n.out[1] : 0;
+      if (Math.hypot(dx, dy) < 1e-9) {
+        dx = (next.in ? next.x + next.in[0] : next.x) - n.x;
+        dy = (next.in ? next.y + next.in[1] : next.y) - n.y;
+      }
+      const len = Math.hypot(dx, dy);
+      if (len > 1e-9) {
+        // screen direction (y is negated)
+        const ux = dx / len, uy = -dy / len;
+        const tip = 13 * px, back = 6 * px, half = 3.5 * px;
+        const bx = nx + ux * back, by = ny + uy * back;
+        layer.appendChild(el("polygon", {
+          points: `${nx + ux * tip},${ny + uy * tip} ${bx - uy * half},${by + ux * half} ${bx + uy * half},${by - ux * half}`,
+          fill: NODE_COLOR,
+        }));
+      }
+    }
   }));
   for (const h of outlineScaleHandles()) {
     layer.appendChild(el("circle", {
@@ -2628,6 +2661,7 @@ window.addEventListener("keydown", (e) => {
   else if (e.shiftKey && k === "h") transformShape("h");
   else if (k === "m") setMaster(master === "bold" ? "regular" : "bold");
   else if (k === "l") toggleLetters();
+  else if (k === "tab" && !e.shiftKey && document.activeElement === document.body) { e.preventDefault(); togglePanels(); }
   else if (k === "t") testbar.toggle();
   else if (e.key === "?") $("helpDialog").showModal();
   else if (k === "+" || k === "=") zoomAt(1.25);
@@ -3614,6 +3648,28 @@ function toggleLetters() {
 }
 $("toggleLetters").addEventListener("click", toggleLetters);
 try { if (localStorage.getItem(LETTERS_KEY) === "1") setLettersHidden(true); } catch {}
+
+// Tab hides both side panels (or brings them back) to give the board the room.
+function togglePanels() {
+  const app = document.querySelector(".app");
+  const hide = !app.classList.contains("letters-hidden") || !app.classList.contains("props-hidden");
+  setLettersHidden(hide);
+  app.classList.toggle("props-hidden", hide);
+}
+
+// The board fills what the header and the test bar leave.
+{
+  const top = document.querySelector(".topbar"), test = $("testbar"), app = document.querySelector(".app");
+  const measure = () => {
+    const tm = getComputedStyle(test);
+    const chrome = top.offsetHeight + test.offsetHeight + parseFloat(tm.marginTop) + parseFloat(tm.marginBottom)
+      + parseFloat(getComputedStyle(app).paddingTop);
+    document.documentElement.style.setProperty("--chrome-h", `${chrome}px`);
+  };
+  new ResizeObserver(measure).observe(top);
+  new ResizeObserver(measure).observe(test);
+  measure();
+}
 
 // --- Right panel: "Esta letra" and "Toda la fuente" ---
 // Settings of the active letter and settings of the whole font live on
