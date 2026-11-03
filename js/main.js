@@ -1183,6 +1183,25 @@ function startNodeAction(evt) {
     return;
   }
   const corner = evt.shiftKey ? null : roundedCornerAt(p, tol);
+  if (corner && evt.altKey) {
+    // Alt: the rounded corner becomes real nodes, free to move. Its live
+    // radius goes (use "Enderezar" to get the sharp corner back).
+    checkpoint();
+    const g = glyph();
+    const real = outlineCorners();
+    const carried = Object.fromEntries(corner.targets.map((t) => [t, real.get(t)?.radius ?? 0]).filter(([, r]) => r > 0));
+    g.outline = commandsToOutline(roundedContours(outlineToCommands(ensureOutline()), { corners: carried }));
+    for (const t of Object.keys(carried)) delete g.corners[t];
+    const k = nodeHit(g.outline, p, tol);
+    nodeSel.clear();
+    if (k) nodeSel.add(k);
+    action = {
+      type: "nodes", key: k, start: p, keys: k ? [k] : [], moved: false,
+      partners: k ? nodePartners(g.outline, [k]) : [], orig: cloneOutline(g.outline), origCorners: { ...g.corners },
+    };
+    render(null);
+    return;
+  }
   if (corner) {
     checkpoint();
     action = { type: "corner", ...corner, shift: false, dragged: false, fromNodes: true, radius: outlineCorners().get(corner.k).radius, before: glyph().corners[corner.k] };

@@ -6,11 +6,11 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=94" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=95" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=94" : "favicon-light.png?v=94"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=95" : "favicon-light.png?v=95"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,11 +18,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=94">
+  <link rel="stylesheet" href="style.css?v=95">
 </head>
 <body>
   <header class="topbar">
-    <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=94" width="461" height="33" alt="Experimental Letters"></h1>
+    <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=95" width="461" height="33" alt="Experimental Letters"></h1>
     <div class="font-picker">
       <label for="fontSelect" class="sr-only">Tipografía abierta</label>
       <select id="fontSelect" title="Tus tipografías en este navegador"></select>
@@ -74,7 +74,7 @@
         <div class="tools-pill">
           <button id="toolDraw" type="button" class="tool" title="Dibujar (B): clic o arrastre para rellenar celdas">Dibujar<kbd>B</kbd></button>
           <button id="toolSelect" type="button" class="tool" title="Seleccionar (V): rectángulo o clic; doble clic elige el trazo completo">Seleccionar<kbd>V</kbd></button>
-          <button id="toolNodes" type="button" class="tool" title="Nodos (A): mueve los puntos de la letra como en Illustrator">Nodos<kbd>A</kbd></button>
+          <button id="toolNodes" type="button" class="tool" title="Nodos (A): mueve los puntos de la letra como en Illustrator. En una esquina redondeada, arrastrar su nodo verde cambia el radio; con Alt la convierte en nodos libres">Nodos<kbd>A</kbd></button>
           <button id="toolCorner" type="button" class="tool" title="Esquinas (E): clic en una esquina para redondearla, o arrástrala; Shift + clic la deja en punta">Esquinas<kbd>E</kbd></button>
           <button id="toolPiece" type="button" class="tool" title="Piezas (P): arrastra de un punto a otro para agregar o recortar triángulos, curvas, elipses y cápsulas">Piezas<kbd>P</kbd></button>
           <button id="toolPoly" type="button" class="tool" title="Polígono (G): haz clic en puntos de la grilla para unirlos y formar una figura; luego redondea sus vértices con Esquinas">Polígono<kbd>G</kbd></button>
@@ -581,29 +581,29 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=94",
-        "./js/geometry.js": "./js/geometry.js?v=94",
-        "./js/model.js": "./js/model.js?v=94",
-        "./js/render.js": "./js/render.js?v=94",
-        "./js/tools.js": "./js/tools.js?v=94",
-        "./js/library.js": "./js/library.js?v=94",
-        "./js/history.js": "./js/history.js?v=94",
-        "./js/pieces.js": "./js/pieces.js?v=94",
-        "./js/nodes.js": "./js/nodes.js?v=94",
-        "./js/shapes.js": "./js/shapes.js?v=94",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=94",
-        "./js/outline.js": "./js/outline.js?v=94",
-        "./js/otf.js": "./js/otf.js?v=94",
-        "./js/masters.js": "./js/masters.js?v=94",
-        "./js/variable.js": "./js/variable.js?v=94",
-        "./js/woff.js": "./js/woff.js?v=94",
-        "./js/export.js": "./js/export.js?v=94",
-        "./js/testbar.js": "./js/testbar.js?v=94",
-        "./js/guide.js": "./js/guide.js?v=94",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=94"
+        "./js/charset.js": "./js/charset.js?v=95",
+        "./js/geometry.js": "./js/geometry.js?v=95",
+        "./js/model.js": "./js/model.js?v=95",
+        "./js/render.js": "./js/render.js?v=95",
+        "./js/tools.js": "./js/tools.js?v=95",
+        "./js/library.js": "./js/library.js?v=95",
+        "./js/history.js": "./js/history.js?v=95",
+        "./js/pieces.js": "./js/pieces.js?v=95",
+        "./js/nodes.js": "./js/nodes.js?v=95",
+        "./js/shapes.js": "./js/shapes.js?v=95",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=95",
+        "./js/outline.js": "./js/outline.js?v=95",
+        "./js/otf.js": "./js/otf.js?v=95",
+        "./js/masters.js": "./js/masters.js?v=95",
+        "./js/variable.js": "./js/variable.js?v=95",
+        "./js/woff.js": "./js/woff.js?v=95",
+        "./js/export.js": "./js/export.js?v=95",
+        "./js/testbar.js": "./js/testbar.js?v=95",
+        "./js/guide.js": "./js/guide.js?v=95",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=95"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=94"></script>
+  <script type="module" src="js/main.js?v=95"></script>
 </body>
 </html>
