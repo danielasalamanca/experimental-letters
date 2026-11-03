@@ -1182,6 +1182,12 @@ function startNodeAction(evt) {
     render(null);
     return;
   }
+  const corner = evt.shiftKey ? null : roundedCornerAt(p, tol);
+  if (corner) {
+    checkpoint();
+    action = { type: "corner", ...corner, shift: false, dragged: false, fromNodes: true, before: glyph().corners[corner.k] };
+    return;
+  }
   // A component, where the letter's own outline has no ink: drag it.
   if (!evt.shiftKey && windingAt(outlineToCommands(outline), [p.x, p.y]) === 0) {
     const ci = componentAt(p);
@@ -1514,14 +1520,88 @@ const isSmoothNode = (n) => {
   return dot < 0 && Math.abs(cross) <= 1e-6 * (Math.hypot(...n.in) * Math.hypot(...n.out) || 1);
 };
 
+// A letter with live rounded corners keeps its nodes sharp (that is what
+// stays editable), so the nodes of the curves those corners really draw are
+// shown too, read-only, as Glyphs would show them: null when it has none.
+function roundedNodes() {
+  const g = glyph();
+  if (!g.outline) return null;
+  const shape = glyphShape(font, g);
+  const live = shape.rounding > 0 || Object.values(shape.corners).some((r) => r !== 0);
+  return live ? commandsToOutline(ownContours(font, g)) : null;
+}
+
+const sameSpot = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) < 1e-4;
+
+// A node where a straight edge runs into a curve (or two curves meet) in
+// the same direction: smooth although only one side has a handle.
+function tangentSmooth(contour, i) {
+  const nodes = contour.nodes, n = nodes.length, node = nodes[i];
+  if (isSmoothNode(node)) return true;
+  if (!!node.in === !!node.out) return false;
+  const prev = nodes[(i - 1 + n) % n], next = nodes[(i + 1) % n];
+  const a = node.in ? node.in : [prev.x - node.x, prev.y - node.y];
+  const b = node.out ? node.out : [next.x - node.x, next.y - node.y];
+  const la = Math.hypot(...a), lb = Math.hypot(...b);
+  if (la < 1e-9 || lb < 1e-9) return false;
+  return Math.abs(a[0] * b[1] - a[1] * b[0]) / (la * lb) < 0.02 && a[0] * b[0] + a[1] * b[1] < 0;
+}
+
+function drawRoundedNodes(layer, rounded, sharp) {
+  const cu = font.cell;
+  const px = 1 / board.getScreenCTM().a;
+  const sharpNodes = sharp.flatMap((c) => c.nodes);
+  layer.appendChild(el("path", {
+    d: contoursToPath(outlineToCommands(rounded), cu), fill: "none", stroke: NODE_COLOR,
+    "stroke-width": 1, "vector-effect": "non-scaling-stroke",
+  }));
+  for (const c of rounded) c.nodes.forEach((n, ni) => {
+    // A corner left sharp is already drawn by the editable layer.
+    if (!n.in && !n.out && sharpNodes.some((s) => sameSpot(s, n))) return;
+    const smooth = tangentSmooth(c, ni);
+    const nx = n.x * cu, ny = -n.y * cu;
+    for (const which of ["in", "out"]) {
+      if (!n[which]) continue;
+      const hx = (n.x + n[which][0]) * cu, hy = -(n.y + n[which][1]) * cu;
+      layer.appendChild(el("line", { x1: nx, y1: ny, x2: hx, y2: hy, stroke: NODE_COLOR, "stroke-opacity": 0.6, "stroke-width": 0.75, "vector-effect": "non-scaling-stroke" }));
+      layer.appendChild(el("circle", { cx: hx, cy: hy, r: 2.5 * px, fill: "#fff", stroke: NODE_COLOR, "stroke-width": 1, "vector-effect": "non-scaling-stroke" }));
+    }
+    const attrs = { fill: "#fff", stroke: smooth ? SMOOTH_COLOR : NODE_COLOR, "stroke-width": 1.2, "vector-effect": "non-scaling-stroke" };
+    if (smooth) layer.appendChild(el("circle", { cx: nx, cy: ny, r: 3 * px, ...attrs }));
+    else layer.appendChild(el("rect", { x: nx - 2.75 * px, y: ny - 2.75 * px, width: 5.5 * px, height: 5.5 * px, ...attrs }));
+  });
+}
+
+// The rounded corner whose curve has a node under the pointer: pressing
+// it in the node tool edits that corner's radius, like the corner tool.
+function roundedCornerAt(p, tol) {
+  const rounded = roundedNodes();
+  if (!rounded) return null;
+  const sharpNodes = editableOutline().flatMap((c) => c.nodes);
+  for (const c of rounded) for (const n of c.nodes) {
+    if (Math.hypot(n.x - p.x, n.y - p.y) > tol) continue;
+    if (!n.in && !n.out && sharpNodes.some((s) => sameSpot(s, n))) continue;
+    let best = null, bestDist = Infinity;
+    for (const [k, corner] of outlineCorners()) {
+      const d = Math.hypot(corner.x - n.x, corner.y - n.y);
+      if (corner.radius > 0 && d <= corner.radius * 1.5 + 0.1 && d < bestDist) { best = { k, ...corner }; bestDist = d; }
+    }
+    if (best) return cornerHit(best);
+  }
+  return null;
+}
+
 function drawNodeMarkers(layer) {
   const cu = font.cell;
   const outline = editableOutline();
   const px = 1 / board.getScreenCTM().a; // one screen pixel, in units
+  const rounded = roundedNodes();
   layer.appendChild(el("path", {
     d: contoursToPath(outlineToCommands(outline), cu), fill: "none", stroke: NODE_COLOR,
     "stroke-width": 1, "vector-effect": "non-scaling-stroke",
+    ...(rounded ? { "stroke-dasharray": "3 3", "stroke-opacity": 0.55 } : {}),
   }));
+  if (rounded) drawRoundedNodes(layer, rounded, outline);
   outline.forEach((c, ci) => c.nodes.forEach((n, ni) => {
     const selected = nodeSel.has(`${ci}:${ni}`);
     const nx = n.x * cu, ny = -n.y * cu;
@@ -2029,7 +2109,11 @@ function cornerTargets(evt) {
     const dist = Math.hypot(x - c.x, y - c.y);
     if (dist < bestDist) { best = { k, ...c }; bestDist = dist; }
   }
-  if (!best) return null;
+  return best ? cornerHit(best) : null;
+}
+
+// A corner with its mirror images (the active symmetries).
+function cornerHit(best) {
   const g = glyph();
   const [lo, hi] = axisRows(font.view.mirrorAxis, font.metrics, font.active);
   let points = [[best.x, best.y]];
@@ -2072,7 +2156,7 @@ function dragCorner(evt) {
 }
 
 function endCorner(done) {
-  if (done.dragged) return;
+  if (done.dragged || done.fromNodes) return;
   const wanted = done.shift ? 0 : sliderRadius();
   setCorners(done.targets, done.before === wanted ? null : wanted);
 }

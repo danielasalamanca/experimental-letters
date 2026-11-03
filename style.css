@@ -358,7 +358,7 @@ body.master-bold .board-card { box-shadow: 0 0 0 2px var(--fg); }
   border-radius: 24px;
   overflow: hidden;
 }
-.board-wrap { position: relative; order: 2; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 16px 56px; }
+.board-wrap { position: relative; order: 2; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 16px 8px; }
 #board { width: 100%; height: 100%; touch-action: none; cursor: crosshair; user-select: none; }
 #board text { font-family: var(--mono); }
 #board .metric-label.draggable { cursor: ns-resize; }
@@ -370,13 +370,13 @@ body.master-bold .board-card { box-shadow: 0 0 0 2px var(--fg); }
 #board.pan-ready, #board.pan-ready * { cursor: grab; }
 #board.panning, #board.panning * { cursor: grabbing; }
 
-.board-title { order: 0; flex: none; display: flex; align-items: baseline; gap: 8px; padding: 18px 24px 0; pointer-events: none; }
+.board-title { position: absolute; top: 0; left: 0; z-index: 1; display: flex; align-items: baseline; gap: 8px; padding: 18px 24px 0; pointer-events: none; }
 #boardChar { font-size: 32px; line-height: 1; }
 #boardInfo { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
 /* Hints of the active tool, under the title (only while one is showing). */
 .board-hints {
   order: 1; flex: none; display: flex; flex-direction: column; gap: 4px;
-  padding: 8px 24px 0; pointer-events: none;
+  padding: 52px 24px 0; pointer-events: none;
 }
 .board-hints:not(:has(.hint-inline:not([hidden]):not(:empty))) { display: none; }
 .board-hints .hint-inline { align-self: flex-start; max-width: 520px; padding: 3px 10px; border-radius: 12px; background: var(--bg); }
@@ -665,7 +665,9 @@ dialog.dingbats { max-width: 560px; }
 @media (min-width: 901px) {
   :root { --history-row: 60px; } /* the buttons (36px) and the space around them */
   .zone-center, .zone-right { margin-top: calc(-1 * var(--history-row)); }
-  .app.letters-hidden .zone-center { margin-top: 0; }
+  /* With the letters hidden the undo buttons stay where they are and the
+     tools bar makes room for them on the same row. */
+  .app.letters-hidden .toolbar { padding-left: 156px; }
 }
 
 /* ---------- Smaller screens ---------- */
