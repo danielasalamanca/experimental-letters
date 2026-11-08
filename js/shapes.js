@@ -23,11 +23,13 @@ export function glyphFinalContours(font, glyph, options = {}) {
 // the corner tool, which rounds them itself).
 export function glyphRawContours(font, glyph, { mode = "join", sharp = false } = {}) {
   const cu = font.cell;
+  const shape = glyphShape(font, glyph);
+  // The free grid has no cells or pieces: its drawing is only outlines.
+  if (shape.grid === "free") return outlineToCommands(shape.outline);
   const cells = resolvedCells(font, glyph).filter((k) => {
     const [c] = parseKey(k);
     return c >= 0 && c < glyph.cols;
   });
-  const shape = glyphShape(font, glyph);
   const joinWidth = mode === "join" && font.join.enabled ? font.join.width / cu : 0;
   // Pieces are drawn on either grid, even on a letter without cells.
   const contours = !cells.length && !shape.pieces.length ? [] : shape.grid === "squares"

@@ -6,11 +6,11 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=97" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=100" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=97" : "favicon-light.png?v=97"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=100" : "favicon-light.png?v=100"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,11 +18,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=97">
+  <link rel="stylesheet" href="style.css?v=100">
 </head>
 <body>
   <header class="topbar">
-    <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=97" width="461" height="33" alt="Experimental Letters"></h1>
+    <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=100" width="461" height="33" alt="Experimental Letters"></h1>
     <div class="font-picker">
       <label for="fontSelect" class="sr-only">Tipografía abierta</label>
       <select id="fontSelect" title="Tus tipografías en este navegador"></select>
@@ -76,6 +76,7 @@
           <button id="toolDraw" type="button" class="tool" title="Dibujar (B): clic o arrastre para rellenar celdas">Dibujar<kbd>B</kbd></button>
           <button id="toolSelect" type="button" class="tool" title="Seleccionar (V): rectángulo o clic; doble clic elige el trazo completo">Seleccionar<kbd>V</kbd></button>
           <button id="toolNodes" type="button" class="tool" title="Nodos (A): mueve los puntos de la letra como en Illustrator. En una esquina redondeada, arrastrar su nodo verde cambia el radio; con Alt la convierte en nodos libres">Nodos<kbd>A</kbd></button>
+          <button id="toolPen" type="button" class="tool" title="Pluma (P en la grilla libre): clic para un punto de esquina, arrastra para sacar manijas y crear curvas; cierra la figura con un clic en el primer punto. Un contorno dentro de otro se vuelve contraforma">Pluma<kbd></kbd></button>
           <button id="toolCorner" type="button" class="tool" title="Esquinas (E): clic en una esquina para redondearla, o arrástrala; Shift + clic la deja en punta">Esquinas<kbd>E</kbd></button>
           <button id="toolPiece" type="button" class="tool" title="Piezas (P): arrastra de un punto a otro para agregar o recortar triángulos, curvas, elipses y cápsulas">Piezas<kbd>P</kbd></button>
           <button id="toolPoly" type="button" class="tool" title="Polígono (G): haz clic en puntos de la grilla para unirlos y formar una figura; luego redondea sus vértices con Esquinas">Polígono<kbd>G</kbd></button>
@@ -166,6 +167,7 @@
         <div class="board-hints" aria-live="polite">
           <span class="hint-inline" id="boldHint"></span>
           <span class="hint-inline" id="polyHint"></span>
+          <span class="hint-inline" id="penHint"></span>
           <span class="hint-inline" id="cornerHint">Clic en una esquina para redondearla · arrástrala para elegir el radio · Shift + clic: en punta</span>
           <span class="hint-inline" id="pieceHint">Arrastra de un punto a otro (Shift: ancho = alto · Alt: medias celdas) · arrastra sus nodos para ajustarla · arrastra una esquina (círculo) para agrandarla (Shift: proporcional)</span>
         </div>
@@ -238,6 +240,24 @@
           <summary>Piezas</summary>
           <div class="section-body">
             <div id="pieceList"></div>
+          </div>
+        </details>
+        <details class="section regular-only" id="serifBox">
+          <summary>Serifas</summary>
+          <div class="section-body">
+            <p class="info">Se crean en los extremos de los trazos verticales que tocan la línea base, la altura de x, las mayúsculas o la ascendente. Son piezas: puedes moverlas o quitarlas como las demás.</p>
+            <label class="row">Estilo <select id="serifStyle"></select></label>
+            <label class="row">Pies <select id="serifFootSide"></select></label>
+            <label class="row">Cabezas <select id="serifHeadSide"></select></label>
+            <label class="row"><span>Salida</span> <span class="unit"><input type="number" id="serifExt" min="0.5" max="6" step="0.5"><i>celdas</i></span></label>
+            <label class="row"><span>Altura</span> <span class="unit"><input type="number" id="serifHeight" min="0.5" max="6" step="0.5"><i>celdas</i></span></label>
+            <label class="row" id="serifWedgeRow"><span>Cuña</span> <span class="unit"><input type="number" id="serifWedge" min="0.5" max="6" step="0.5"><i>celdas</i></span></label>
+            <p class="info" id="serifInfo"></p>
+            <div class="buttons inline">
+              <button id="serifApply" type="button" class="ghost" title="Crea las serifas de esta letra (reemplaza las que ya tenía)">Aplicar a esta letra</button>
+              <button id="serifRemove" type="button" class="ghost" title="Quita las serifas de esta letra">Quitar</button>
+            </div>
+            <button id="serifApplyAll" type="button" class="ghost wide" title="Crea las serifas de todas las letras dibujadas con la grilla (se puede deshacer)">Aplicar a toda la fuente</button>
           </div>
         </details>
         <details class="section">
@@ -327,6 +347,11 @@
           <summary>Grilla</summary>
           <div class="section-body">
             <label class="row">Tipo de grilla <select id="gridType"></select></label>
+            <div id="freeGridFields" hidden>
+              <label class="row"><span>Ajuste de puntos</span> <span class="unit"><input type="number" id="gridSpacing" min="0" max="500" step="1"><i>u</i></span></label>
+              <label class="row"><span>Subdivisiones</span> <input type="number" id="gridSubdiv" min="1" max="10" step="1"></label>
+              <p class="info">En la grilla libre los puntos se ajustan a esta separación (0: sin ajuste). Alt mientras mueves, sin ajuste.</p>
+            </div>
             <label class="check"><input type="checkbox" id="guides"> Mostrar grilla</label>
             <label class="range-row"><span>Opacidad</span> <output id="gridOpacityOut"></output>
               <input type="range" id="gridOpacity" min="5" max="100" step="5">
@@ -582,29 +607,30 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=97",
-        "./js/geometry.js": "./js/geometry.js?v=97",
-        "./js/model.js": "./js/model.js?v=97",
-        "./js/render.js": "./js/render.js?v=97",
-        "./js/tools.js": "./js/tools.js?v=97",
-        "./js/library.js": "./js/library.js?v=97",
-        "./js/history.js": "./js/history.js?v=97",
-        "./js/pieces.js": "./js/pieces.js?v=97",
-        "./js/nodes.js": "./js/nodes.js?v=97",
-        "./js/shapes.js": "./js/shapes.js?v=97",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=97",
-        "./js/outline.js": "./js/outline.js?v=97",
-        "./js/otf.js": "./js/otf.js?v=97",
-        "./js/masters.js": "./js/masters.js?v=97",
-        "./js/variable.js": "./js/variable.js?v=97",
-        "./js/woff.js": "./js/woff.js?v=97",
-        "./js/export.js": "./js/export.js?v=97",
-        "./js/testbar.js": "./js/testbar.js?v=97",
-        "./js/guide.js": "./js/guide.js?v=97",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=97"
+        "./js/charset.js": "./js/charset.js?v=100",
+        "./js/geometry.js": "./js/geometry.js?v=100",
+        "./js/model.js": "./js/model.js?v=100",
+        "./js/render.js": "./js/render.js?v=100",
+        "./js/tools.js": "./js/tools.js?v=100",
+        "./js/library.js": "./js/library.js?v=100",
+        "./js/history.js": "./js/history.js?v=100",
+        "./js/pieces.js": "./js/pieces.js?v=100",
+        "./js/serifs.js": "./js/serifs.js?v=100",
+        "./js/nodes.js": "./js/nodes.js?v=100",
+        "./js/shapes.js": "./js/shapes.js?v=100",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=100",
+        "./js/outline.js": "./js/outline.js?v=100",
+        "./js/otf.js": "./js/otf.js?v=100",
+        "./js/masters.js": "./js/masters.js?v=100",
+        "./js/variable.js": "./js/variable.js?v=100",
+        "./js/woff.js": "./js/woff.js?v=100",
+        "./js/export.js": "./js/export.js?v=100",
+        "./js/testbar.js": "./js/testbar.js?v=100",
+        "./js/guide.js": "./js/guide.js?v=100",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=100"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=97"></script>
+  <script type="module" src="js/main.js?v=100"></script>
 </body>
 </html>

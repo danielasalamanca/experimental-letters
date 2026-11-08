@@ -34,6 +34,7 @@ import {
   pieceContour, normalizePiece, mirrorPiece, PIECE_SHAPES, pieceGlyphCorners, cornerKey, roundedContours,
   pieceHandles, movePieceHandle, STAR_DEFAULT, NGON_DEFAULT, NGON_SIDES, STAR_POINTS, contourCorners, contourObjects, pathfinder, polygonArea,
 } from "./pieces.js";
+import { SERIF_STYLES, SERIF_SIDES, SERIF_DEFAULT, serifPieces, applySerifs, removeSerifs, isSerif } from "./serifs.js";
 
 
 const $ = (id) => document.getElementById(id);
@@ -58,6 +59,16 @@ let font = normalizeFont(opened.data);
 let master = "regular";
 let boldView = null; // read-only bold master of a letter made of components
 const glyph = () => (master === "bold" ? boldOf(font.active) : font.glyphs[font.active]);
+// A glyph worked on with nodes: edited that way, or on the free grid, which
+// has no cells to draw with.
+const isNodeGlyph = (g = glyph()) => !!g.outline || glyphGrid(font, g) === "free";
+const isFreeGrid = (g = glyph()) => glyphGrid(font, g) === "free";
+// The free grid's snap step in cells (0: no snapping).
+const freeStep = () => (font.gridSpacing > 0 ? font.gridSpacing / Math.max(1, font.gridSubdiv ?? 1) / font.cell : 0);
+const snapFree = ([x, y]) => {
+  const step = freeStep();
+  return step ? [Math.round(x / step) * step, Math.round(y / step) * step] : [x, y];
+};
 // The glyph whose sidebearings the margin controls edit: an alternate shares
 // those of its letter (see syncAlternates), so they're edited there.
 function spacingGlyph() {
@@ -235,10 +246,11 @@ function decorate() {
   if (tool === "corner") drawCornerMarkers(layer);
   if (tool === "piece") drawPieceMarkers(layer);
   if (tool === "poly") {
-    if (!glyph().outline) drawPieceMarkers(layer);
+    if (!isNodeGlyph()) drawPieceMarkers(layer);
     if (polyDraft) drawPolyDraft(layer);
     syncPolyBar();
   }
+  if (tool === "pen") { drawNodeMarkers(layer, { ghost: true }); drawPenDraft(layer); syncPenHint(); }
   if (tool === "nodes") drawNodeMarkers(layer);
   if (selectedComponent() && (tool === "select" || tool === "nodes")) drawComponentBox(layer);
   if (action?.type === "marquee" && action.moved) {
@@ -497,9 +509,10 @@ let spaceDown = false;
 function setTool(next) {
   floating = null;
   polyDraft = null;
+  penDraft = null;
   // A glyph edited with nodes has no grid drawing to work on.
-  if (glyph().outline && ["draw", "select"].includes(next)) {
-    if (tool === "nodes") {
+  if (isNodeGlyph() && ["draw", "select"].includes(next)) {
+    if (tool === "nodes" && !isFreeGrid()) {
       toast(master === "bold"
         ? `Este máster ${boldName()} está en nodos. Para dibujarlo en la grilla usa «Dibujar en la grilla», arriba.`
         : "Esta letra se edita con nodos. Para dibujar en la grilla, usa «Volver a la grilla» en el panel Glifo.");
@@ -511,6 +524,8 @@ function setTool(next) {
     next = tool === "corner" ? "draw" : tool;
   }
   tool = next;
+  $("toolPen").classList.toggle("active", tool === "pen");
+  $("penHint").hidden = tool !== "pen";
   $("toolPoly").classList.toggle("active", tool === "poly");
   $("polyGroup").hidden = tool !== "poly";
   if (tool === "poly") syncPolyBar();
@@ -778,10 +793,12 @@ board.addEventListener("pointerdown", (evt) => {
     return;
   }
 
+  if (tool === "pen") { penPress(evt); return; }
+
   if (tool === "poly") {
     // A click adds a point; dragging a node of a polygon already placed
     // moves it instead.
-    const node = !polyDraft && !glyph().outline ? nodeAt(evt) : null;
+    const node = !polyDraft && !isNodeGlyph() ? nodeAt(evt) : null;
     action = { type: "polyPress", at: snapPoly(evt), node, sx: evt.clientX, sy: evt.clientY };
     return;
   }
@@ -845,6 +862,10 @@ board.addEventListener("pointerdown", (evt) => {
 
 window.addEventListener("pointermove", (evt) => {
   if (!action && tool === "nodes" && nodeAddMode && evt.target.closest?.("#board")) showNodeHover(evt);
+  if (!action && tool === "pen" && penDraft && evt.target.closest?.("#board")) {
+    penDraft.hover = snapPoly(evt);
+    render(null);
+  }
   if (!action && tool === "poly" && polyDraft && evt.target.closest?.("#board")) {
     const at = snapPoly(evt);
     if (!polyDraft.hover || at[0] !== polyDraft.hover[0] || at[1] !== polyDraft.hover[1]) { polyDraft.hover = at; render(null); }
@@ -902,6 +923,10 @@ window.addEventListener("pointermove", (evt) => {
     }
     case "selScale": {
       dragSelScale(evt);
+      break;
+    }
+    case "penDrag": {
+      penDragTo(evt);
       break;
     }
     case "polyPress": {
@@ -985,6 +1010,7 @@ window.addEventListener("pointerup", () => {
     return;
   }
   if (done.type === "polyPress") { polyAdd(done.at); return; }
+  if (done.type === "penDrag") { if (done.closing) finishPen(); else render(null); return; }
   if (done.type === "component") { renderComponents(); render(done.moved ? "glyph" : null); return; }
   if (done.type === "pan") return;
   if (done.type === "move" && done.lifted === floating && floating) { floating.dc += done.dc; floating.dr += done.dr; }
@@ -1018,7 +1044,7 @@ function ensureOutline() {
   const g = glyph();
   if (g.outline) return g.outline;
   g.outline = commandsToOutline(ownContours(font, g));
-  toast("La letra ahora se edita con nodos. «Volver a la grilla» (panel Glifo) la devuelve a la grilla.");
+  if (!isFreeGrid(g)) toast("La letra ahora se edita con nodos. «Volver a la grilla» (panel Glifo) la devuelve a la grilla.");
   syncGlyphPanel();
   return g.outline;
 }
@@ -1264,7 +1290,8 @@ function moveNodeAction(evt) {
   if (evt.shiftKey) d = constrain(d);
   const grabbed = nodeAtKey(action.orig, action.key);
   if (!evt.altKey) {
-    const target = snapToGrid([grabbed.x + d[0], grabbed.y + d[1]]);
+    const to = [grabbed.x + d[0], grabbed.y + d[1]];
+    const target = isFreeGrid() ? snapFree(to) : snapToGrid(to);
     d = [target[0] - grabbed.x, target[1] - grabbed.y];
   }
   action.moved = true;
@@ -1456,7 +1483,7 @@ function nudgeNodes(dx, dy) {
 
 // --- Rectangle and ellipse (to combine with the pathfinder) ---
 // Shapes snap to grid points when close, otherwise to half points.
-const shapeSnap = (pt) => pt.map((v) => (Math.abs(Math.round(v) - v) < 0.25 ? Math.round(v) : Math.round(v * 2) / 2));
+const shapeSnap = (pt) => isFreeGrid() ? snapFree(pt) : pt.map((v) => (Math.abs(Math.round(v) - v) < 0.25 ? Math.round(v) : Math.round(v * 2) / 2));
 let shapeMode = null; // null | "rect" | "ellipse"
 
 function setShapeMode(mode) {
@@ -1614,7 +1641,7 @@ function roundedCornerAt(p, tol) {
   return null;
 }
 
-function drawNodeMarkers(layer) {
+function drawNodeMarkers(layer, { ghost = false } = {}) {
   const cu = font.cell;
   const outline = editableOutline();
   const px = 1 / board.getScreenCTM().a; // one screen pixel, in units
@@ -1663,7 +1690,7 @@ function drawNodeMarkers(layer) {
       }
     }
   }));
-  for (const h of outlineScaleHandles()) {
+  for (const h of ghost ? [] : outlineScaleHandles()) {
     layer.appendChild(el("circle", {
       cx: h.x * cu, cy: -h.y * cu, r: 6 * px,
       fill: "#fff", stroke: NODE_COLOR, "stroke-width": 2, "vector-effect": "non-scaling-stroke",
@@ -1729,7 +1756,7 @@ const pieceParams = () => pieceSettings[$("pieceShape").value] ?? {};
 
 // Pieces are part of the grid drawing, on either grid, and stay editable;
 // only in a letter edited with nodes do they join the outline instead.
-const piecesLive = () => !glyph().outline;
+const piecesLive = () => !isNodeGlyph();
 
 // Adds a piece (and its mirror images, with the mirror on) and selects it.
 function placePiece(piece) {
@@ -1754,6 +1781,7 @@ let polyMode = "add";
 
 function snapPoly(evt) {
   const { x, y } = toCells(evt);
+  if (isFreeGrid()) return evt.altKey ? [x, y] : snapFree([x, y]);
   const step = evt.shiftKey ? 0.5 : 1;
   return [Math.round(x / step) * step, Math.round(y / step) * step];
 }
@@ -1779,7 +1807,7 @@ function finishPoly() {
     return;
   }
   const g = glyph();
-  if (!g.outline) {
+  if (!isNodeGlyph(g)) {
     checkpoint();
     placePiece(normalizePiece({ shape: "poly", mode: polyMode, points: pts, x0: 0, y0: 0, x1: 0, y1: 0, corner: "bl" }));
     if (polyMode === "cut" && !g.cells.length) toast("«Recortar» quita tinta: en una letra vacía no se ve. Usa «Agregar».");
@@ -1817,6 +1845,137 @@ function joinOutline(piece) {
   g.outline = commandsToOutline(result);
   syncToolbar();
   render();
+}
+
+// --- Pen tool: click for corner points, drag for curve handles ---
+// Closing the figure joins it to the letter: a contour drawn inside the ink
+// becomes a counter (opposite direction), otherwise it adds ink, so the
+// directions are always right ("Corregir dirección de ruta" in Glyphs).
+let penDraft = null; // { nodes: [{ x, y, in, out }], hover: [x, y] | null }
+
+function penPress(evt) {
+  const at = snapPoly(evt);
+  const start = { sx: evt.clientX, sy: evt.clientY };
+  if (!penDraft) penDraft = { nodes: [], hover: at };
+  const nodes = penDraft.nodes;
+  const c = toCells(evt);
+  if (nodes.length >= 3 && Math.hypot(c.x - nodes[0].x, c.y - nodes[0].y) < pxToCells(9)) {
+    action = { type: "penDrag", idx: 0, closing: true, moved: false, ...start };
+    return;
+  }
+  const last = nodes[nodes.length - 1];
+  if (!last || Math.hypot(last.x - at[0], last.y - at[1]) > 1e-9) nodes.push({ x: at[0], y: at[1], in: null, out: null });
+  action = { type: "penDrag", idx: nodes.length - 1, closing: false, moved: false, ...start };
+  render(null);
+}
+
+// Dragging out of a point pulls its handles (symmetric; Alt: only the
+// outgoing one; Shift: 45° steps). On the first point when closing, the
+// incoming one.
+function penDragTo(evt) {
+  if (!action.moved && Math.hypot(evt.clientX - action.sx, evt.clientY - action.sy) < 4) return;
+  action.moved = true;
+  const n = penDraft.nodes[action.idx];
+  const p = toCells(evt);
+  let d = [p.x - n.x, p.y - n.y];
+  if (evt.shiftKey) d = constrain(d);
+  if (action.closing) n.in = [-d[0], -d[1]];
+  else { n.out = d; if (!evt.altKey) n.in = [-d[0], -d[1]]; }
+  render(null);
+}
+
+// Points along a contour (ends and curve midpoints), enough for its direction.
+const contourSamples = (cmds) => {
+  const pts = [];
+  let cur = null;
+  for (const c of cmds) {
+    if (c.type === "Z") continue;
+    if (c.type === "C") pts.push([(cur[0] + 3 * c.x1 + 3 * c.x2 + c.x) / 8, (cur[1] + 3 * c.y1 + 3 * c.y2 + c.y) / 8]);
+    cur = [c.x, c.y];
+    pts.push(cur);
+  }
+  return pts;
+};
+
+const reverseContour = ({ closed, nodes }) => ({
+  closed,
+  nodes: [...nodes].reverse().map((n) => ({ x: n.x, y: n.y, in: n.out, out: n.in })),
+});
+
+function finishPen() {
+  const nodes = penDraft?.nodes ?? [];
+  penDraft = null;
+  action = null;
+  if (nodes.length < 3) { render(null); toast("Una figura necesita al menos tres puntos."); return; }
+  let contour = { closed: true, nodes };
+  const g = glyph();
+  const commands = outlineToCommands(editableOutline());
+  const inside = commands.length > 0 && nodes.every((n) => windingAt(commands, [n.x, n.y]) !== 0);
+  const area = polygonArea(contourSamples(outlineToCommands([contour])[0]));
+  if (Math.abs(area) < 1e-9) { render(null); toast("Una figura necesita al menos tres puntos que no estén en línea."); return; }
+  if ((area < 0) !== inside) contour = reverseContour(contour);
+  checkpoint();
+  if (!commands.length) {
+    ensureOutline();
+    g.outline = [contour];
+  } else {
+    const keep = keepRounding();
+    const figure = outlineToCommands([contour]);
+    const result = pathfinder(inside ? "minusFront" : "unite", [commands, figure], keep);
+    dropBaked(keep);
+    ensureOutline();
+    g.outline = commandsToOutline(result);
+  }
+  nodeSel.clear();
+  syncToolbar();
+  render();
+}
+
+function penKey(k) {
+  if (k === "enter") finishPen();
+  else if (k === "escape") { penDraft = null; render(null); }
+  else if (k === "backspace" || k === "delete") {
+    penDraft.nodes.pop();
+    if (!penDraft.nodes.length) penDraft = null;
+    render(null);
+  } else return false;
+  return true;
+}
+
+function syncPenHint() {
+  const n = penDraft?.nodes.length ?? 0;
+  $("penHint").textContent = n === 0
+    ? "Clic para un punto de esquina · arrastra para sacar manijas y crear una curva · Shift: ángulos de 45° · Alt: sin ajuste a la grilla"
+    : n < 3
+      ? `${n} punto(s) · sigue haciendo clic · arrastra para curvar`
+      : `${n} puntos · clic en el primero (o Enter) para cerrar · Retroceso quita el último · Esc cancela`;
+}
+
+function drawPenDraft(layer) {
+  if (!penDraft) return;
+  const cu = font.cell;
+  const { nodes, hover } = penDraft;
+  const shown = hover && !(action?.type === "penDrag") ? [...nodes, { x: hover[0], y: hover[1], in: null, out: null }] : nodes;
+  if (shown.length >= 2) {
+    layer.appendChild(el("path", {
+      d: contoursToPath(outlineToCommands([{ closed: false, nodes: shown }]), cu).replace(/Z\s*$/, ""),
+      fill: "none", stroke: NODE_COLOR, "stroke-width": 1.5, "vector-effect": "non-scaling-stroke",
+    }));
+  }
+  const px = 1 / board.getScreenCTM().a;
+  nodes.forEach((n, i) => {
+    for (const which of ["in", "out"]) {
+      if (!n[which]) continue;
+      const hx = (n.x + n[which][0]) * cu, hy = -(n.y + n[which][1]) * cu;
+      layer.appendChild(el("line", { x1: n.x * cu, y1: -n.y * cu, x2: hx, y2: hy, stroke: NODE_COLOR, "stroke-width": 0.75, "vector-effect": "non-scaling-stroke" }));
+      layer.appendChild(el("circle", { cx: hx, cy: hy, r: 3 * px, fill: "#fff", stroke: NODE_COLOR, "stroke-width": 1, "vector-effect": "non-scaling-stroke" }));
+    }
+    const size = (i === 0 ? 8 : 5.5) * px;
+    layer.appendChild(el("rect", {
+      x: n.x * cu - size / 2, y: -n.y * cu - size / 2, width: size, height: size,
+      fill: i === 0 ? "#fff" : NODE_COLOR, stroke: NODE_COLOR, "stroke-width": 1.2, "vector-effect": "non-scaling-stroke",
+    }));
+  });
 }
 
 function polyKey(k) {
@@ -1986,6 +2145,61 @@ function carryCorners(g, movedNodes) {
   for (const [k, v] of carried) g.corners[k] = v;
 }
 
+// --- Serifs: pieces at the ends of the stems (see serifs.js) ---
+const serifSettings = { ...SERIF_DEFAULT };
+const SERIF_FIELDS = { serifStyle: "style", serifFootSide: "footSide", serifHeadSide: "headSide", serifExt: "ext", serifHeight: "height", serifWedge: "wedge" };
+
+function syncSerifInfo() {
+  const g = glyph();
+  $("serifWedgeRow").hidden = serifSettings.style !== "wedge";
+  const own = g.pieces.filter(isSerif).length;
+  const ends = isNodeGlyph(g) ? 0 : serifPieces(g.cells, font.metrics, { ...serifSettings, footSide: "both", headSide: "both" }).length;
+  $("serifInfo").textContent = isNodeGlyph(g) ? "Esta letra se dibuja con nodos: las serifas son para las grillas de puntos y de círculos."
+    : `${ends} extremo${ends === 1 ? "" : "s"} de trazo detectado${ends === 1 ? "" : "s"} · ${own} serifa${own === 1 ? "" : "s"} puesta${own === 1 ? "" : "s"}.`;
+  $("serifApply").disabled = $("serifApplyAll").disabled = false;
+  $("serifRemove").disabled = own === 0;
+}
+
+function runSerifs(all) {
+  const targets = all
+    ? Object.values(font.glyphs).filter((g) => !isNodeGlyph(g) && !g.readOnly && g.cells.length)
+    : [glyph()].filter((g) => !isNodeGlyph(g));
+  if (!targets.length) { toast("No hay letras dibujadas con la grilla para ponerles serifas."); return; }
+  checkpoint();
+  let letters = 0;
+  for (const g of targets) if (applySerifs(g, font.metrics, serifSettings)) letters++;
+  render(all ? "font" : "glyph");
+  syncPieceList();
+  toast(all ? `Serifas en ${letters} letra${letters === 1 ? "" : "s"}.` : letters ? "Serifas puestas." : "Esta letra no tiene extremos de trazo donde poner serifas.");
+}
+
+function clearSerifs() {
+  checkpoint();
+  removeSerifs(glyph());
+  selectedPiece = null;
+  render();
+  syncPieceList();
+}
+
+{
+  const fill = (id, options) => { for (const [v, label] of Object.entries(options)) $(id).add(new Option(label, v)); };
+  fill("serifStyle", SERIF_STYLES);
+  fill("serifFootSide", SERIF_SIDES);
+  fill("serifHeadSide", SERIF_SIDES);
+  for (const [id, name] of Object.entries(SERIF_FIELDS)) {
+    $(id).value = serifSettings[name];
+    $(id).addEventListener("change", () => {
+      const v = $(id).type === "number" ? Math.min(6, Math.max(0.5, +$(id).value || serifSettings[name])) : $(id).value;
+      serifSettings[name] = v;
+      $(id).value = v;
+      syncSerifInfo();
+    });
+  }
+  $("serifApply").addEventListener("click", () => runSerifs(false));
+  $("serifApplyAll").addEventListener("click", () => runSerifs(true));
+  $("serifRemove").addEventListener("click", clearSerifs);
+}
+
 function removePiece(index) {
   checkpoint();
   glyph().pieces.splice(index, 1);
@@ -2051,6 +2265,7 @@ function drawPieceMarkers(layer) {
 
 function syncPieceList() {
   const pieces = glyph().pieces;
+  syncSerifInfo();
   if (selectedPiece !== null && selectedPiece >= pieces.length) selectedPiece = null;
   $("pieceListBox").hidden = pieces.length === 0;
   const list = $("pieceList");
@@ -2216,6 +2431,7 @@ function drawCornerMarkers(layer) {
 board.addEventListener("dblclick", (evt) => {
   if (tool === "nodes") { nodeDoubleClick(evt); return; }
   if (tool === "poly" && polyDraft) { finishPoly(); return; }
+  if (tool === "pen" && penDraft) { finishPen(); return; }
   if (tool !== "select") return;
   const k = cellAt(evt);
   if (!k) return;
@@ -2266,6 +2482,7 @@ $("toolDraw").addEventListener("click", () => setTool("draw"));
 $("toolSelect").addEventListener("click", () => setTool("select"));
 $("toolCorner").addEventListener("click", () => setTool("corner"));
 $("toolPiece").addEventListener("click", () => setTool("piece"));
+$("toolPen").addEventListener("click", () => setTool("pen"));
 $("toolNodes").addEventListener("click", () => setTool("nodes"));
 $("nodeAdd").addEventListener("click", () => setNodeAdd(!nodeAddMode));
 $("shapeRect").addEventListener("click", () => setShapeMode(shapeMode === "rect" ? null : "rect"));
@@ -2386,12 +2603,17 @@ function buildToolbar() {
 // Corners exist on the square grid, on node outlines and, on the circle
 // grid, where pieces make them.
 const cornersAvailable = () =>
-  glyphGrid(font, glyph()) === "squares" || !!glyph().outline || resolvedPieces(font, glyph()).length > 0;
+  glyphGrid(font, glyph()) === "squares" || isNodeGlyph() || resolvedPieces(font, glyph()).length > 0;
 
 function syncToolbar() {
-  const nodesOnly = !!glyph().outline;
+  const nodesOnly = isNodeGlyph();
   for (const id of ["toolDraw", "toolSelect"]) $(id).disabled = nodesOnly;
-  if (nodesOnly && !["nodes", "corner", "poly", "piece"].includes(tool)) setTool("nodes");
+  if (nodesOnly && !["nodes", "pen", "corner", "poly", "piece"].includes(tool)) setTool("nodes");
+  // On the free grid P is the pen (Shift + P, pieces) and V the arrow.
+  const free = isFreeGrid();
+  $("toolPen").querySelector("kbd").textContent = free ? "P" : "";
+  $("toolPiece").querySelector("kbd").textContent = free ? "⇧P" : "P";
+  $("toolNodes").querySelector("kbd").textContent = free ? "A · V" : "A";
   $("toolCorner").disabled = !cornersAvailable();
   if (tool === "corner" && !cornersAvailable()) setTool("draw");
   const bold = master === "bold";
@@ -2538,7 +2760,7 @@ const TRANSFORM_NAMES = { cw: "Girado 90° a la derecha", ccw: "Girado 90° a la
 
 function transformShape(kind) {
   const g = glyph();
-  if (tool === "nodes" || g.outline) return transformOutline(kind);
+  if (tool === "nodes" || isNodeGlyph(g)) return transformOutline(kind);
   const whole = !selection.size;
   if (whole) g.cells.forEach((k) => selection.add(k));
   if (!selection.size) return;
@@ -2710,6 +2932,7 @@ window.addEventListener("keydown", (e) => {
   const mod = e.metaKey || e.ctrlKey;
   const k = e.key.toLowerCase();
   if (!mod && tool === "poly" && polyDraft && polyKey(k)) { e.preventDefault(); return; }
+  if (!mod && tool === "pen" && penDraft && penKey(k)) { e.preventDefault(); return; }
   if (mod) {
     if (k === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); }
     else if (k === "c" && tool === "nodes") { e.preventDefault(); copyNodes(); }
@@ -2720,7 +2943,7 @@ window.addEventListener("keydown", (e) => {
     else if (k === "x") { e.preventDefault(); if (!selection.size) return; copySelection(); deleteSelection(); }
     // Pastes what was copied last: outlines (as nodes) or grid cells.
     else if (k === "v" && (lastCopy === "nodes" || (tool === "nodes" && !clipboard))) { e.preventDefault(); pasteNodes(); }
-    else if (k === "v" && glyph().outline) {
+    else if (k === "v" && isNodeGlyph()) {
       e.preventDefault();
       toast("Esta letra se edita con nodos: para pegar aquí, copia desde una letra con Nodos (A).");
     }
@@ -2764,7 +2987,7 @@ window.addEventListener("keydown", (e) => {
   else if (e.shiftKey && k === "v") transformShape("v");
   else if (k === "v") setTool("select");
   else if (k === "e") setTool("corner");
-  else if (k === "p") setTool("piece");
+  else if (k === "p") setTool(isFreeGrid() && !e.shiftKey ? "pen" : "piece");
   else if (k === "g") setTool("poly");
   else if (k === "a") setTool("nodes");
   else if (k === "r") transformShape(e.shiftKey ? "ccw" : "cw");
@@ -2830,9 +3053,12 @@ function syncGlyphPanel() {
   syncKernGroups();
   syncPieceList();
   const edited = !!g.outline;
-  $("editNodes").hidden = edited;
-  $("backToGrid").hidden = !edited;
-  $("nodeInfo").textContent = edited
+  const free = isFreeGrid(g);
+  $("editNodes").hidden = edited || free;
+  $("backToGrid").hidden = !edited || free;
+  $("nodeInfo").textContent = free
+    ? "La grilla libre se dibuja con nodos: usa Polígono (G) o Nodos (A); los puntos se ajustan al espaciado de la grilla (Alt: sin ajuste)."
+    : edited
     ? "Esta letra se edita con nodos, como en Illustrator (herramienta Nodos, A)."
     : "Convierte la letra en un contorno de nodos para moverlos a mano. También pasa al mover un nodo con la herramienta Nodos.";
 }
@@ -3240,7 +3466,7 @@ function syncControls() {
   $("gridOpacity").disabled = !font.view.guides;
   // The shape controls edit the setting of the active glyph's grid:
   // circle size for circles, corner rounding for squares.
-  const squares = glyphGrid(font, g) === "squares";
+  const squares = glyphGrid(font, g) !== "circles"; // rounding, not circle size
   const k = shapeKey(font, g);
   const word = squares ? "Redondeo" : "Curvatura";
   const pct = (v) => Math.round(v * 100) + "%";
@@ -3266,12 +3492,16 @@ function syncControls() {
   $("glyphCurve").value = Math.round((g[k] ?? font[k]) * 100);
   $("glyphCurveOut").textContent = pct(g[k] ?? font[k]);
   $("circleOptions").hidden = squares;
-  $("squareOptions").hidden = !squares;
+  $("squareOptions").hidden = glyphGrid(font, g) !== "squares";
   $("style").value = font.style;
   $("stroke").value = font.stroke;
   $("stroke").max = Math.floor(font.cell * 0.45);
   $("stroke").disabled = font.style !== "outline";
   $("gridType").value = font.grid;
+  $("gridSpacing").value = font.gridSpacing;
+  $("gridSubdiv").value = font.gridSubdiv;
+  const anyFree = font.grid === "free" || Object.values(font.glyphs).some((x) => x.grid === "free");
+  $("freeGridFields").hidden = !anyFree;
   $("join").checked = font.join.enabled;
   $("allCaps").checked = font.allCaps;
   $("joinWidth").value = font.join.width;
@@ -3334,8 +3564,28 @@ bind("curve", "input", (t) => { font[shapeKey(font, glyph())] = t.value / 100; }
 bind("glyphCurve", "input", (t) => { glyph()[shapeKey(font, glyph())] = t.value / 100; });
 bind("ownCurve", "click", () => { const k = shapeKey(font, glyph()); glyph()[k] = font[k]; });
 bind("useGlobal", "click", () => { glyph()[shapeKey(font, glyph())] = null; });
-bind("gridType", "change", (t) => { font.grid = t.value; }, "font");
-bind("glyphGrid", "change", (t) => { glyph().grid = t.value || null; });
+// Moving to the free grid keeps the drawings: the letters that are drawn
+// with cells or pieces become outlines first (while their grid still applies).
+const freezeToOutline = (g) => {
+  if (g.outline || !(g.cells.length || g.pieces.length)) return;
+  g.outline = commandsToOutline(ownContours(font, g));
+};
+bind("gridType", "change", (t) => {
+  if (t.value === "free") {
+    for (const g of Object.values(font.glyphs)) {
+      if (g.grid == null) { freezeToOutline(g); if (g.bold) freezeToOutline(g.bold); }
+    }
+  }
+  font.grid = t.value;
+}, "font");
+for (const [id, name, lo, hi] of [["gridSpacing", "gridSpacing", 0, 500], ["gridSubdiv", "gridSubdiv", 1, 10]]) {
+  bind(id, "change", (t) => { font[name] = clampNum(Math.round(+t.value), lo, hi, font[name]); }, "font");
+}
+bind("glyphGrid", "change", (t) => {
+  const g = glyph();
+  if (t.value === "free") freezeToOutline(g);
+  g.grid = t.value || null;
+});
 bind("style", "change", (t) => { font.style = t.value; }, "font");
 bind("roundAll", "change", (t) => { font.roundAll = t.checked; }, "font");
 bind("stroke", "change", (t) => { font.stroke = clampNum(Math.round(+t.value), 1, Math.floor(font.cell * 0.45), font.stroke); }, "font");
@@ -3380,7 +3630,7 @@ $("resetGlyph").addEventListener("click", async () => {
 $("clear").addEventListener("click", () => {
   checkpoint();
   selection.clear();
-  if (glyph().outline) { glyph().outline = null; nodeSel.clear(); syncControls(); }
+  if (glyph().outline) { glyph().outline = isFreeGrid() ? [] : null; nodeSel.clear(); syncControls(); }
   glyph().cells = [];
   glyph().metrics = { ...font.metrics };
   render();
@@ -3569,10 +3819,10 @@ function setMaster(next) {
   document.body.classList.toggle("master-bold", master === "bold");
   if (master === "bold") {
     refreshBold(font, font.active);
-    setTool(glyph().outline ? "nodes" : tool);
+    setTool(isNodeGlyph() ? "nodes" : tool);
     toast(`Máster ${boldName()}: el Regular se ve detrás como referencia.`);
   } else {
-    setTool(glyph().outline ? "nodes" : "draw");
+    setTool(isNodeGlyph() ? "nodes" : "draw");
   }
   syncControls();
   render(null);

@@ -282,6 +282,10 @@ export function createFont() {
     // Grid type: "squares" (dot grid, the default) or "circles" (stars
     // between circles).
     grid: "squares",
+    // Free grid: snap spacing in units (0 = no snapping) and how many parts
+    // each square is split into for finer snapping.
+    gridSpacing: 10,
+    gridSubdiv: 1,
     curve: 1,
     join: { enabled: true, width: 15 },
     // Square grid: corner rounding (0–1), fill or outline, outline width (u).
@@ -390,7 +394,9 @@ export function normalizeFont(data) {
   return font;
 }
 
-export const GRIDS = { squares: "Puntos (cuadrados)", circles: "Círculos (estrellas)" };
+// "free" is the node-drawn grid: no cells, only outlines, with the points
+// snapping to `font.gridSpacing` (see the grid panel).
+export const GRIDS = { squares: "Puntos (cuadrados)", circles: "Círculos (estrellas)", free: "Libre (nodos)" };
 
 export const glyphGrid = (font, glyph) => glyph.grid ?? font.grid;
 
@@ -401,7 +407,7 @@ export const glyphCurve = (font, glyph) => glyph.curve ?? font.curve;
 export const glyphRounding = (font, glyph) => glyph.rounding ?? (font.roundAll ? font.rounding : 0);
 
 // The shape setting that the "Curvatura" controls edit for this glyph's grid.
-export const shapeKey = (font, glyph) => (glyphGrid(font, glyph) === "squares" ? "rounding" : "curve");
+export const shapeKey = (font, glyph) => (glyphGrid(font, glyph) === "circles" ? "curve" : "rounding");
 
 export const hasOwnShape = (font, glyph) => glyph[shapeKey(font, glyph)] != null;
 

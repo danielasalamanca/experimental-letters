@@ -128,6 +128,27 @@ export function drawGlyph(svg, font, glyph, opts = {}) {
     }
     g.appendChild(dots);
     svg.appendChild(g);
+  } else if (guides && glyphGrid(font, glyph) === "free") {
+    const spacing = font.gridSpacing ?? 0;
+    if (spacing > 0) {
+      // Lines every `spacing` units (doubled while they would crowd), and
+      // fainter ones for each subdivision.
+      let step = spacing;
+      while (step < cu / 5) step *= 2;
+      const sub = Math.max(1, Math.round(font.gridSubdiv ?? 1));
+      const minor = spacing / sub;
+      const left = bounds.left, right = bounds.right, ylo = lo * cu, yhi = hi * cu;
+      const g = el("g", { opacity: font.view.gridOpacity ?? 1 });
+      const lines = (at, color) => {
+        const group = el("g", { stroke: color, "stroke-width": 1 });
+        for (let x = Math.ceil(left / at) * at; x <= right; x += at) group.appendChild(el("line", { x1: x, x2: x, y1: -yhi, y2: -ylo, "vector-effect": "non-scaling-stroke" }));
+        for (let y = Math.ceil(ylo / at) * at; y <= yhi; y += at) group.appendChild(el("line", { x1: left, x2: right, y1: -y, y2: -y, "vector-effect": "non-scaling-stroke" }));
+        return group;
+      };
+      if (sub > 1 && minor >= cu / 10) g.appendChild(lines(minor, "#efede8"));
+      g.appendChild(lines(step, "#e2e0da"));
+      svg.appendChild(g);
+    }
   } else if (guides) {
     const g = el("g", { fill: "none", stroke: "#d9d6cf", "stroke-width": 1, opacity: font.view.gridOpacity ?? 1 });
     for (let c = 0; c <= cols; c++) {
@@ -272,6 +293,7 @@ export function drawShapes(font, cellList, { grid, curve, rounding, corners = {}
     const contours = roundedContours(outlineToCommands(outline), { rounding, corners });
     g.appendChild(el("path", { d: contoursToPath(contours, cu), "fill-rule": "nonzero" }));
   }
+  if (grid === "free") return g;
   if (grid === "squares") {
     const stroke = font.style === "outline" ? font.stroke / cu : 0;
     if (cells.length || pieces.length) g.appendChild(el("path", { d: contoursToPath(squareGlyphContours(cells, { rounding, stroke, corners, pieces }), cu) }));
