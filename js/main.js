@@ -3759,12 +3759,25 @@ function toggleLetters() {
 $("toggleLetters").addEventListener("click", toggleLetters);
 try { if (localStorage.getItem(LETTERS_KEY) === "1") setLettersHidden(true); } catch {}
 
-// Tab hides both side panels (or brings them back) to give the board the room.
+// The right panel hides on its own with its button; Tab hides both side
+// panels (or brings them back) to give the board the room.
+const PROPS_KEY = "experimental-letters:props-hidden";
+function setPropsHidden(hidden) {
+  document.querySelector(".app").classList.toggle("props-hidden", hidden);
+  const btn = $("toggleProps");
+  const label = hidden ? "Mostrar las propiedades" : "Ocultar las propiedades";
+  btn.title = `${label} (Tab oculta los dos paneles)`;
+  btn.setAttribute("aria-label", label);
+  btn.setAttribute("aria-expanded", String(!hidden));
+  try { localStorage.setItem(PROPS_KEY, hidden ? "1" : "0"); } catch {}
+}
+$("toggleProps").addEventListener("click", () => setPropsHidden(!document.querySelector(".app").classList.contains("props-hidden")));
+try { if (localStorage.getItem(PROPS_KEY) === "1") setPropsHidden(true); } catch {}
 function togglePanels() {
   const app = document.querySelector(".app");
   const hide = !app.classList.contains("letters-hidden") || !app.classList.contains("props-hidden");
   setLettersHidden(hide);
-  app.classList.toggle("props-hidden", hide);
+  setPropsHidden(hide);
 }
 
 // The board fills what the header and the test bar leave.

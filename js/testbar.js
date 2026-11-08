@@ -302,7 +302,10 @@ export function initTestbar({ getFont, checkpoint, persist, updateInfo, toast, s
   $("testbar").querySelector(".test-title").addEventListener("click", (e) => {
     if ($("testbar").classList.contains("collapsed")) { e.preventDefault(); setHidden(false); }
   });
-  try { if (localStorage.getItem(TEST_KEY) === "1") setHidden(true); } catch {}
+  // Closed until the user opens it, so the board gets the room.
+  let open = false;
+  try { open = localStorage.getItem(TEST_KEY) === "0"; } catch {}
+  setHidden(!open);
 
   return { renderTest, scheduleTest, clearPair: () => { kernPair = null; }, toggle };
 }

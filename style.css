@@ -188,7 +188,8 @@ input[type="range"]:disabled { opacity: 0.35; cursor: default; }
 .save-status.failed { color: var(--pink-ink); }
 .save-status.failed::before { background: var(--pink); }
 .top-actions { grid-area: actions; display: flex; align-items: center; gap: 8px; }
-.history { grid-area: history; display: flex; gap: 6px; }
+/* Above the tools bar, which with the letters hidden sits on this row. */
+.history { grid-area: history; display: flex; gap: 6px; position: relative; z-index: 2; }
 .history .icon-btn:disabled { opacity: 0.45; }
 
 /* ---------- Layout ---------- */
@@ -667,7 +668,7 @@ dialog.dingbats { max-width: 560px; }
   .zone-center, .zone-right { margin-top: calc(-1 * var(--history-row)); }
   /* With the letters hidden the undo buttons stay where they are and the
      tools bar makes room for them on the same row. */
-  .app.letters-hidden .toolbar { padding-left: 156px; }
+  .app.letters-hidden .toolbar { padding-left: 180px; }
 }
 
 /* ---------- Smaller screens ---------- */
