@@ -65,9 +65,15 @@ const isNodeGlyph = (g = glyph()) => !!g.outline || glyphGrid(font, g) === "free
 const isFreeGrid = (g = glyph()) => glyphGrid(font, g) === "free";
 // The free grid's snap step in cells (0: no snapping).
 const freeStep = () => (font.gridSpacing > 0 ? font.gridSpacing / Math.max(1, font.gridSubdiv ?? 1) / font.cell : 0);
+// Points snap to the grid and, nearby, to the metric lines (baseline, x
+// height, cap height, ascender, descender) wherever the grid wouldn't reach.
 const snapFree = ([x, y]) => {
   const step = freeStep();
-  return step ? [Math.round(x / step) * step, Math.round(y / step) * step] : [x, y];
+  if (!step) return [x, y];
+  const m = font.metrics;
+  const tol = board ? pxToCells(7) : 0.1;
+  const line = [0, m.xHeight, m.capHeight, m.ascender, m.descender].find((r) => Math.abs(r - y) < tol);
+  return [Math.round(x / step) * step, line ?? Math.round(y / step) * step];
 };
 // The glyph whose sidebearings the margin controls edit: an alternate shares
 // those of its letter (see syncAlternates), so they're edited there.
@@ -864,6 +870,7 @@ window.addEventListener("pointermove", (evt) => {
   if (!action && tool === "nodes" && nodeAddMode && evt.target.closest?.("#board")) showNodeHover(evt);
   if (!action && tool === "pen" && penDraft && evt.target.closest?.("#board")) {
     penDraft.hover = snapPoly(evt);
+    penDraft.cursor = toCells(evt);
     render(null);
   }
   if (!action && tool === "poly" && polyDraft && evt.target.closest?.("#board")) {
@@ -1854,6 +1861,8 @@ function joinOutline(piece) {
 let penDraft = null; // { nodes: [{ x, y, in, out }], hover: [x, y] | null }
 
 function penPress(evt) {
+  // Cmd/Ctrl turns the pen into the arrow, as in Illustrator and Glyphs.
+  if ((evt.metaKey || evt.ctrlKey) && !penDraft) { startNodeAction(evt); return; }
   const at = snapPoly(evt);
   const start = { sx: evt.clientX, sy: evt.clientY };
   if (!penDraft) penDraft = { nodes: [], hover: at };
@@ -1879,6 +1888,7 @@ function penDragTo(evt) {
   const p = toCells(evt);
   let d = [p.x - n.x, p.y - n.y];
   if (evt.shiftKey) d = constrain(d);
+  else { const to = snapFree([n.x + d[0], n.y + d[1]]); d = [to[0] - n.x, to[1] - n.y]; }
   if (action.closing) n.in = [-d[0], -d[1]];
   else { n.out = d; if (!evt.altKey) n.in = [-d[0], -d[1]]; }
   render(null);
@@ -1945,10 +1955,10 @@ function penKey(k) {
 function syncPenHint() {
   const n = penDraft?.nodes.length ?? 0;
   $("penHint").textContent = n === 0
-    ? "Clic para un punto de esquina · arrastra para sacar manijas y crear una curva · Shift: ángulos de 45° · Alt: sin ajuste a la grilla"
+    ? "Clic para un punto de esquina · arrastra para sacar manijas y crear una curva · Shift: ángulos de 45° · Alt: manijas independientes · Cmd/Ctrl: mover puntos"
     : n < 3
       ? `${n} punto(s) · sigue haciendo clic · arrastra para curvar`
-      : `${n} puntos · clic en el primero (o Enter) para cerrar · Retroceso quita el último · Esc cancela`;
+      : `${n} puntos · clic en el primero (o Enter) para cerrar · Retroceso o Cmd+Z quitan el último · Esc cancela`;
 }
 
 function drawPenDraft(layer) {
@@ -1963,6 +1973,9 @@ function drawPenDraft(layer) {
     }));
   }
   const px = 1 / board.getScreenCTM().a;
+  if (nodes.length >= 3 && penDraft.cursor && Math.hypot(penDraft.cursor.x - nodes[0].x, penDraft.cursor.y - nodes[0].y) < pxToCells(9)) {
+    layer.appendChild(el("circle", { cx: nodes[0].x * cu, cy: -nodes[0].y * cu, r: 9 * px, fill: "none", stroke: NODE_COLOR, "stroke-width": 1.5, "vector-effect": "non-scaling-stroke" }));
+  }
   nodes.forEach((n, i) => {
     for (const which of ["in", "out"]) {
       if (!n[which]) continue;
@@ -2934,7 +2947,8 @@ window.addEventListener("keydown", (e) => {
   if (!mod && tool === "poly" && polyDraft && polyKey(k)) { e.preventDefault(); return; }
   if (!mod && tool === "pen" && penDraft && penKey(k)) { e.preventDefault(); return; }
   if (mod) {
-    if (k === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+    if (k === "z" && tool === "pen" && penDraft && !e.shiftKey) { e.preventDefault(); penKey("backspace"); }
+    else if (k === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); }
     else if (k === "c" && tool === "nodes") { e.preventDefault(); copyNodes(); }
     else if (k === "x" && tool === "nodes") { e.preventDefault(); cutNodes(); }
     // A letter edited with nodes is copied as its outline, with any tool.

@@ -134,7 +134,7 @@ export function drawGlyph(svg, font, glyph, opts = {}) {
       // Lines every `spacing` units (doubled while they would crowd), and
       // fainter ones for each subdivision.
       let step = spacing;
-      while (step < cu / 5) step *= 2;
+      while (step < cu / 4) step *= 2;
       const sub = Math.max(1, Math.round(font.gridSubdiv ?? 1));
       const minor = spacing / sub;
       const left = bounds.left, right = bounds.right, ylo = lo * cu, yhi = hi * cu;
