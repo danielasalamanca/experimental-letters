@@ -867,7 +867,7 @@ board.addEventListener("pointerdown", (evt) => {
 });
 
 window.addEventListener("pointermove", (evt) => {
-  if (!action && tool === "nodes" && nodeAddMode && evt.target.closest?.("#board")) showNodeHover(evt);
+  if (!action && tool === "nodes" && evt.target.closest?.("#board")) showNodeHover(evt);
   if (!action && tool === "pen" && penDraft && evt.target.closest?.("#board")) {
     penDraft.hover = snapPoly(evt);
     penDraft.cursor = toCells(evt);
@@ -947,6 +947,7 @@ window.addEventListener("pointermove", (evt) => {
     }
     case "nodes":
     case "handle":
+    case "segBend":
     case "shapeDraw":
     case "nodeMarquee": {
       moveNodeAction(evt);
@@ -1029,7 +1030,7 @@ window.addEventListener("pointerup", () => {
     render(); syncPieceList(); return;
   }
   if (done.type === "node" || done.type === "scale") { render(); syncPieceList(); return; }
-  if (["nodes", "handle", "nodeMarquee", "shapeDraw", "outScale"].includes(done.type)) { endNodeAction(done); return; }
+  if (["nodes", "handle", "segBend", "nodeMarquee", "shapeDraw", "outScale"].includes(done.type)) { endNodeAction(done); return; }
   render(done.type === "metric" ? "font" : "glyph");
 });
 
@@ -1139,10 +1140,15 @@ function addNodeAt(evt) {
 // While adding nodes, a dot follows the pointer along the edge.
 function showNodeHover(evt) {
   const p = toCells(evt);
-  const seg = nearestSegment(editableOutline(), [p.x, p.y]);
+  const outline = editableOutline();
+  const seg = nearestSegment(outline, [p.x, p.y]);
   let dot = document.getElementById("nodeHover");
-  if (!seg || seg.dist > pxToCells(12)) { dot?.remove(); return; }
-  const c = editableOutline()[seg.contour];
+  // Outside add mode the dot only shows what a drag or double-click on the
+  // edge would act on: not over a node, a handle or a drawing shape.
+  const near = nodeAddMode ? 12 : 7;
+  if (!seg || seg.dist > pxToCells(near) || shapeMode
+    || (!nodeAddMode && (nodeHit(outline, p, pxToCells(9)) || handleHit(outline, p, pxToCells(9))))) { dot?.remove(); return; }
+  const c = outline[seg.contour];
   const a = c.nodes[seg.index], b = c.nodes[(seg.index + 1) % c.nodes.length];
   const P = [[a.x, a.y], a.out ? [a.x + a.out[0], a.y + a.out[1]] : [a.x, a.y], b.in ? [b.x + b.in[0], b.y + b.in[1]] : [b.x, b.y], [b.x, b.y]];
   const t = seg.t, u = 1 - t;
@@ -1240,6 +1246,12 @@ function startNodeAction(evt) {
     action = { type: "corner", ...corner, shift: false, dragged: false, fromNodes: true, radius: outlineCorners().get(corner.k).radius, before: glyph().corners[corner.k] };
     return;
   }
+  // The edge itself: drag it to bend the curve (nothing changes on a plain click).
+  const seg = evt.shiftKey ? null : nearestSegment(outline, [p.x, p.y]);
+  if (seg && seg.dist < pxToCells(7)) {
+    action = { type: "segBend", ...seg, start: p, moved: false, orig: cloneOutline(outline) };
+    return;
+  }
   // A component, where the letter's own outline has no ink: drag it.
   if (!evt.shiftKey && windingAt(outlineToCommands(outline), [p.x, p.y]) === 0) {
     const ci = componentAt(p);
@@ -1267,6 +1279,15 @@ function moveNodeAction(evt) {
     action.x1 = p.x; action.y1 = p.y;
     action.moved ||= Math.hypot(p.x - action.x0, p.y - action.y0) > pxToCells(4);
     render(null);
+    return;
+  }
+  if (action.type === "segBend") {
+    if (!action.moved) {
+      if (Math.hypot(p.x - action.start.x, p.y - action.start.y) < pxToCells(3)) return;
+      action.moved = true;
+      checkpoint();
+    }
+    bendSegment(evt, p);
     return;
   }
   if (action.type === "handle") {
@@ -1323,7 +1344,40 @@ function moveNodeAction(evt) {
   render();
 }
 
+// Dragging an edge: the point of the curve under the pointer follows it, by
+// moving the two handles of that segment (a straight edge gets handles first).
+// A smooth end node keeps its handles in line (Alt breaks them apart).
+function bendSegment(evt, p) {
+  const { orig, contour, index, start } = action;
+  const outline = ensureOutline();
+  const c = outline[contour], o = orig[contour];
+  const n = o.nodes.length, j = (index + 1) % n;
+  const oa = o.nodes[index], ob = o.nodes[j];
+  const t = Math.min(0.8, Math.max(0.2, action.t));
+  const k = 1 / (3 * (1 - t) * t);
+  let d = [p.x - start.x, p.y - start.y];
+  if (evt.shiftKey) d = constrain(d);
+  const third = [(ob.x - oa.x) / 3, (ob.y - oa.y) / 3];
+  const h1 = oa.out ?? third, h2 = ob.in ?? [-third[0], -third[1]];
+  const a = c.nodes[index], b = c.nodes[j];
+  a.out = [h1[0] + d[0] * k, h1[1] + d[1] * k];
+  b.in = [h2[0] + d[0] * k, h2[1] + d[1] * k];
+  const keepSmooth = (node, was, which) => {
+    const other = which === "out" ? "in" : "out";
+    if (evt.altKey || !was[other] || !isSmooth(was)) return;
+    const len = Math.hypot(...was[other]), l = Math.hypot(...node[which]) || 1;
+    node[other] = [-node[which][0] / l * len, -node[which][1] / l * len];
+  };
+  keepSmooth(a, oa, "out");
+  keepSmooth(b, ob, "in");
+  render();
+}
+
 function endNodeAction(done) {
+  if (done.type === "segBend") {
+    if (!done.moved) { nodeSel.clear(); render(null); } else render("glyph");
+    return;
+  }
   if (done.type === "shapeDraw") {
     const w = Math.abs(done.x1 - done.x0), h = Math.abs(done.y1 - done.y0);
     if (w < 0.05 || h < 0.05) { render(null); return; }
@@ -1937,6 +1991,8 @@ function finishPen() {
     g.outline = commandsToOutline(result);
   }
   nodeSel.clear();
+  // Like FontBob: a finished figure goes straight to its nodes.
+  setTool("nodes");
   syncToolbar();
   render();
 }
