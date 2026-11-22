@@ -6,19 +6,19 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=119" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=121" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=119" : "favicon-light.png?v=119"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=121" : "favicon-light.png?v=121"; };
       set();
       dark.addEventListener("change", set);
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=119">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,100..1000&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
+  <link rel="stylesheet" href="style.css?v=121">
 </head>
 <body>
   <script>document.body.dataset.view = location.hash === "#editor" ? "editor" : "home";</script>
@@ -42,7 +42,7 @@
 
   <main class="home" id="home" aria-label="Inicio">
     <div class="home-head">
-      <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=119" width="461" height="33" alt="Experimental Letters"></h1>
+      <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=121" width="461" height="33" alt="Experimental Letters"></h1>
       <div class="home-actions">
         <button id="newFont" type="button" class="primary" title="Empieza una tipografía nueva; las demás quedan guardadas">+ Nueva tipografía</button>
         <button id="homeOpen" type="button" title="Abre un proyecto .json como una tipografía nueva de tu biblioteca">Abrir archivo .json</button>
@@ -249,6 +249,19 @@
             <p class="info" id="nodeInfo"></p>
             <button id="editNodes" type="button" class="ghost wide">Editar con nodos</button>
             <button id="backToGrid" type="button" class="ghost wide regular-only" hidden>Volver a la grilla</button>
+          </div>
+        </details>
+        <details class="section regular-only" id="placeholderBox">
+          <summary>Letra de referencia</summary>
+          <div class="section-body">
+            <p class="info">La letra gris que se ve de guía (elige cuándo, abajo en «Referencia»). Es una fuente variable: cambia su peso y ancho para acercarla a tu diseño.</p>
+            <label class="range-row"><span>Peso</span> <output id="phWeightOut"></output>
+              <input type="range" id="phWeight" min="100" max="900" step="10"></label>
+            <label class="range-row"><span>Ancho</span> <output id="phWidthOut"></output>
+              <input type="range" id="phWidth" min="50" max="150" step="1"></label>
+            <label class="range-row"><span>Tamaño</span> <output id="phSizeOut"></output>
+              <input type="range" id="phSize" min="50" max="150" step="1"></label>
+            <button id="phReset" type="button" class="ghost wide" title="Peso 400, ancho 100, tamaño que calza con la altura x (o de mayúsculas)">Restablecer</button>
           </div>
         </details>
         <details class="section regular-only" id="refBox">
@@ -639,31 +652,31 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=119",
-        "./js/geometry.js": "./js/geometry.js?v=119",
-        "./js/model.js": "./js/model.js?v=119",
-        "./js/render.js": "./js/render.js?v=119",
-        "./js/tools.js": "./js/tools.js?v=119",
-        "./js/library.js": "./js/library.js?v=119",
-        "./js/history.js": "./js/history.js?v=119",
-        "./js/pieces.js": "./js/pieces.js?v=119",
-        "./js/serifs.js": "./js/serifs.js?v=119",
-        "./js/nodes.js": "./js/nodes.js?v=119",
-        "./js/shapes.js": "./js/shapes.js?v=119",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=119",
-        "./js/outline.js": "./js/outline.js?v=119",
-        "./js/otf.js": "./js/otf.js?v=119",
-        "./js/masters.js": "./js/masters.js?v=119",
-        "./js/variable.js": "./js/variable.js?v=119",
-        "./js/woff.js": "./js/woff.js?v=119",
-        "./js/export.js": "./js/export.js?v=119",
-        "./js/testbar.js": "./js/testbar.js?v=119",
-        "./js/guide.js": "./js/guide.js?v=119",
-        "./js/home.js": "./js/home.js?v=119",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=119"
+        "./js/charset.js": "./js/charset.js?v=121",
+        "./js/geometry.js": "./js/geometry.js?v=121",
+        "./js/model.js": "./js/model.js?v=121",
+        "./js/render.js": "./js/render.js?v=121",
+        "./js/tools.js": "./js/tools.js?v=121",
+        "./js/library.js": "./js/library.js?v=121",
+        "./js/history.js": "./js/history.js?v=121",
+        "./js/pieces.js": "./js/pieces.js?v=121",
+        "./js/serifs.js": "./js/serifs.js?v=121",
+        "./js/nodes.js": "./js/nodes.js?v=121",
+        "./js/shapes.js": "./js/shapes.js?v=121",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=121",
+        "./js/outline.js": "./js/outline.js?v=121",
+        "./js/otf.js": "./js/otf.js?v=121",
+        "./js/masters.js": "./js/masters.js?v=121",
+        "./js/variable.js": "./js/variable.js?v=121",
+        "./js/woff.js": "./js/woff.js?v=121",
+        "./js/export.js": "./js/export.js?v=121",
+        "./js/testbar.js": "./js/testbar.js?v=121",
+        "./js/guide.js": "./js/guide.js?v=121",
+        "./js/home.js": "./js/home.js?v=121",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=121"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=119"></script>
+  <script type="module" src="js/main.js?v=121"></script>
 </body>
 </html>

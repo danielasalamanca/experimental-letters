@@ -167,7 +167,7 @@ export function drawGlyph(svg, font, glyph, opts = {}) {
   const sketch = opts.reference && glyph.ref ? referenceImage(font, glyph.ref) : null;
   if (sketch && !glyph.ref.front) svg.appendChild(sketch);
 
-  if (opts.placeholder) svg.appendChild(placeholderLetter(opts.placeholder, m, cols, cu));
+  if (opts.placeholder) svg.appendChild(placeholderLetter(opts.placeholder, m, cols, cu, opts.placeholderStyle));
 
   if (opts.background) {
     const bg = opts.background;
@@ -259,34 +259,46 @@ function referenceImage(font, ref) {
 // Reference letter: the character in a system font, scaled so its capitals
 // reach the cap height (lowercase: the x-height) and centered on the grid.
 // It always keeps its proportions, even if it is wider than the grid.
-const PLACEHOLDER_FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+// Roboto Flex is variable (weight and width), so the reference letter can be
+// adjusted; the system fonts stand in until it loads or when offline.
+const PLACEHOLDER_FONT = '"Roboto Flex", "Helvetica Neue", Helvetica, Arial, sans-serif';
 const PLACEHOLDER_COLOR = "#000";
-let placeholderRatios = null;
+export const PLACEHOLDER_DEFAULTS = { weight: 400, width: 100, size: 100 };
+let fallbackRatios = null;
 
-// Height of "H" and "x" as a fraction of the font size.
+// Height of "H" and "x" as a fraction of the font size. Roboto Flex's are
+// known (2048 units: caps 1456, x-height 1082); a fallback font is measured.
 function placeholderRatio(lower) {
-  if (!placeholderRatios) {
-    placeholderRatios = { H: 0.72, x: 0.52 };
+  if (document.fonts?.check('100px "Roboto Flex"')) return lower ? 0.528 : 0.711;
+  if (!fallbackRatios) {
+    fallbackRatios = { H: 0.72, x: 0.52 };
     try {
       const ctx = document.createElement("canvas").getContext("2d");
-      ctx.font = `100px ${PLACEHOLDER_FONT}`;
+      ctx.font = '100px "Helvetica Neue", Helvetica, Arial, sans-serif';
       for (const ch of ["H", "x"]) {
         const a = ctx.measureText(ch).actualBoundingBoxAscent;
-        if (a > 0) placeholderRatios[ch] = a / 100;
+        if (a > 0) fallbackRatios[ch] = a / 100;
       }
     } catch { /* keep the defaults */ }
   }
-  return placeholderRatios[lower ? "x" : "H"];
+  return fallbackRatios[lower ? "x" : "H"];
 }
 
-function placeholderLetter(char, m, cols, cu) {
+// Lowercase letters sit exactly on the x-height, capitals on the cap height
+// (size 100%); weight and width are the font's axes.
+function placeholderLetter(char, m, cols, cu, style = PLACEHOLDER_DEFAULTS) {
   const lower = char !== char.toUpperCase() && char === char.toLowerCase();
-  const size = ((lower ? m.xHeight : m.capHeight) * cu) / placeholderRatio(lower);
+  const size = (((lower ? m.xHeight : m.capHeight) * cu) / placeholderRatio(lower)) * ((style.size ?? 100) / 100);
+  const weight = style.weight ?? PLACEHOLDER_DEFAULTS.weight, width = style.width ?? PLACEHOLDER_DEFAULTS.width;
   const t = el("text", {
     x: (cols * cu) / 2, y: 0, "text-anchor": "middle",
-    "font-size": size, "font-family": PLACEHOLDER_FONT,
+    "font-size": size, "font-family": PLACEHOLDER_FONT, "font-weight": weight,
     fill: PLACEHOLDER_COLOR, opacity: 0.13, "pointer-events": "none",
   });
+  // Inline, because the board's stylesheet sets the labels' font on every <text>.
+  t.style.fontFamily = PLACEHOLDER_FONT;
+  t.style.fontVariationSettings = `"wght" ${weight}, "wdth" ${width}, "opsz" 14`;
+  t.style.fontStretch = `${width}%`;
   t.textContent = char;
   return t;
 }

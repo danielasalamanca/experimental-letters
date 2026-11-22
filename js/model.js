@@ -312,6 +312,8 @@ export function createFont() {
       // Reference letter in a system font behind the glyph, like Glyphs:
       // "empty" = only while the glyph is empty, "always", or "off".
       placeholder: "empty",
+      // The reference letter is variable: weight, width and size (%).
+      placeholderWeight: 400, placeholderWidth: 100, placeholderSize: 100,
       gridOpacity: 1,
       test: { text: "hamburgefonstiv", size: 72, inverted: false },
     },
@@ -339,6 +341,8 @@ export function createBlankFont({ family = "Nueva tipografía", grid = "free" } 
   font.glyphs = {};
   font.meta.family = family;
   font.grid = grid;
+  // On the free grid the dot lattice is opt-in ("Mostrar grilla").
+  font.view.guides = grid !== "free";
   return ensureCharset(font);
 }
 

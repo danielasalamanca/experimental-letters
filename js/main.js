@@ -220,6 +220,7 @@ function render(scope = "glyph") {
     // On the bold master the Regular shows behind, as a reference.
     background: master === "bold" ? font.glyphs[font.active] : bgChar && bgChar !== font.active ? font.glyphs[bgChar] : null,
     placeholder: placeholderChar(),
+    placeholderStyle: { weight: font.view.placeholderWeight, width: font.view.placeholderWidth, size: font.view.placeholderSize },
     reference: true,
     preview: spaceDown,
   });
@@ -2989,6 +2990,10 @@ function syncToolbar() {
   $("mirrorAxis").disabled = !font.view.mirrorV;
   $("background").value = font.view.background;
   $("placeholder").value = font.view.placeholder;
+  for (const [id, key, unit] of [["phWeight", "placeholderWeight", ""], ["phWidth", "placeholderWidth", ""], ["phSize", "placeholderSize", "%"]]) {
+    $(id).value = font.view[key];
+    $(id + "Out").textContent = font.view[key] + unit;
+  }
 }
 
 function charLabel(char) {
@@ -4015,6 +4020,15 @@ for (const side of ["lsb", "rsb"]) {
 }
 bind("cell", "change", (t) => { font.cell = clampNum(+t.value, 5, 250, font.cell); }, "font");
 bind("upm", "change", (t) => { font.upm = clampNum(Math.round(+t.value), 16, 16384, font.upm); }, null);
+for (const [id, key] of [["phWeight", "placeholderWeight"], ["phWidth", "placeholderWidth"], ["phSize", "placeholderSize"]]) {
+  bind(id, "input", (t) => { font.view[key] = +t.value; }, null);
+}
+$("phReset").addEventListener("click", () => {
+  checkpoint();
+  Object.assign(font.view, { placeholderWeight: 400, placeholderWidth: 100, placeholderSize: 100 });
+  syncControls();
+  render(null);
+});
 bind("guides", "change", (t) => { font.view.guides = t.checked; }, null);
 bind("gridOpacity", "input", (t) => { font.view.gridOpacity = t.value / 100; }, null);
 bind("curve", "input", (t) => { font[shapeKey(font, glyph())] = t.value / 100; }, "font");
@@ -4678,3 +4692,5 @@ buildToolbar();
 setTool(isFreeGrid() ? "pen" : "draw");
 refreshAll();
 showView(location.hash === "#editor" ? "editor" : "home");
+// The reference letter is drawn again once its variable font has loaded.
+document.fonts?.load('400 100px "Roboto Flex"').then(() => render(null)).catch(() => {});
