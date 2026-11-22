@@ -220,6 +220,7 @@ function render(scope = "glyph") {
     // On the bold master the Regular shows behind, as a reference.
     background: master === "bold" ? font.glyphs[font.active] : bgChar && bgChar !== font.active ? font.glyphs[bgChar] : null,
     placeholder: placeholderChar(),
+    reference: true,
     preview: spaceDown,
   });
   const vb = board.viewBox.baseVal;
@@ -514,6 +515,7 @@ function marker(className, title) {
 
 function selectGlyph(char) {
   const prev = font.active;
+  refMove = false;
   selection.clear();
   floating = null;
   polyDraft = null;
@@ -836,6 +838,11 @@ board.addEventListener("pointerdown", (evt) => {
     return;
   }
   frozenBounds = bounds;
+  if (refMove && glyph().ref) {
+    const r = glyph().ref;
+    action = { type: "refMove", start: toCells(evt), x: r.x, y: r.y, moved: false };
+    return;
+  }
   const metric = evt.target.closest?.(".metric-label.draggable");
   const side = evt.target.closest?.(".sb-label");
   if (metric || side) {
@@ -948,6 +955,19 @@ window.addEventListener("pointermove", (evt) => {
     case "pan": {
       const { box, sx, sy, scale } = action;
       zoomBox = { ...box, x: box.x - (evt.clientX - sx) / scale, y: box.y - (evt.clientY - sy) / scale };
+      render(null);
+      break;
+    }
+    case "refMove": {
+      const p = toCells(evt), r = g.ref;
+      if (!r) break;
+      if (!action.moved) {
+        if (Math.hypot(p.x - action.start.x, p.y - action.start.y) < pxToCells(3)) break;
+        action.moved = true;
+        checkpoint();
+      }
+      r.x = action.x + p.x - action.start.x;
+      r.y = action.y + p.y - action.start.y;
       render(null);
       break;
     }
@@ -1085,6 +1105,7 @@ window.addEventListener("pointerup", () => {
     render(null);
     return;
   }
+  if (done.type === "refMove") { render("glyph"); return; }
   if (done.type === "polyPress") { polyAdd(done.at); return; }
   if (done.type === "penDrag") { if (done.closing) finishPen(); else render(null); return; }
   if (done.type === "component") { renderComponents(); render(done.moved ? "glyph" : null); return; }
@@ -2923,7 +2944,11 @@ const cornersAvailable = () =>
 
 function syncToolbar() {
   const nodesOnly = isNodeGlyph();
-  for (const id of ["toolDraw", "toolSelect"]) $(id).disabled = nodesOnly;
+  for (const id of ["toolDraw", "toolSelect"]) {
+    $(id).disabled = nodesOnly;
+    // Free grid has no cells to draw or select: the buttons aren't offered.
+    $(id).hidden = isFreeGrid();
+  }
   if (nodesOnly && !["nodes", "move", "pen", "corner", "poly", "piece"].includes(tool)) setTool("nodes");
   // On the free grid P is the pen (Shift + P, pieces) and V the move tool.
   const free = isFreeGrid();
@@ -3362,6 +3387,7 @@ function syncGlyphPanel() {
   for (const [value, name] of Object.entries(GRIDS)) gridSelect.appendChild(new Option(name, value));
   gridSelect.value = g.grid ?? "";
   // Free grid: no width control, the drawing sets it.
+  syncReference();
   $("cols").closest(".range-row").hidden = free;
   $("cols").value = g.cols;
   $("colsOut").textContent = g.cols;
@@ -3868,6 +3894,114 @@ function bind(id, event, apply, scope = "glyph", tag = id) {
   });
 }
 
+// --- Imagen de fondo: a sketch to trace ---
+let refMove = false; // dragging on the board moves the image
+
+function syncReference() {
+  const r = glyph().ref;
+  $("refControls").hidden = !r;
+  $("refAdd").textContent = r ? "Cambiar imagen…" : "Agregar imagen…";
+  if (!r) refMove = false;
+  $("refMove").classList.toggle("active", refMove);
+  $("refMove").setAttribute("aria-pressed", String(refMove));
+  board.classList.toggle("moving-ref", refMove);
+  if (!r) return;
+  $("refOpacity").value = Math.round(r.opacity * 100);
+  $("refOpacityOut").textContent = Math.round(r.opacity * 100) + "%";
+  $("refSize").value = r.h;
+  $("refSizeOut").textContent = r.h;
+  $("refFront").checked = r.front;
+}
+
+// The image is shrunk (longest side 1200 px) and kept inside the project as
+// data, so it saves, undoes and travels with the font.
+async function loadSketch(file) {
+  if (!file.type.startsWith("image/")) { toast("Elige un archivo de imagen (PNG, JPG…)."); return null; }
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = () => reject(new Error("image"));
+      im.src = url;
+    });
+    const scale = Math.min(1, 1200 / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.max(1, Math.round(img.naturalWidth * scale)), h = Math.max(1, Math.round(img.naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    const png = file.type === "image/png";
+    if (!png) { ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); }
+    ctx.drawImage(img, 0, 0, w, h);
+    let src = canvas.toDataURL(png ? "image/png" : "image/jpeg", 0.85);
+    // A heavy PNG (photos) becomes a JPEG on white so it fits in the browser.
+    if (png && src.length > 700000) {
+      ctx.globalCompositeOperation = "destination-over";
+      ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
+      src = canvas.toDataURL("image/jpeg", 0.85);
+    }
+    return { src, ar: w / h };
+  } catch {
+    toast("No se pudo leer esa imagen.");
+    return null;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+$("refAdd").addEventListener("click", () => $("refFile").click());
+$("refFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  const sketch = await loadSketch(file);
+  if (!sketch) return;
+  checkpoint();
+  const g = glyph();
+  const old = g.ref;
+  // The first one is sized to the letter (cap height) and centred; a new
+  // image in its place keeps where the last one was.
+  const h = old?.h ?? font.metrics.capHeight;
+  const w = h * sketch.ar;
+  g.ref = {
+    src: sketch.src, ar: sketch.ar, h, opacity: old?.opacity ?? 0.5, front: old?.front ?? false,
+    x: old ? old.x : (g.cols - w) / 2, y: old?.y ?? 0,
+  };
+  syncControls();
+  render(null);
+  if (!old) toast("Imagen agregada. «Mover la imagen» la coloca; el tamaño se ajusta aquí.");
+});
+$("refOpacity").addEventListener("input", (e) => {
+  checkpoint("ref-opacity");
+  glyph().ref.opacity = +e.target.value / 100;
+  syncReference();
+  render(null);
+});
+$("refSize").addEventListener("input", (e) => {
+  checkpoint("ref-size");
+  const r = glyph().ref;
+  // Grows from its centre, so it stays where it was placed.
+  const cx = r.x + (r.h * r.ar) / 2, cy = r.y + r.h / 2;
+  r.h = +e.target.value;
+  r.x = cx - (r.h * r.ar) / 2;
+  r.y = cy - r.h / 2;
+  syncReference();
+  render(null);
+});
+$("refFront").addEventListener("change", (e) => {
+  checkpoint();
+  glyph().ref.front = e.target.checked;
+  render(null);
+});
+$("refMove").addEventListener("click", () => { refMove = !refMove; syncReference(); });
+$("refRemove").addEventListener("click", () => {
+  checkpoint();
+  glyph().ref = null;
+  refMove = false;
+  syncControls();
+  render(null);
+});
+
 bind("cols", "input", (t) => { glyph().cols = +t.value; });
 for (const side of ["lsb", "rsb"]) {
   $(side).addEventListener("change", (e) => {
@@ -3978,7 +4112,7 @@ $("save").addEventListener("click", () => {
   checkpoint();
   const g = glyph();
   font.drafts.push(createGlyph({
-    ...g, cells: resolvedCells(font, g), corners: resolvedCorners(font, g), pieces: resolvedPieces(font, g), components: [],
+    ...g, ref: null, cells: resolvedCells(font, g), corners: resolvedCorners(font, g), pieces: resolvedPieces(font, g), components: [],
   }));
   renderGallery();
   persist();

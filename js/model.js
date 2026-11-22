@@ -42,13 +42,23 @@ const SAMPLE_A = [
   [1,0],[2,0],[3,0],[6,0],[7,0],
 ].map(([c, r]) => key(c, r));
 
+// A reference image, or null when it isn't a usable one.
+function cleanRef(r) {
+  if (!r || typeof r.src !== "string" || !r.src.startsWith("data:image/")) return null;
+  const num = (v, d) => (Number.isFinite(+v) ? +v : d);
+  return {
+    src: r.src, ar: Math.max(0.01, num(r.ar, 1)), x: num(r.x, 0), y: num(r.y, 0), h: Math.max(0.1, num(r.h, 10)),
+    opacity: Math.min(1, Math.max(0.05, num(r.opacity, 0.5))), front: !!r.front,
+  };
+}
+
 // A glyph: its own drawing (cells), width in cells, sidebearings in units,
 // an optional curvature override and components reused from other glyphs.
 // `metrics` remembers the metrics it was drawn with (see planFit).
 export function createGlyph({
   cols = 8, cells = [], curve = null, metrics = DEFAULT_METRICS,
   lsb = 50, rsb = 50, components = [], grid = null, rounding = null, corners = {}, pieces = [],
-  outline = null, bold = null,
+  outline = null, bold = null, ref = null,
 } = {}) {
   return {
     cols, cells: [...cells], curve, metrics: { ...metrics }, lsb, rsb, grid, rounding,
@@ -59,10 +69,13 @@ export function createGlyph({
     // Edited node by node ("Nodos"): replaces the glyph's own grid drawing.
     outline: Array.isArray(outline) ? cloneOutline(outline) : null,
     components: components.map(cloneComponent),
+    // A sketch to trace, behind (or over) the drawing: { src, ar, x, y, h,
+    // opacity, front }, in cells. Editor only; it is never exported.
+    ref: cleanRef(ref),
     // The bold master (see masters.js): a glyph of its own (grid drawing or
     // nodes, width, sidebearings), or null while it is generated automatically.
     bold: bold && typeof bold === "object" ? {
-      ...createGlyph({ ...bold, metrics, components: [], bold: null }),
+      ...createGlyph({ ...bold, metrics, components: [], bold: null, ref: null }),
       auto: !!bold.auto, source: bold.source ?? null,
     } : null,
   };
@@ -646,7 +659,7 @@ export function addAlternate(font, from) {
   const n = Math.max(0, ...alternates(font, base).map((k) => alternateOf(k).n)) + 1;
   const k = alternateKey(base, n);
   const src = font.glyphs[from];
-  font.glyphs[k] = createGlyph(src ? JSON.parse(JSON.stringify(src)) : { metrics: font.metrics });
+  font.glyphs[k] = createGlyph(src ? { ...JSON.parse(JSON.stringify(src)), ref: null } : { metrics: font.metrics });
   return k;
 }
 

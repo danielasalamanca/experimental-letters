@@ -710,3 +710,6 @@ dialog.dingbats { max-width: 560px; }
   .credits { flex-wrap: wrap; }
   .credit-link { margin-left: 0; }
 }
+
+/* Moving the sketch: drag anywhere on the board. */
+#board.moving-ref { cursor: move; }

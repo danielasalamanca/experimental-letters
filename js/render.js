@@ -164,6 +164,9 @@ export function drawGlyph(svg, font, glyph, opts = {}) {
     svg.appendChild(g);
   }
 
+  const sketch = opts.reference && glyph.ref ? referenceImage(font, glyph.ref) : null;
+  if (sketch && !glyph.ref.front) svg.appendChild(sketch);
+
   if (opts.placeholder) svg.appendChild(placeholderLetter(opts.placeholder, m, cols, cu));
 
   if (opts.background) {
@@ -185,6 +188,8 @@ export function drawGlyph(svg, font, glyph, opts = {}) {
   } else {
     svg.appendChild(drawShapes(font, all, shape, ink, bounds));
   }
+
+  if (sketch && glyph.ref.front) svg.appendChild(sketch);
 
   if (metrics) {
     const g = el("g");
@@ -238,6 +243,17 @@ export function drawGlyph(svg, font, glyph, opts = {}) {
     svg.appendChild(g);
   }
   return bounds;
+}
+
+// The sketch to trace: its bottom-left corner at (x, y) cells, `h` cells tall.
+function referenceImage(font, ref) {
+  const cu = font.cell;
+  const image = el("image", {
+    x: ref.x * cu, y: -(ref.y + ref.h) * cu, width: ref.h * ref.ar * cu, height: ref.h * cu,
+    opacity: ref.opacity, preserveAspectRatio: "none", "pointer-events": "none",
+  });
+  image.setAttribute("href", ref.src);
+  return image;
 }
 
 // Reference letter: the character in a system font, scaled so its capitals
