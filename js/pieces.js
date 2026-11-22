@@ -25,8 +25,10 @@
 import ClipperLib from "./vendor/clipper.js";
 import { squareContours, MAX_RADIUS, snapRadius } from "./outline.js";
 
-export const PIECE_SHAPES = { tri: "Triángulo", quarter: "Cuarto de elipse", spandrel: "Esquina curva", ellipse: "Elipse", pill: "Cápsula", poly: "Polígono", star: "Estrella", ngon: "Polígono regular" };
+export const PIECE_SHAPES = { tri: "Triángulo", quarter: "Cuarto de elipse", spandrel: "Esquina curva", ellipse: "Elipse", pill: "Cápsula", rect: "Cuadrado", ring: "Anillo", arc: "Arco", poly: "Polígono", star: "Estrella", ngon: "Polígono regular" };
 
+// Ring and arc thickness: the inner radius as a share of the outer one.
+export const RING_DEFAULT = { inner: 0.6 };
 export const STAR_DEFAULT = { n: 5, inner: 0.4 };
 export const NGON_DEFAULT = { n: 6 };
 export const STAR_POINTS = [3, 12], NGON_SIDES = [5, 12], STAR_INNER = [0.1, 0.9];
@@ -63,6 +65,10 @@ export function normalizePiece(p) {
     out.points = p.points.map(([x, y]) => [x, y]);
     const xs = out.points.map((q) => q[0]), ys = out.points.map((q) => q[1]);
     Object.assign(out, { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) });
+  }
+  if (shape === "ring" || shape === "arc") {
+    const r = Number.isFinite(+p.inner) ? +p.inner : RING_DEFAULT.inner;
+    out.inner = Math.min(STAR_INNER[1], Math.max(STAR_INNER[0], r));
   }
   if (shape === "star") {
     out.n = clampInt(p.n, STAR_POINTS, STAR_DEFAULT.n);
@@ -172,9 +178,41 @@ export function pieceContour(piece) {
     return [M(poly[0]), ...poly.slice(1).map(L), { type: "Z" }];
   }
   if (p.shape === "quarter") return [M(C), L(A), arc(C, A, B), { type: "Z" }];
+  if (p.shape === "rect") return [M([p.x0, p.y0]), L([p.x1, p.y0]), L([p.x1, p.y1]), L([p.x0, p.y1]), { type: "Z" }];
+  if (p.shape === "ring") return roundBox(p, M, L, arc);
+  if (p.shape === "arc") {
+    // A quarter of a ring around C: outer arc from A to B, back along the inner one.
+    const at = (P) => [C[0] + (P[0] - C[0]) * p.inner, C[1] + (P[1] - C[1]) * p.inner];
+    const Ai = at(A), Bi = at(B);
+    return [M(A), arc(C, A, B), L(Bi), arc(C, Bi, Ai), { type: "Z" }];
+  }
   if (p.shape === "ellipse" || p.shape === "pill") return roundBox(p, M, L, arc);
   if (p.shape === "star" || p.shape === "ngon") return regularPoints(p).map((q, i) => (i ? L(q) : M(q))).concat({ type: "Z" });
   return [M(C), L(A), arc(O, A, B), { type: "Z" }]; // spandrel
+}
+
+// All the contours of a piece: a ring also has its hole, running the other
+// way round so that a nonzero fill leaves it empty.
+export function pieceContours(piece) {
+  const p = normalizePiece(piece);
+  const outer = pieceContour(p);
+  if (p.shape !== "ring") return [outer];
+  const w = p.x1 - p.x0, h = p.y1 - p.y0, k = (1 - p.inner) / 2;
+  const hole = pieceContour({ ...p, shape: "ellipse", x0: p.x0 + w * k, x1: p.x1 - w * k, y0: p.y0 + h * k, y1: p.y1 - h * k });
+  return [outer, reverseCommands(hole)];
+}
+
+function reverseCommands(cmds) {
+  const pts = cmds.filter((c) => c.type !== "Z");
+  const out = [{ type: "M", x: pts[pts.length - 1].x, y: pts[pts.length - 1].y }];
+  for (let i = pts.length - 1; i > 0; i--) {
+    const c = pts[i], to = pts[i - 1];
+    out.push(c.type === "C"
+      ? { type: "C", x1: c.x2, y1: c.y2, x2: c.x1, y2: c.y1, x: to.x, y: to.y }
+      : { type: "L", x: to.x, y: to.y });
+  }
+  out.push({ type: "Z" });
+  return out;
 }
 
 // Vertices (counter-clockwise, y up) of a star or regular polygon with a tip
@@ -329,7 +367,8 @@ export function contoursWithPieces(contours, pieces, { corners: cornerRadii = {}
 
 function applyPieces(book, shape, pieces, own = (clip) => clip) {
   for (const piece of pieces) {
-    let clip = orient(book.paths([pieceContour(piece)])).filter((q) => Math.abs(ClipperLib.Clipper.Area(q)) > 1);
+    const parts = pieceContours(piece);
+    let clip = (parts.length > 1 ? unionPaths(book.paths(parts)) : orient(book.paths(parts))).filter((q) => Math.abs(ClipperLib.Clipper.Area(q)) > 1);
     if (!clip.length) continue;
     clip = own(clip);
     shape = clipperOp(piece.mode === "cut" ? ClipperLib.ClipType.ctDifference : ClipperLib.ClipType.ctUnion, shape, clip);

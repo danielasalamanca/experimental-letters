@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { squareGlyphContours, pieceContour, normalizePiece, mirrorPiece, contoursWithPieces } from "../js/pieces.js";
 import { glyphContours } from "../js/outline.js";
+import { windingAt } from "../js/geometry.js";
 import { normalizeFont } from "../js/model.js";
 import { glyphFinalContours } from "../js/shapes.js";
 
@@ -566,4 +567,20 @@ test("two arcs meeting in a point (a cusp) can be rounded", () => {
     const p = [((i * 0.6180339887) % 1) * 12 - 1, ((i * 0.7548776662 + 0.1) % 1) * 8 - 1];
     assert.ok([0, 1].includes(winding(polys, p)), `winding ${winding(polys, p)} at ${p}`);
   }
+});
+
+
+test("rect, ring and arc pieces leave the right ink", () => {
+  const ring = { shape: "ring", x0: 0, y0: 0, x1: 4, y1: 4, inner: 0.5 };
+  const arc = { shape: "arc", corner: "bl", x0: 0, y0: 0, x1: 4, y1: 4, inner: 0.5 };
+  const rect = { shape: "rect", x0: 0, y0: 0, x1: 2, y1: 2 };
+  const winding = (cs, pt) => windingAt(cs, pt);
+  const ringCs = contoursWithPieces([], [ring]);
+  assert.equal(winding(ringCs, [2, 2]), 0, "hole");
+  assert.notEqual(winding(ringCs, [0.5, 2]), 0, "ring body");
+  const arcCs = contoursWithPieces([], [arc]);
+  assert.equal(winding(arcCs, [0.5, 0.5]), 0, "inside the inner radius");
+  assert.notEqual(winding(arcCs, [3.5, 0.3]), 0, "on the arc band");
+  assert.equal(winding(arcCs, [3.5, 3.5]), 0, "outside the arc");
+  assert.notEqual(winding(contoursWithPieces([], [rect]), [1, 1]), 0);
 });

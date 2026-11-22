@@ -31,8 +31,8 @@ import {
   mastersReport, WEIGHTS,
 } from "./masters.js";
 import {
-  pieceContour, normalizePiece, mirrorPiece, PIECE_SHAPES, pieceGlyphCorners, cornerKey, roundedContours,
-  pieceHandles, movePieceHandle, STAR_DEFAULT, NGON_DEFAULT, NGON_SIDES, STAR_POINTS, contourCorners, contourObjects, pathfinder, polygonArea,
+  pieceContour, pieceContours, normalizePiece, mirrorPiece, PIECE_SHAPES, pieceGlyphCorners, cornerKey, roundedContours,
+  pieceHandles, movePieceHandle, STAR_DEFAULT, NGON_DEFAULT, RING_DEFAULT, NGON_SIDES, STAR_POINTS, contourCorners, contourObjects, pathfinder, polygonArea,
 } from "./pieces.js";
 import { SERIF_STYLES, SERIF_SIDES, SERIF_DEFAULT, serifPieces, applySerifs, removeSerifs, isSerif } from "./serifs.js";
 
@@ -1812,7 +1812,7 @@ function endPiece(done) {
 }
 
 // Settings of the star and regular polygon pieces (toolbar sliders).
-const pieceSettings = { star: { ...STAR_DEFAULT }, ngon: { ...NGON_DEFAULT } };
+const pieceSettings = { star: { ...STAR_DEFAULT }, ngon: { ...NGON_DEFAULT }, ring: { ...RING_DEFAULT }, arc: { ...RING_DEFAULT } };
 const pieceParams = () => pieceSettings[$("pieceShape").value] ?? {};
 
 // Pieces are part of the grid drawing, on either grid, and stay editable;
@@ -1896,7 +1896,7 @@ function joinOutline(piece) {
   if (font.view.mirrorV) placed = [...placed, ...placed.map((p) => mirrorPiece(p, { v: lo + hi }))];
   // One object per figure: a mirrored copy runs the other way round, and
   // in one object the two would cancel where they overlap.
-  const figures = placed.map((p) => [pieceContour(p)]);
+  const figures = placed.map((p) => pieceContours(p));
   const keep = keepRounding();
   const result = mode === "cut"
     ? figures.reduce((acc, f) => pathfinder("minusFront", [acc, f], keep), commands)
@@ -2127,7 +2127,7 @@ function mirrorPartners(index) {
 
 // Pieces that fill their box (the corner nodes would just stretch it) have
 // no nodes: their corners are the scale handles.
-const fillsBox = (p) => ["ellipse", "pill", "star", "ngon"].includes(normalizePiece(p).shape);
+const fillsBox = (p) => ["ellipse", "pill", "rect", "ring", "star", "ngon"].includes(normalizePiece(p).shape);
 const nodeHandles = (p) => (fillsBox(p) ? [] : pieceHandles(p));
 
 // Scale handles of the selected piece, one on each corner of its box (pushed
@@ -2292,7 +2292,7 @@ function drawPieceMarkers(layer) {
     }));
     if (selected) {
       layer.appendChild(el("path", {
-        d: contoursToPath([pieceContour(n)], cu), fill: PIECE_COLOR, "fill-opacity": 0.18,
+        d: contoursToPath(pieceContours(n), cu), fill: PIECE_COLOR, "fill-opacity": 0.18,
         stroke: PIECE_COLOR, "stroke-width": 1.5, "vector-effect": "non-scaling-stroke",
       }));
     }
@@ -2326,7 +2326,7 @@ function drawPieceMarkers(layer) {
     });
     const color = pieceMode === "cut" ? "#ff52a9" : PIECE_COLOR;
     layer.appendChild(el("path", {
-      d: contoursToPath([pieceContour(p)], cu), fill: color, "fill-opacity": 0.3,
+      d: contoursToPath(pieceContours(p), cu), fill: color, "fill-opacity": 0.3,
       stroke: color, "stroke-width": 2, "vector-effect": "non-scaling-stroke",
     }));
   }
@@ -2694,19 +2694,20 @@ function syncToolbar() {
   $("pieceCut").classList.toggle("active", pieceMode === "cut");
   document.querySelectorAll(".piece-shape").forEach((b) => b.classList.toggle("active", b.dataset.shape === $("pieceShape").value));
   const pieceKind = $("pieceShape").value;
-  $("pieceNBox").hidden = !pieceSettings[pieceKind];
-  $("pieceInnerBox").hidden = pieceKind !== "star";
-  if (pieceSettings[pieceKind]) {
+  const hasN = pieceKind === "star" || pieceKind === "ngon", hasInner = pieceKind === "star" || pieceKind === "ring" || pieceKind === "arc";
+  $("pieceNBox").hidden = !hasN;
+  $("pieceInnerBox").hidden = !hasInner;
+  if (hasInner) {
+    $("pieceInner").value = Math.round(pieceSettings[pieceKind].inner * 100);
+    $("pieceInnerOut").textContent = Math.round(pieceSettings[pieceKind].inner * 100) + "%";
+  }
+  if (hasN) {
     const [lo, hi] = pieceKind === "star" ? STAR_POINTS : NGON_SIDES;
     Object.assign($("pieceN"), { min: lo, max: hi, value: pieceSettings[pieceKind].n });
     $("pieceNOut").textContent = pieceSettings[pieceKind].n;
     $("pieceNLabel").textContent = pieceKind === "star" ? "Puntas" : "Lados";
     $("pieceNBox").title = pieceKind === "star" ? "Puntas de la estrella" : "Lados del polígono";
     $("pieceN").setAttribute("aria-label", pieceKind === "star" ? "Puntas" : "Lados");
-    if (pieceKind === "star") {
-      $("pieceInner").value = Math.round(pieceSettings.star.inner * 100);
-      $("pieceInnerOut").textContent = Math.round(pieceSettings.star.inner * 100) + "%";
-    }
   }
   $("mirrorH").classList.toggle("active", font.view.mirrorH);
   $("mirrorV").classList.toggle("active", font.view.mirrorV);
