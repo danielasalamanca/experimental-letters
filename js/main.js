@@ -23,7 +23,7 @@ import {
 import { squareCorners, effectiveRadii, MAX_RADIUS } from "./outline.js";
 import {
   commandsToOutline, outlineToCommands, cloneOutline, splitSegment, toggleSmooth, deleteNodes,
-  nearestSegment, snapToGrid, isSmooth, straightenCurves, outlineMaxX,
+  nearestSegment, snapToGrid, isSmooth, straightenCurves, outlineMaxX, outlineExtent,
 } from "./nodes.js";
 import { ownContours, glyphRawContours, componentContours } from "./shapes.js";
 import {
@@ -310,6 +310,7 @@ function decorate() {
   }
   if (tool === "pen") { drawNodeMarkers(layer, { ghost: true }); drawPenDraft(layer); syncPenHint(); }
   if (tool === "nodes") drawNodeMarkers(layer);
+  if (tool === "move") drawMoveBox(layer);
   if (selectedComponent() && (tool === "select" || tool === "nodes")) drawComponentBox(layer);
   if (action?.type === "marquee" && action.moved) {
     const { x0, y0, x1, y1 } = action;
@@ -577,6 +578,10 @@ function setTool(next) {
     }
     next = "nodes";
   }
+  if (next === "move" && !isNodeGlyph()) {
+    toast("Mover trabaja con figuras de nodos: en la grilla libre, o con Nodos (A) en cualquier letra.");
+    next = tool === "move" ? "draw" : tool;
+  }
   if (next === "corner" && !cornersAvailable()) {
     toast("En la grilla de círculos, Esquinas redondea las esquinas de piezas y polígonos. Esta letra no tiene ninguno.");
     next = tool === "corner" ? "draw" : tool;
@@ -589,10 +594,11 @@ function setTool(next) {
   if (tool === "poly") syncPolyBar();
   if (tool !== "select") selection.clear();
   if (tool !== "piece" && tool !== "poly") selectedPiece = null;
-  if (tool !== "nodes") nodeSel.clear();
+  if (tool !== "nodes" && tool !== "move") nodeSel.clear();
   $("toolNodes").classList.toggle("active", tool === "nodes");
+  $("toolMove").classList.toggle("active", tool === "move");
   $("nodeGroup").hidden = tool !== "nodes";
-  $("pathfinderGroup").hidden = tool !== "nodes";
+  $("pathfinderGroup").hidden = tool !== "nodes" && tool !== "move";
   if (tool !== "nodes") { setNodeAdd(false); setShapeMode(null); }
   $("toolPiece").classList.toggle("active", tool === "piece");
   $("pieceGroup").hidden = tool !== "piece";
@@ -600,7 +606,7 @@ function setTool(next) {
   $("toolSelect").classList.toggle("active", tool === "select");
   $("toolCorner").classList.toggle("active", tool === "corner");
   $("cornerGroup").hidden = tool !== "corner";
-  $("transformGroup").hidden = tool !== "select" && tool !== "nodes";
+  $("transformGroup").hidden = tool !== "select" && tool !== "nodes" && tool !== "move";
   $("boldGroup").hidden = master !== "bold";
   // Hints float over the board instead of taking space in the bar.
   $("boldHint").hidden = master !== "bold";
@@ -851,6 +857,12 @@ board.addEventListener("pointerdown", (evt) => {
     return;
   }
 
+  if (tool === "move") {
+    frozenBounds = null;
+    startMoveAction(evt);
+    return;
+  }
+
   if (tool === "pen") { penPress(evt); return; }
 
   if (tool === "poly") {
@@ -980,6 +992,10 @@ window.addEventListener("pointermove", (evt) => {
       dragOutlineScale(evt);
       break;
     }
+    case "outRotate": {
+      dragOutlineRotate(evt);
+      break;
+    }
     case "selScale": {
       dragSelScale(evt);
       break;
@@ -1081,7 +1097,7 @@ window.addEventListener("pointerup", () => {
     render(); syncPieceList(); return;
   }
   if (done.type === "node" || done.type === "scale") { render(); syncPieceList(); return; }
-  if (["nodes", "handle", "segBend", "nodeMarquee", "shapeDraw", "outScale"].includes(done.type)) { endNodeAction(done); return; }
+  if (["nodes", "handle", "segBend", "nodeMarquee", "shapeDraw", "outScale", "outRotate"].includes(done.type)) { endNodeAction(done); return; }
   render(done.type === "metric" ? "font" : "glyph");
 });
 
@@ -1396,6 +1412,7 @@ function moveNodeAction(evt) {
     const target = isFreeGrid() ? snapFree(to, new Set([...action.keys, ...action.partners.map((pt) => pt.key)])) : snapToGrid(to);
     d = [target[0] - grabbed.x, target[1] - grabbed.y];
   }
+  if (action.lazy && !action.moved) checkpoint();
   action.moved = true;
   const outline = ensureOutline();
   // A rounded corner travels with its node.
@@ -1484,6 +1501,7 @@ function endNodeAction(done) {
       editableOutline().forEach((c, ci) => c.nodes.forEach((n, ni) => {
         if (n.x >= ax && n.x <= bx && n.y >= ay && n.y <= by) nodeSel.add(`${ci}:${ni}`);
       }));
+      if (tool === "move") selectWholeShapes();
     }
     render(null);
     return;
@@ -1501,7 +1519,7 @@ function outlineScaleBox() {
   const picked = new Set([...nodeSel].map((k) => +k.split(":")[0]));
   const targets = outline.map((_, ci) => ci).filter((ci) => !picked.size || picked.has(ci));
   if (!targets.length || targets.every((ci) => !outline[ci].nodes.length)) return { targets: [], from: null };
-  return { targets, from: outlineBox(targets.map((ci) => outline[ci])) };
+  return { targets, from: outlineExtent(targets.map((ci) => outline[ci])) };
 }
 
 function outlineScaleHandles() {
@@ -1514,30 +1532,51 @@ function outlineScaleHandles() {
 }
 
 function dragOutlineScale(evt) {
-  const { from, id, orig, targets, origCorners } = action;
-  const left = id[1] === "l", bottom = id[0] === "b";
+  const { from, id, orig, targets } = action;
+  const left = id.includes("l"), bottom = id.includes("b");
+  const moveX = left || id.includes("r"), moveY = bottom || id.includes("t");
   const fixed = [left ? from.x1 : from.x0, bottom ? from.y1 : from.y0];
-  const o = pxToCells(14);
+  // Nodes tool: its handles sit a little outside the corners; Mover: on them.
+  const o = action.offset ?? pxToCells(14);
   const p = toCells(evt);
-  // The pointer is on the handle, which sits a little outside the corner.
-  let px = Math.max(0, p.x + (left ? o : -o)), py = p.y + (bottom ? o : -o);
+  // The pointer is on the handle, which may sit a little outside the corner.
+  const px = Math.max(0, p.x + (left ? o : -o)), py = p.y + (bottom ? o : -o);
   const w = from.x1 - from.x0, h = from.y1 - from.y0;
-  const sx = Math.max(Math.abs(px - fixed[0]), 0.1) / (w || 1), sy = Math.max(Math.abs(py - fixed[1]), 0.1) / (h || 1);
-  const dirX = Math.sign(px - fixed[0]) || (left ? -1 : 1), dirY = Math.sign(py - fixed[1]) || (bottom ? -1 : 1);
+  const sx = moveX ? Math.max(Math.abs(px - fixed[0]), 0.1) / (w || 1) : 1;
+  const sy = moveY ? Math.max(Math.abs(py - fixed[1]), 0.1) / (h || 1) : 1;
+  const dirX = moveX ? Math.sign(px - fixed[0]) || (left ? -1 : 1) : 1;
+  const dirY = moveY ? Math.sign(py - fixed[1]) || (bottom ? -1 : 1) : 1;
   let fx = dirX * sx, fy = dirY * sy;
-  if (evt.shiftKey) {
+  if (evt.shiftKey && moveX && moveY) {
     const f = Math.max(sx, sy);
     fx = dirX * f; fy = dirY * f;
   }
   if (fx * w + fixed[0] > 24) return;
-  const map = {
+  applyOutlineMap(action, {
     point: ([x, y]) => [fixed[0] + (x - fixed[0]) * fx, fixed[1] + (y - fixed[1]) * fy],
     vector: ([x, y]) => [x * fx, y * fy],
-  };
-  const reverse = fx * fy < 0;
+  }, fx * fy < 0);
+}
+
+// Turns the chosen shapes around the centre of their box (Shift: 15° steps).
+function dragOutlineRotate(evt) {
+  const { from, start } = action;
+  const cx = (from.x0 + from.x1) / 2, cy = (from.y0 + from.y1) / 2;
+  const p = toCells(evt);
+  let da = Math.atan2(p.y - cy, p.x - cx) - Math.atan2(start.y - cy, start.x - cx);
+  if (evt.shiftKey) da = Math.round(da / (Math.PI / 12)) * (Math.PI / 12);
+  const c = Math.cos(da), s = Math.sin(da);
+  applyOutlineMap(action, {
+    point: ([x, y]) => [cx + (x - cx) * c - (y - cy) * s, cy + (x - cx) * s + (y - cy) * c],
+    vector: ([x, y]) => [x * c - y * s, x * s + y * c],
+  }, false);
+}
+
+// Redraws the chosen contours of the action's original outline through `map`.
+// Rounded corners sitting on those nodes go with them.
+function applyOutlineMap({ orig, targets, origCorners }, map, reverse) {
   const g = glyph();
   const outline = orig.map((c, ci) => (targets.includes(ci) ? transformContour(c, map, reverse) : structuredClone(c)));
-  // Rounded corners sitting on the stretched nodes go with them.
   const onNodes = new Set(targets.flatMap((ci) => orig[ci].nodes.map((n) => cornerKey(n.x, n.y))));
   const corners = {};
   for (const [k, v] of Object.entries(origCorners)) if (!onNodes.has(k)) corners[k] = v;
@@ -1549,10 +1588,130 @@ function dragOutlineScale(evt) {
   });
   g.outline = outline;
   g.corners = corners;
-  if (reverse) nodeSel.clear();
+  if (reverse) {
+    nodeSel.clear();
+    // With Mover the chosen shapes stay chosen (their nodes now run backwards).
+    if (tool === "move") targets.forEach((ci) => outline[ci].nodes.forEach((_, ni) => nodeSel.add(`${ci}:${ni}`)));
+  }
   const right = Math.max(...targets.flatMap((ci) => outline[ci].nodes.map((n) => n.x)));
   if (right > g.cols) { g.cols = Math.min(24, Math.ceil(right)); syncControls(); }
   render();
+}
+
+// --- Mover: whole shapes ---
+// A click chooses the shape under the pointer (a letter's outer contour with
+// its counters); dragging moves it, the squares of its box stretch it and the
+// circle above it turns it. The chosen nodes are in `nodeSel` as in Nodos.
+const NODE_BOX_HANDLES = ["tl", "t", "tr", "r", "br", "b", "bl", "l"];
+
+function moveHandles() {
+  if (action || !nodeSel.size) return [];
+  const { from } = outlineScaleBox();
+  if (!from) return [];
+  const cx = (from.x0 + from.x1) / 2, cy = (from.y0 + from.y1) / 2;
+  const at = { l: from.x0, r: from.x1, t: from.y1, b: from.y0 };
+  const list = NODE_BOX_HANDLES.map((id) => ({
+    id,
+    x: id.includes("l") ? at.l : id.includes("r") ? at.r : cx,
+    y: id.includes("t") ? at.t : id.includes("b") ? at.b : cy,
+  }));
+  list.push({ id: "rot", x: cx, y: from.y1 + pxToCells(26) });
+  return list;
+}
+
+// The contours (outer + its counters) of the shape at `p`, or null.
+function shapeAt(outline, p, tol) {
+  const cmds = outlineToCommands(outline);
+  if (cmds.length === outline.length) {
+    const groups = contourObjects(cmds).filter((grp) => windingAt(grp.map((i) => cmds[i]), [p.x, p.y]) !== 0);
+    if (groups.length) return groups[groups.length - 1];
+  }
+  const seg = nearestSegment(outline, [p.x, p.y]);
+  if (!seg || seg.dist > tol) return null;
+  const cs = outlineToCommands(outline);
+  const grp = cs.length === outline.length ? contourObjects(cs).find((g2) => g2.includes(seg.contour)) : null;
+  return grp ?? [seg.contour];
+}
+
+// Chooses whole shapes: any contour with a chosen node, and its counters.
+function selectWholeShapes() {
+  const outline = editableOutline();
+  const cmds = outlineToCommands(outline);
+  const picked = new Set([...nodeSel].map((k) => +k.split(":")[0]));
+  const groups = cmds.length === outline.length ? contourObjects(cmds) : outline.map((_, i) => [i]);
+  for (const grp of groups) {
+    if (!grp.some((ci) => picked.has(ci))) continue;
+    for (const ci of grp) outline[ci].nodes.forEach((_, ni) => nodeSel.add(`${ci}:${ni}`));
+  }
+}
+
+function startMoveAction(evt) {
+  const p = toCells(evt);
+  const outline = editableOutline();
+  const handle = moveHandles().find((hd) => Math.hypot(p.x - hd.x, p.y - hd.y) < pxToCells(9));
+  if (handle) {
+    checkpoint();
+    const { targets, from } = outlineScaleBox();
+    ensureOutline();
+    action = {
+      type: handle.id === "rot" ? "outRotate" : "outScale", id: handle.id, targets, from, start: p, offset: 0,
+      orig: cloneOutline(glyph().outline), origCorners: { ...glyph().corners },
+    };
+    return;
+  }
+  const grp = shapeAt(outline, p, pxToCells(8));
+  if (!grp) {
+    if (compSel !== null) { compSel = null; renderComponents(); }
+    action = { type: "nodeMarquee", x0: p.x, y0: p.y, x1: p.x, y1: p.y, moved: false, additive: evt.shiftKey };
+    return;
+  }
+  const keysOf = (grp2) => grp2.flatMap((ci) => outline[ci].nodes.map((_, ni) => `${ci}:${ni}`));
+  const mine = keysOf(grp);
+  if (evt.shiftKey) {
+    // Shift: add the shape to the choice, or take it out of it.
+    if (mine.every((k) => nodeSel.has(k))) mine.forEach((k) => nodeSel.delete(k)); else mine.forEach((k) => nodeSel.add(k));
+    render(null);
+    return;
+  }
+  if (!mine.every((k) => nodeSel.has(k))) { nodeSel.clear(); mine.forEach((k) => nodeSel.add(k)); }
+  // The undo step is made at the first real movement: a plain click only chooses.
+  const keys = [...nodeSel];
+  action = {
+    type: "nodes", key: keys[0], start: p, keys, moved: false, lazy: true,
+    partners: nodePartners(outline, keys), orig: cloneOutline(outline), origCorners: { ...glyph().corners },
+  };
+  render(null);
+}
+
+function drawMoveBox(layer) {
+  const outline = editableOutline();
+  const picked = new Set([...nodeSel].map((k) => +k.split(":")[0]));
+  const cu = font.cell, px = 1 / board.getScreenCTM().a;
+  if (picked.size) {
+    layer.appendChild(el("path", {
+      d: contoursToPath(outlineToCommands(outline.filter((_, ci) => picked.has(ci))), cu), fill: "none",
+      stroke: NODE_COLOR, "stroke-width": 1.5, "vector-effect": "non-scaling-stroke",
+    }));
+  }
+  const { targets, from } = outlineScaleBox();
+  if (!from || !picked.size || action?.type === "nodes") return;
+  const box = outlineExtent(targets.map((ci) => outline[ci]));
+  layer.appendChild(el("rect", {
+    x: box.x0 * cu, y: -box.y1 * cu, width: (box.x1 - box.x0) * cu, height: (box.y1 - box.y0) * cu,
+    fill: "none", stroke: NODE_COLOR, "stroke-width": 1, "vector-effect": "non-scaling-stroke",
+  }));
+  const hs = moveHandles();
+  const rot = hs.find((hd) => hd.id === "rot"), top = hs.find((hd) => hd.id === "t");
+  if (rot && top) {
+    layer.appendChild(el("line", { x1: top.x * cu, y1: -top.y * cu, x2: rot.x * cu, y2: -rot.y * cu, stroke: NODE_COLOR, "stroke-width": 1, "vector-effect": "non-scaling-stroke" }));
+  }
+  for (const hd of hs) {
+    if (hd.id === "rot") layer.appendChild(el("circle", { cx: hd.x * cu, cy: -hd.y * cu, r: 5 * px, fill: "#fff", stroke: NODE_COLOR, "stroke-width": 1.5, "vector-effect": "non-scaling-stroke" }));
+    else {
+      const size = 7 * px;
+      layer.appendChild(el("rect", { x: hd.x * cu - size / 2, y: -hd.y * cu - size / 2, width: size, height: size, fill: "#fff", stroke: NODE_COLOR, "stroke-width": 1.2, "vector-effect": "non-scaling-stroke" }));
+    }
+  }
 }
 
 // Shift: snap a vector to multiples of 45°.
@@ -1973,6 +2132,26 @@ function joinOutline(piece) {
   // One object per figure: a mirrored copy runs the other way round, and
   // in one object the two would cancel where they overlap.
   const figures = placed.map((p) => pieceContours(p));
+  if (mode !== "cut" && isFreeGrid()) {
+    // Free grid: a new figure stays a shape of its own, to edit apart; the
+    // pathfinder's "Unir" joins it when wanted.
+    const outline = ensureOutline();
+    const first = outline.length;
+    for (const figure of figures) {
+      figure.forEach((cmds, i) => {
+        let contour = commandsToOutline([cmds])[0];
+        if (!contour) return;
+        // Ink runs counter-clockwise, a ring's hole the other way.
+        if ((polygonArea(contourSamples(cmds)) > 0) !== (i === 0)) contour = reverseContour(contour);
+        outline.push(contour);
+      });
+    }
+    nodeSel.clear();
+    outline.slice(first).forEach((c, k) => c.nodes.forEach((_, ni) => nodeSel.add(`${first + k}:${ni}`)));
+    syncToolbar();
+    render();
+    return;
+  }
   const keep = keepRounding();
   const result = mode === "cut"
     ? figures.reduce((acc, f) => pathfinder("minusFront", [acc, f], keep), commands)
@@ -2064,6 +2243,10 @@ function finishPen() {
   if (!commands.length) {
     ensureOutline();
     g.outline = [contour];
+  } else if (isFreeGrid()) {
+    // Free grid: the figure stays apart (inside the ink it is a counter);
+    // the pathfinder's "Unir" joins shapes when wanted.
+    ensureOutline().push(contour);
   } else {
     const keep = keepRounding();
     const figure = outlineToCommands([contour]);
@@ -2635,6 +2818,7 @@ $("toolCorner").addEventListener("click", () => setTool("corner"));
 $("toolPiece").addEventListener("click", () => setTool("piece"));
 $("toolPen").addEventListener("click", () => setTool("pen"));
 $("toolNodes").addEventListener("click", () => setTool("nodes"));
+$("toolMove").addEventListener("click", () => setTool("move"));
 $("nodeAdd").addEventListener("click", () => setNodeAdd(!nodeAddMode));
 $("shapeRect").addEventListener("click", () => setShapeMode(shapeMode === "rect" ? null : "rect"));
 $("shapeEllipse").addEventListener("click", () => setShapeMode(shapeMode === "ellipse" ? null : "ellipse"));
@@ -2759,12 +2943,12 @@ const cornersAvailable = () =>
 function syncToolbar() {
   const nodesOnly = isNodeGlyph();
   for (const id of ["toolDraw", "toolSelect"]) $(id).disabled = nodesOnly;
-  if (nodesOnly && !["nodes", "pen", "corner", "poly", "piece"].includes(tool)) setTool("nodes");
-  // On the free grid P is the pen (Shift + P, pieces) and V the arrow.
+  if (nodesOnly && !["nodes", "move", "pen", "corner", "poly", "piece"].includes(tool)) setTool("nodes");
+  // On the free grid P is the pen (Shift + P, pieces) and V the move tool.
   const free = isFreeGrid();
   $("toolPen").querySelector("kbd").textContent = free ? "P" : "";
   $("toolPiece").querySelector("kbd").textContent = free ? "⇧P" : "P";
-  $("toolNodes").querySelector("kbd").textContent = free ? "A · V" : "A";
+  $("toolNodes").querySelector("kbd").textContent = "A";
   $("toolCorner").disabled = !cornersAvailable();
   if (tool === "corner" && !cornersAvailable()) setTool("draw");
   const bold = master === "bold";
@@ -3095,7 +3279,7 @@ window.addEventListener("keydown", (e) => {
     else if (k === "c") { e.preventDefault(); copySelection(); }
     else if (k === "x") { e.preventDefault(); if (!selection.size) return; copySelection(); deleteSelection(); }
     // Pastes what was copied last: outlines (as nodes) or grid cells.
-    else if (k === "v" && (lastCopy === "nodes" || (tool === "nodes" && !clipboard))) { e.preventDefault(); pasteNodes(); }
+    else if (k === "v" && (lastCopy === "nodes" || ((tool === "nodes" || tool === "move") && !clipboard))) { e.preventDefault(); pasteNodes(); }
     else if (k === "v" && isNodeGlyph()) {
       e.preventDefault();
       toast("Esta letra se edita con nodos: para pegar aquí, copia desde una letra con Nodos (A).");
@@ -3115,30 +3299,30 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   const arrows = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, 1], arrowdown: [0, -1] };
-  if (tool === "nodes" && arrows[k] && nodeSel.size) {
+  if ((tool === "nodes" || tool === "move") && arrows[k] && nodeSel.size) {
     // Nodes move a quarter of a cell (Shift: a whole cell).
     e.preventDefault();
     const step = e.shiftKey ? 1 : 0.25;
     nudgeNodes(arrows[k][0] * step, arrows[k][1] * step);
   }
-  else if ((k === "delete" || k === "backspace") && !nodeSel.size && !selection.size && (tool === "select" || tool === "nodes") && pickedPart()) {
+  else if ((k === "delete" || k === "backspace") && !nodeSel.size && !selection.size && (tool === "select" || tool === "nodes" || tool === "move") && pickedPart()) {
     e.preventDefault();
     erasePickedPart();
   }
-  else if (tool === "nodes" && (k === "delete" || k === "backspace")) { e.preventDefault(); deleteSelectedNodes(); }
-  else if (tool === "nodes" && k === "escape") {
+  else if ((tool === "nodes" || tool === "move") && (k === "delete" || k === "backspace")) { e.preventDefault(); deleteSelectedNodes(); }
+  else if ((tool === "nodes" || tool === "move") && k === "escape") {
     if (nodeAddMode) setNodeAdd(false);
     else if (shapeMode) setShapeMode(null);
     else { nodeSel.clear(); compSel = null; renderComponents(); render(null); }
   }
   else if (arrows[k] && selection.size) { e.preventDefault(); nudge(...arrows[k]); }
-  else if (arrows[k] && selectedComponent() && (tool === "select" || tool === "nodes")) { e.preventDefault(); nudgeComponent(...arrows[k]); }
+  else if (arrows[k] && selectedComponent() && (tool === "select" || tool === "nodes" || tool === "move")) { e.preventDefault(); nudgeComponent(...arrows[k]); }
   else if ((k === "delete" || k === "backspace") && tool === "piece" && selectedPiece !== null) { e.preventDefault(); removePiece(selectedPiece); }
   else if (k === "delete" || k === "backspace") { if (selection.size) { e.preventDefault(); deleteSelection(); } }
   else if (k === "escape") { selection.clear(); compSel = null; renderComponents(); render(null); }
   else if (k === "b") setTool("draw");
   else if (e.shiftKey && k === "v") transformShape("v");
-  else if (k === "v") setTool("select");
+  else if (k === "v") setTool(isNodeGlyph() ? "move" : "select");
   else if (k === "e") setTool("corner");
   else if (k === "p") setTool(isFreeGrid() && !e.shiftKey ? "pen" : "piece");
   else if (k === "g") setTool("poly");
