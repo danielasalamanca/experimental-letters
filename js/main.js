@@ -1250,14 +1250,6 @@ function startNodeAction(evt) {
   const p = toCells(evt);
   const outline = editableOutline();
   const tol = pxToCells(8);
-  const grip = outlineScaleHandles().find((q) => Math.hypot(p.x - q.x, p.y - q.y) < pxToCells(9));
-  if (grip) {
-    checkpoint();
-    const { targets, from } = outlineScaleBox();
-    ensureOutline();
-    action = { type: "outScale", id: grip.id, targets, from, orig: cloneOutline(glyph().outline), origCorners: { ...glyph().corners } };
-    return;
-  }
   const h = handleHit(outline, p, tol);
   if (h) {
     checkpoint();
@@ -1330,24 +1322,6 @@ function startNodeAction(evt) {
     if (ci !== null) { nodeSel.clear(); startComponentDrag(ci, p); return; }
   }
   if (compSel !== null) { compSel = null; renderComponents(); }
-  // On the letter's ink: choose its whole shape; dragging moves it.
-  if (!evt.shiftKey) {
-    const inShape = outline.map((c, ci) => ci).filter((ci) => windingAt(outlineToCommands([outline[ci]]), [p.x, p.y]) !== 0);
-    if (inShape.length && windingAt(outlineToCommands(outline), [p.x, p.y]) !== 0) {
-      const keys = inShape.flatMap((ci) => outline[ci].nodes.map((_, ni) => `${ci}:${ni}`));
-      nodeSel.clear();
-      keys.forEach((k) => nodeSel.add(k));
-      checkpoint();
-      action = {
-        type: "nodes", key: keys[0], start: p, keys, moved: false,
-        partners: nodePartners(outline, keys),
-        orig: cloneOutline(outline),
-        origCorners: { ...glyph().corners },
-      };
-      render(null);
-      return;
-    }
-  }
   action = { type: "nodeMarquee", x0: p.x, y0: p.y, x1: p.x, y1: p.y, moved: false, additive: evt.shiftKey };
 }
 
@@ -1524,22 +1498,13 @@ function outlineScaleBox() {
   return { targets, from: outlineExtent(targets.map((ci) => outline[ci])) };
 }
 
-function outlineScaleHandles() {
-  if (shapeMode || nodeAddMode || action) return [];
-  const { from } = outlineScaleBox();
-  if (!from) return [];
-  const o = pxToCells(14);
-  return [["bl", from.x0 - o, from.y0 - o], ["br", from.x1 + o, from.y0 - o], ["tl", from.x0 - o, from.y1 + o], ["tr", from.x1 + o, from.y1 + o]]
-    .map(([id, x, y]) => ({ id, x, y }));
-}
-
 function dragOutlineScale(evt) {
   const { from, id, orig, targets } = action;
   const left = id.includes("l"), bottom = id.includes("b");
   const moveX = left || id.includes("r"), moveY = bottom || id.includes("t");
   const fixed = [left ? from.x1 : from.x0, bottom ? from.y1 : from.y0];
-  // Nodes tool: its handles sit a little outside the corners; Mover: on them.
-  const o = action.offset ?? pxToCells(14);
+  // Mover's handles sit on the box (offset 0).
+  const o = action.offset ?? 0;
   const p = toCells(evt);
   // The pointer is on the handle, which may sit a little outside the corner.
   const px = Math.max(0, p.x + (left ? o : -o)), py = p.y + (bottom ? o : -o);
@@ -2007,12 +1972,6 @@ function drawNodeMarkers(layer, { ghost = false } = {}) {
       }
     }
   }));
-  for (const h of ghost ? [] : outlineScaleHandles()) {
-    layer.appendChild(el("circle", {
-      cx: h.x * cu, cy: -h.y * cu, r: 6 * px,
-      fill: "#fff", stroke: NODE_COLOR, "stroke-width": 2, "vector-effect": "non-scaling-stroke",
-    }));
-  }
   if (action?.type === "shapeDraw" && action.x1 !== action.x0 && action.y1 !== action.y0) {
     layer.appendChild(el("path", {
       d: contoursToPath(outlineToCommands([shapeContour(shapeMode, action)]), cu),
