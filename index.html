@@ -6,11 +6,11 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=115" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=117" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=115" : "favicon-light.png?v=115"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=117" : "favicon-light.png?v=117"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,30 +18,41 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=115">
+  <link rel="stylesheet" href="style.css?v=117">
 </head>
 <body>
+  <script>document.body.dataset.view = location.hash === "#editor" ? "editor" : "home";</script>
   <header class="topbar">
-    <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=115" width="461" height="33" alt="Experimental Letters"></h1>
-    <div class="font-picker">
-      <label for="fontSelect" class="sr-only">Tipografía abierta</label>
-      <select id="fontSelect" title="Tus tipografías en este navegador"></select>
+    <button id="homeBtn" type="button" class="icon-btn" title="Volver al inicio (tus tipografías)" aria-label="Volver al inicio"><img src="img/home.svg" width="18" height="18" alt=""></button>
+    <div class="doc-title">
+      <span class="doc-name" id="fontTitle"></span>
       <span class="font-style" id="fontStyleName"></span>
       <span class="save-status" id="saveStatus"></span>
     </div>
     <div class="top-actions">
-      <button id="newFont" type="button" title="Empieza una tipografía nueva; la actual queda guardada">+ Nueva</button>
-      <button id="saveFont" type="button" title="Guarda la tipografía en este navegador (además se guarda sola)">Guardar</button>
-      <button id="exportOtf" type="button" class="primary" title="Descarga la fuente instalable (.otf)"><img src="img/export.svg" width="18" height="18" alt=""> Exportar fuente</button>
-      <button id="helpBtn" type="button" class="icon-btn" title="Ayuda y atajos" aria-label="Ayuda y atajos"><img src="img/help.svg" width="18" height="18" alt=""></button>
-    </div>
-    <div class="history">
       <button id="toggleLetters" type="button" class="icon-btn" title="Ocultar las letras (L)" aria-label="Ocultar las letras" aria-expanded="true" aria-controls="lettersPanel"><img src="img/menu.svg" width="18" height="18" alt=""></button>
       <button id="undo" type="button" class="icon-btn" title="Deshacer (Cmd/Ctrl + Z)" aria-label="Deshacer"><img src="img/undo.svg" width="18" height="18" alt=""></button>
       <button id="redo" type="button" class="icon-btn" title="Rehacer (Cmd/Ctrl + Shift + Z)" aria-label="Rehacer"><img src="img/redo.svg" width="18" height="18" alt=""></button>
       <button id="toggleProps" type="button" class="icon-btn" title="Ocultar las propiedades (Tab oculta los dos paneles)" aria-label="Ocultar las propiedades" aria-expanded="true"><img src="img/sidebar-right.svg" width="18" height="18" alt=""></button>
+      <button id="saveFont" type="button" title="Guarda la tipografía en este navegador (además se guarda sola)">Guardar</button>
+      <button id="exportOtf" type="button" class="primary" title="Descarga la fuente instalable (.otf)"><img src="img/export.svg" width="18" height="18" alt=""> Exportar fuente</button>
+      <button id="helpBtn" type="button" class="icon-btn" title="Ayuda y atajos" aria-label="Ayuda y atajos"><img src="img/help.svg" width="18" height="18" alt=""></button>
     </div>
   </header>
+
+  <main class="home" id="home" aria-label="Inicio">
+    <div class="home-head">
+      <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=117" width="461" height="33" alt="Experimental Letters"></h1>
+      <div class="home-actions">
+        <button id="newFont" type="button" class="primary" title="Empieza una tipografía nueva; las demás quedan guardadas">+ Nueva tipografía</button>
+        <button id="homeOpen" type="button" title="Abre un proyecto .json como una tipografía nueva de tu biblioteca">Abrir archivo .json</button>
+        <button id="homeHelp" type="button" class="icon-btn" title="Ayuda y atajos" aria-label="Ayuda y atajos"><img src="img/help.svg" width="18" height="18" alt=""></button>
+      </div>
+    </div>
+    <h2 class="label home-label">Tus tipografías</h2>
+    <div class="home-grid" id="homeGrid"></div>
+    <p class="info" id="homeEmpty" hidden>Todavía no tienes tipografías. Crea una con «+ Nueva tipografía».</p>
+  </main>
 
   <div class="app">
     <aside class="zone zone-left" id="lettersPanel" aria-label="Letras">
@@ -611,30 +622,31 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=115",
-        "./js/geometry.js": "./js/geometry.js?v=115",
-        "./js/model.js": "./js/model.js?v=115",
-        "./js/render.js": "./js/render.js?v=115",
-        "./js/tools.js": "./js/tools.js?v=115",
-        "./js/library.js": "./js/library.js?v=115",
-        "./js/history.js": "./js/history.js?v=115",
-        "./js/pieces.js": "./js/pieces.js?v=115",
-        "./js/serifs.js": "./js/serifs.js?v=115",
-        "./js/nodes.js": "./js/nodes.js?v=115",
-        "./js/shapes.js": "./js/shapes.js?v=115",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=115",
-        "./js/outline.js": "./js/outline.js?v=115",
-        "./js/otf.js": "./js/otf.js?v=115",
-        "./js/masters.js": "./js/masters.js?v=115",
-        "./js/variable.js": "./js/variable.js?v=115",
-        "./js/woff.js": "./js/woff.js?v=115",
-        "./js/export.js": "./js/export.js?v=115",
-        "./js/testbar.js": "./js/testbar.js?v=115",
-        "./js/guide.js": "./js/guide.js?v=115",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=115"
+        "./js/charset.js": "./js/charset.js?v=117",
+        "./js/geometry.js": "./js/geometry.js?v=117",
+        "./js/model.js": "./js/model.js?v=117",
+        "./js/render.js": "./js/render.js?v=117",
+        "./js/tools.js": "./js/tools.js?v=117",
+        "./js/library.js": "./js/library.js?v=117",
+        "./js/history.js": "./js/history.js?v=117",
+        "./js/pieces.js": "./js/pieces.js?v=117",
+        "./js/serifs.js": "./js/serifs.js?v=117",
+        "./js/nodes.js": "./js/nodes.js?v=117",
+        "./js/shapes.js": "./js/shapes.js?v=117",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=117",
+        "./js/outline.js": "./js/outline.js?v=117",
+        "./js/otf.js": "./js/otf.js?v=117",
+        "./js/masters.js": "./js/masters.js?v=117",
+        "./js/variable.js": "./js/variable.js?v=117",
+        "./js/woff.js": "./js/woff.js?v=117",
+        "./js/export.js": "./js/export.js?v=117",
+        "./js/testbar.js": "./js/testbar.js?v=117",
+        "./js/guide.js": "./js/guide.js?v=117",
+        "./js/home.js": "./js/home.js?v=117",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=117"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=115"></script>
+  <script type="module" src="js/main.js?v=117"></script>
 </body>
 </html>

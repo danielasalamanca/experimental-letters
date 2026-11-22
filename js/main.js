@@ -11,6 +11,7 @@ import {
 import { GROUPS, CHARSET, DINGBAT_GROUPS, glyphName, codepoint, alternateOf, baseChar, caseOf, isDingbat, parseDingbat } from "./charset.js";
 import { drawGlyph, el, SVG_NS, contoursToPath } from "./render.js";
 import { openLibrary, saveFont, loadFont, deleteFont, newId, fontName } from "./library.js";
+import { initHome } from "./home.js";
 import { History } from "./history.js";
 import { initExport, baseName, downloadBlob, syncExportKinds } from "./export.js";
 import { initTestbar } from "./testbar.js";
@@ -3244,6 +3245,7 @@ function cutNodes() {
 }
 
 window.addEventListener("keydown", (e) => {
+  if (document.body.dataset.view === "home") return;
   if (e.target.matches?.("input, select, textarea") || e.target.closest?.(".testbar")) return;
   const mod = e.metaKey || e.ctrlKey;
   const k = e.key.toLowerCase();
@@ -4098,6 +4100,7 @@ $("projectFile").addEventListener("change", async (e) => {
     return;
   }
   switchTo(newId(), normalizeFont(data));
+  goTo("editor");
   toast(`«${fontName(font)}» se abrió como una tipografía nueva de tu biblioteca`);
 });
 
@@ -4105,23 +4108,16 @@ $("projectFile").addEventListener("change", async (e) => {
 let librarySignature = "";
 
 function syncLibrary() {
-  const select = $("fontSelect");
-  const signature = library.active + "|" + library.fonts.map((f) => f.id + f.name).join("|");
-  if (signature !== librarySignature) {
-    librarySignature = signature;
-    select.replaceChildren(...[...library.fonts]
-      .sort((a, b) => a.name.localeCompare(b.name, "es"))
-      .map((f) => new Option(f.name, f.id)));
-    select.value = library.active;
-  }
   const time = lastSaved?.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
   const count = `${library.fonts.length} tipografía${library.fonts.length === 1 ? "" : "s"} en este navegador`;
+  $("fontTitle").textContent = font.meta.family?.trim() || "Sin nombre";
   $("saveStatus").textContent = saveFailed
     ? "no se pudo guardar · descarga el .json"
     : time ? `guardada ${time}` : "";
   $("saveStatus").classList.toggle("failed", saveFailed);
   $("saveStatus").title = count;
-  $("fontStyleName").textContent = font.meta.style?.trim() || "Regular";
+  const style = font.meta.style?.trim() || "Regular";
+  $("fontStyleName").textContent = style;
 }
 
 // --- Help and first-use tip ---
@@ -4433,18 +4429,6 @@ function confirmAction({ title, message, ok }) {
   });
 }
 
-$("fontSelect").addEventListener("change", (e) => {
-  const id = e.target.value;
-  const data = loadFont(storage, id);
-  if (!data) {
-    toast("No se pudo abrir esa tipografía.");
-    e.target.value = library.active;
-    return;
-  }
-  switchTo(id, normalizeFont(data));
-  toast(`Abierta «${fontName(font)}»`);
-});
-
 $("newFont").addEventListener("click", () => {
   $("newFontName").value = "Nueva tipografía";
   $("newFontGrid").value = "free"; // the main grid; points and circles can be chosen here
@@ -4454,7 +4438,8 @@ $("newFont").addEventListener("click", () => {
     if (dialog.returnValue !== "create") return;
     const family = $("newFontName").value.trim() || "Nueva tipografía";
     switchTo(newId(), createBlankFont({ family, grid: $("newFontGrid").value }));
-    toast(`Nueva tipografía «${family}». La anterior quedó guardada en la lista.`);
+    goTo("editor");
+    toast(`Nueva tipografía «${family}». La anterior quedó guardada en el inicio.`);
   };
   dialog.showModal();
   $("newFontName").select();
@@ -4472,23 +4457,83 @@ $("duplicateFont").addEventListener("click", () => {
   toast(`Ahora trabajas en «${fontName(font)}»; el original quedó guardado`);
 });
 
-$("deleteFont").addEventListener("click", async () => {
-  const name = fontName(font);
+// Deletes a saved font (the open one or any other) after asking.
+async function removeFont(id) {
+  const name = library.fonts.find((f) => f.id === id)?.name ?? fontName(font);
   const sure = await confirmAction({
     title: "Eliminar tipografía",
     message: `¿Eliminar «${name}» de este navegador? No se puede deshacer. Si quieres conservarla, descarga antes el .json.`,
     ok: "Eliminar",
   });
   if (!sure) return;
-  deleteFont(storage, library, library.active);
-  const next = library.fonts[0];
-  const data = next && loadFont(storage, next.id);
-  // switchTo saves the open font first, so point it at the next one now.
-  library.active = next ? next.id : newId();
-  font = data ? normalizeFont(data) : createBlankFont();
-  switchTo(library.active, font);
+  deleteFont(storage, library, id);
+  if (id === library.active) {
+    const next = library.fonts[0];
+    const data = next && loadFont(storage, next.id);
+    // switchTo saves the open font first, so point it at the next one now.
+    library.active = next ? next.id : newId();
+    font = data ? normalizeFont(data) : createBlankFont();
+    switchTo(library.active, font);
+  }
+  if (document.body.dataset.view === "home") homeView.render();
   toast(`Eliminada «${name}»`);
+}
+$("deleteFont").addEventListener("click", () => removeFont(library.active));
+
+// --- Home page and the way in and out of the editor ---
+const homeView = initHome({
+  grid: $("homeGrid"),
+  empty: $("homeEmpty"),
+  getLibrary: () => library,
+  getFont: (id) => {
+    if (id === library.active) return font;
+    const data = loadFont(storage, id);
+    try { return data ? normalizeFont(data) : null; } catch { return null; }
+  },
+  onOpen: (id) => {
+    if (id !== library.active) {
+      const data = loadFont(storage, id);
+      if (!data) { toast("No se pudo abrir esa tipografía."); return; }
+      switchTo(id, normalizeFont(data));
+    }
+    goTo("editor");
+  },
+  onDuplicate: (id) => {
+    const data = id === library.active ? font : loadFont(storage, id);
+    if (!data) { toast("No se pudo duplicar esa tipografía."); return; }
+    const copy = normalizeFont(JSON.parse(JSON.stringify(data)));
+    copy.meta.family = `${copy.meta.family} copia`;
+    switchTo(newId(), copy);
+    persistNow();
+    homeView.render();
+    toast(`«${fontName(copy)}» creada; el original sigue guardado`);
+  },
+  onDelete: removeFont,
 });
+
+function showView(view) {
+  document.body.dataset.view = view;
+  if (view === "home") {
+    persistNow();
+    homeView.render();
+    window.scrollTo(0, 0);
+  } else {
+    syncLibrary();
+    render(null);
+  }
+}
+
+// The view lives in the address (#editor) so reloading and the browser's back
+// button keep their place.
+function goTo(view) {
+  const url = view === "editor" ? "#editor" : location.pathname + location.search;
+  if (document.body.dataset.view !== view) history.pushState({ view }, "", url);
+  showView(view);
+}
+addEventListener("popstate", () => showView(location.hash === "#editor" ? "editor" : "home"));
+$("homeBtn").addEventListener("click", () => goTo("home"));
+$("homeOpen").addEventListener("click", () => $("projectFile").click());
+$("homeHelp").addEventListener("click", () => $("helpDialog").showModal());
 
 initExport({ getFont: () => font, getGlyph: glyph, toast });
 initGuide({ getFont: () => font, isEmptyGlyph, selectGlyph });
@@ -4498,3 +4543,4 @@ buildRowInputs();
 buildToolbar();
 setTool(isFreeGrid() ? "pen" : "draw");
 refreshAll();
+showView(location.hash === "#editor" ? "editor" : "home");
