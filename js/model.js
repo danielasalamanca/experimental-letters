@@ -321,7 +321,7 @@ export function createFont() {
 export const createFullFont = () => ensureCharset(createFont());
 
 // A new, empty font (no sample letter) for "Nueva tipografía".
-export function createBlankFont({ family = "Nueva tipografía", grid = "squares" } = {}) {
+export function createBlankFont({ family = "Nueva tipografía", grid = "free" } = {}) {
   const font = createFont();
   font.glyphs = {};
   font.meta.family = family;
@@ -396,7 +396,7 @@ export function normalizeFont(data) {
 
 // "free" is the node-drawn grid: no cells, only outlines, with the points
 // snapping to `font.gridSpacing` (see the grid panel).
-export const GRIDS = { squares: "Puntos (cuadrados)", circles: "Círculos (estrellas)", free: "Libre (nodos)" };
+export const GRIDS = { free: "Libre (nodos)", squares: "Puntos (cuadrados)", circles: "Círculos (estrellas)" };
 
 export const glyphGrid = (font, glyph) => glyph.grid ?? font.grid;
 

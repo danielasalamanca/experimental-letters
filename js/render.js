@@ -145,8 +145,8 @@ export function drawGlyph(svg, font, glyph, opts = {}) {
         for (let y = Math.ceil(ylo / at) * at; y <= yhi; y += at) group.appendChild(el("line", { x1: left, x2: right, y1: -y, y2: -y, "vector-effect": "non-scaling-stroke" }));
         return group;
       };
-      if (sub > 1 && minor >= cu / 10) g.appendChild(lines(minor, "#efede8"));
-      g.appendChild(lines(step, "#e2e0da"));
+      if (sub > 1 && minor >= cu / 10) g.appendChild(lines(minor, "#f6f4f0"));
+      g.appendChild(lines(step, "#edebe6"));
       svg.appendChild(g);
     }
   } else if (guides) {

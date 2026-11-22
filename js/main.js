@@ -54,7 +54,8 @@ const storage = (() => {
 
 const opened = openLibrary(storage);
 let library = opened.index;
-let font = normalizeFont(opened.data);
+// First visit: an empty font on the free grid, the main one.
+let font = opened.data ? normalizeFont(opened.data) : createBlankFont({ family: "Letras Experimentales" });
 // --- Masters: the Regular (the drawing) or the bold one (see masters.js) ---
 let master = "regular";
 let boldView = null; // read-only bold master of a letter made of components
@@ -4197,7 +4198,7 @@ $("fontSelect").addEventListener("change", (e) => {
 
 $("newFont").addEventListener("click", () => {
   $("newFontName").value = "Nueva tipografía";
-  $("newFontGrid").value = "squares"; // the main grid; circles can be chosen here
+  $("newFontGrid").value = "free"; // the main grid; points and circles can be chosen here
   const dialog = $("newFontDialog");
   dialog.returnValue = "";
   dialog.onclose = () => {
@@ -4246,5 +4247,5 @@ initGuide({ getFont: () => font, isEmptyGlyph, selectGlyph });
 buildMetricInputs();
 buildRowInputs();
 buildToolbar();
-setTool("draw");
+setTool(isFreeGrid() ? "pen" : "draw");
 refreshAll();

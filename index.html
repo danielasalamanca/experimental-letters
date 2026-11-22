@@ -6,11 +6,11 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=105" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=107" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=105" : "favicon-light.png?v=105"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=107" : "favicon-light.png?v=107"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,11 +18,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=105">
+  <link rel="stylesheet" href="style.css?v=107">
 </head>
 <body>
   <header class="topbar">
-    <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=105" width="461" height="33" alt="Experimental Letters"></h1>
+    <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=107" width="461" height="33" alt="Experimental Letters"></h1>
     <div class="font-picker">
       <label for="fontSelect" class="sr-only">Tipografía abierta</label>
       <select id="fontSelect" title="Tus tipografías en este navegador"></select>
@@ -89,7 +89,7 @@
 
       <div class="tip" id="tip" role="note" hidden>
         <strong>Para empezar</strong>
-        <span>Elige una letra a la izquierda y haz clic o arrastra sobre la grilla para dibujarla. Mantén la barra espaciadora para verla sin guías.</span>
+        <span>Elige una letra a la izquierda y dibújala con la pluma: clic para una esquina, arrastra para una curva. Después ajusta los nodos. Mantén la barra espaciadora para verla sin guías.</span>
         <button id="tipClose" type="button" class="small">Entendido</button>
       </div>
       <div class="work">
@@ -610,30 +610,30 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=105",
-        "./js/geometry.js": "./js/geometry.js?v=105",
-        "./js/model.js": "./js/model.js?v=105",
-        "./js/render.js": "./js/render.js?v=105",
-        "./js/tools.js": "./js/tools.js?v=105",
-        "./js/library.js": "./js/library.js?v=105",
-        "./js/history.js": "./js/history.js?v=105",
-        "./js/pieces.js": "./js/pieces.js?v=105",
-        "./js/serifs.js": "./js/serifs.js?v=105",
-        "./js/nodes.js": "./js/nodes.js?v=105",
-        "./js/shapes.js": "./js/shapes.js?v=105",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=105",
-        "./js/outline.js": "./js/outline.js?v=105",
-        "./js/otf.js": "./js/otf.js?v=105",
-        "./js/masters.js": "./js/masters.js?v=105",
-        "./js/variable.js": "./js/variable.js?v=105",
-        "./js/woff.js": "./js/woff.js?v=105",
-        "./js/export.js": "./js/export.js?v=105",
-        "./js/testbar.js": "./js/testbar.js?v=105",
-        "./js/guide.js": "./js/guide.js?v=105",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=105"
+        "./js/charset.js": "./js/charset.js?v=107",
+        "./js/geometry.js": "./js/geometry.js?v=107",
+        "./js/model.js": "./js/model.js?v=107",
+        "./js/render.js": "./js/render.js?v=107",
+        "./js/tools.js": "./js/tools.js?v=107",
+        "./js/library.js": "./js/library.js?v=107",
+        "./js/history.js": "./js/history.js?v=107",
+        "./js/pieces.js": "./js/pieces.js?v=107",
+        "./js/serifs.js": "./js/serifs.js?v=107",
+        "./js/nodes.js": "./js/nodes.js?v=107",
+        "./js/shapes.js": "./js/shapes.js?v=107",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=107",
+        "./js/outline.js": "./js/outline.js?v=107",
+        "./js/otf.js": "./js/otf.js?v=107",
+        "./js/masters.js": "./js/masters.js?v=107",
+        "./js/variable.js": "./js/variable.js?v=107",
+        "./js/woff.js": "./js/woff.js?v=107",
+        "./js/export.js": "./js/export.js?v=107",
+        "./js/testbar.js": "./js/testbar.js?v=107",
+        "./js/guide.js": "./js/guide.js?v=107",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=107"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=105"></script>
+  <script type="module" src="js/main.js?v=107"></script>
 </body>
 </html>
