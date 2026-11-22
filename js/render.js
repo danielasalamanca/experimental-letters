@@ -40,13 +40,17 @@ export function glyphBounds(font, glyph) {
     }
   }
   const right = glyph.cols * cu + glyph.rsb;
+  // Free grid: the width follows the drawing, so the working area keeps a
+  // minimum size of its own to draw in.
+  const work = glyphGrid(font, glyph) === "free" ? WORK_COLS * cu : 0;
   return {
     lo, hi, cols: glyph.cols,
     left: Math.min(-cu / 2, -glyph.lsb) - cu,
-    right: Math.max(glyph.cols * cu + cu / 2, right) + cu,
+    right: Math.max(glyph.cols * cu + cu / 2, right, work) + cu,
   };
 }
 
+export const WORK_COLS = 8;
 const metricRows = (m) => ({ ...m, baseline: 0 });
 
 // Draws `glyph` into `svg`. Options:

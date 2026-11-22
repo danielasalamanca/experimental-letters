@@ -23,7 +23,7 @@ import {
 import { squareCorners, effectiveRadii, MAX_RADIUS } from "./outline.js";
 import {
   commandsToOutline, outlineToCommands, cloneOutline, splitSegment, toggleSmooth, deleteNodes,
-  nearestSegment, snapToGrid, isSmooth, straightenCurves,
+  nearestSegment, snapToGrid, isSmooth, straightenCurves, outlineMaxX,
 } from "./nodes.js";
 import { ownContours, glyphRawContours, componentContours } from "./shapes.js";
 import {
@@ -66,15 +66,39 @@ const isNodeGlyph = (g = glyph()) => !!g.outline || glyphGrid(font, g) === "free
 const isFreeGrid = (g = glyph()) => glyphGrid(font, g) === "free";
 // The free grid's snap step in cells (0: no snapping).
 const freeStep = () => (font.gridSpacing > 0 ? font.gridSpacing / Math.max(1, font.gridSubdiv ?? 1) / font.cell : 0);
-// Points snap to the grid and, nearby, to the metric lines (baseline, x
-// height, cap height, ascender, descender) wherever the grid wouldn't reach.
-const snapFree = ([x, y]) => {
+// A soft magnet: a point is pulled to a grid line, a metric line (baseline,
+// x height, cap height, ascender, descender) or the position of another
+// node only when it is within a few screen pixels of it; anywhere else it
+// stays where it is. So zooming in always allows a finer placement, and
+// shapes can be lined up with each other. `skip` holds the keys of nodes
+// that are being moved, which are not targets. Alt turns it off (callers).
+const SNAP_PX = 6;
+// Where a piece's corner lands: grid points (Alt: half cells), or on the free
+// grid the soft magnet (Alt: exactly where the pointer is).
+const pieceSnap = (x, y, evt) => {
+  if (isFreeGrid()) return evt.altKey ? [x, y] : snapFree([x, y]);
+  const step = evt.altKey ? 0.5 : 1;
+  return [Math.round(x / step) * step, Math.round(y / step) * step];
+};
+const snapFree = ([x, y], skip = null) => {
   const step = freeStep();
   if (!step) return [x, y];
   const m = font.metrics;
-  const tol = board ? pxToCells(7) : 0.1;
-  const line = [0, m.xHeight, m.capHeight, m.ascender, m.descender].find((r) => Math.abs(r - y) < tol);
-  return [Math.round(x / step) * step, line ?? Math.round(y / step) * step];
+  const tol = board ? pxToCells(SNAP_PX) : 0.1;
+  const xs = [], ys = [0, m.xHeight, m.capHeight, m.ascender, m.descender];
+  glyph().outline?.forEach((c, ci) => c.nodes.forEach((n, ni) => {
+    if (skip?.has(`${ci}:${ni}`)) return;
+    xs.push(n.x); ys.push(n.y);
+  }));
+  const pull = (v, targets) => {
+    let best = v, bestD = tol;
+    for (const t of [...targets, Math.round(v / step) * step]) {
+      const d = Math.abs(t - v);
+      if (d < bestD) { best = t; bestD = d; }
+    }
+    return best;
+  };
+  return [pull(x, xs), pull(y, ys)];
 };
 // The glyph whose sidebearings the margin controls edit: an alternate shares
 // those of its letter (see syncAlternates), so they're edited there.
@@ -108,7 +132,22 @@ function boldOf(char) {
 // --- Storage: the open font is saved to the library on every change ---
 let lastSaved = null, saveFailed = false;
 
+// Saving rewrites the whole font in localStorage, so while dragging it waits
+// for a pause instead of running on every pointer move; leaving the page
+// saves at once.
+let persistTimer = null, firstSave = true;
 function persist() {
+  // The first one is immediate, so the library list is filled on opening.
+  if (firstSave) { firstSave = false; persistNow(); return; }
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(persistNow, 300);
+}
+addEventListener("pagehide", () => { if (persistTimer) persistNow(); });
+document.addEventListener("visibilitychange", () => { if (document.hidden && persistTimer) persistNow(); });
+
+function persistNow() {
+  clearTimeout(persistTimer);
+  persistTimer = null;
   if (saveFont(storage, library, font)) {
     lastSaved = new Date();
     saveFailed = false;
@@ -152,7 +191,19 @@ let zoomBox = null;      // explicit viewBox while zoomed or panned; null = fit
 
 // Redraws the canvas. `scope` says which thumbnails are stale:
 // "glyph" = the active glyph and the composites using it, "font" = all.
+// Free grid: the glyph's width is its drawing's right edge (the sidebearings
+// go on top), not a number of columns.
+function fitFreeWidth() {
+  const g = glyph();
+  if (master !== "regular" || g.readOnly || !isFreeGrid(g) || !g.outline?.length) return;
+  const max = outlineMaxX(g.outline);
+  if (!(max > 0)) return;
+  const cols = Math.max(0.2, Math.round(max * 100) / 100);
+  if (g.cols !== cols) { g.cols = cols; syncGlyphPanel(); }
+}
+
 function render(scope = "glyph") {
+  fitFreeWidth();
   syncInvertedGlyphs(font);
   syncAlternates(font);
   // Placing or deleting the first piece turns the corner tool on or off.
@@ -826,9 +877,9 @@ board.addEventListener("pointerdown", (evt) => {
       return;
     }
     const { x, y } = toCells(evt);
-    // Grid points; with Alt, half cells (thin slits, small dots).
-    const step = evt.altKey ? 0.5 : 1;
-    const sx = Math.round(x / step) * step, sy = Math.round(y / step) * step;
+    // Grid points; with Alt, half cells (thin slits, small dots). On the free
+    // grid, its own soft magnet (Alt: none).
+    const [sx, sy] = pieceSnap(x, y, evt);
     action = { type: "piece", x0: sx, y0: sy, x1: sx, y1: sy, moved: false, at: { x, y } };
     return;
   }
@@ -956,8 +1007,7 @@ window.addEventListener("pointermove", (evt) => {
     }
     case "piece": {
       const { x, y } = toCells(evt);
-      const step = evt.altKey ? 0.5 : 1;
-      let x1 = Math.round(x / step) * step, y1 = Math.round(y / step) * step;
+      let [x1, y1] = pieceSnap(x, y, evt);
       if (evt.shiftKey) {
         // Shift: as wide as tall (a square box: circle, regular star…).
         const side = Math.max(Math.abs(x1 - action.x0), Math.abs(y1 - action.y0));
@@ -1070,8 +1120,11 @@ function nodeHit(outline, p, tol) {
   return best;
 }
 
+// On the free grid every node shows its handles, as in FontBob, so any of
+// them can be grabbed; elsewhere only the chosen nodes' handles are shown.
 function handleHit(outline, p, tol) {
-  for (const k of nodeSel) {
+  const keys = isFreeGrid() ? outline.flatMap((c, ci) => c.nodes.map((_, ni) => `${ci}:${ni}`)) : [...nodeSel];
+  for (const k of keys) {
     const [ci, ni] = k.split(":").map(Number);
     const n = outline[ci]?.nodes[ni];
     if (!n) continue;
@@ -1192,6 +1245,8 @@ function startNodeAction(evt) {
   const h = handleHit(outline, p, tol);
   if (h) {
     checkpoint();
+    // Grabbing a handle chooses its node.
+    if (!nodeSel.has(`${h.ci}:${h.ni}`)) { nodeSel.clear(); nodeSel.add(`${h.ci}:${h.ni}`); }
     const n = outline[h.ci].nodes[h.ni];
     const partners = nodePartners(outline, [`${h.ci}:${h.ni}`]).map((pt) => {
       // Which handle of the mirrored node mirrors this one.
@@ -1259,6 +1314,24 @@ function startNodeAction(evt) {
     if (ci !== null) { nodeSel.clear(); startComponentDrag(ci, p); return; }
   }
   if (compSel !== null) { compSel = null; renderComponents(); }
+  // On the letter's ink: choose its whole shape; dragging moves it.
+  if (!evt.shiftKey) {
+    const inShape = outline.map((c, ci) => ci).filter((ci) => windingAt(outlineToCommands([outline[ci]]), [p.x, p.y]) !== 0);
+    if (inShape.length && windingAt(outlineToCommands(outline), [p.x, p.y]) !== 0) {
+      const keys = inShape.flatMap((ci) => outline[ci].nodes.map((_, ni) => `${ci}:${ni}`));
+      nodeSel.clear();
+      keys.forEach((k) => nodeSel.add(k));
+      checkpoint();
+      action = {
+        type: "nodes", key: keys[0], start: p, keys, moved: false,
+        partners: nodePartners(outline, keys),
+        orig: cloneOutline(outline),
+        origCorners: { ...glyph().corners },
+      };
+      render(null);
+      return;
+    }
+  }
   action = { type: "nodeMarquee", x0: p.x, y0: p.y, x1: p.x, y1: p.y, moved: false, additive: evt.shiftKey };
 }
 
@@ -1309,7 +1382,7 @@ function moveNodeAction(evt) {
       const po = pt.which === "in" ? "out" : "in";
       if (n[other] && pn[po]) pn[po] = pt.vec(n[other]);
     }
-    render();
+    render(null);
     return;
   }
   // Moving nodes: the grabbed node snaps to the grid (Alt: no snapping),
@@ -1320,7 +1393,7 @@ function moveNodeAction(evt) {
   const grabbed = nodeAtKey(action.orig, action.key);
   if (!evt.altKey) {
     const to = [grabbed.x + d[0], grabbed.y + d[1]];
-    const target = isFreeGrid() ? snapFree(to) : snapToGrid(to);
+    const target = isFreeGrid() ? snapFree(to, new Set([...action.keys, ...action.partners.map((pt) => pt.key)])) : snapToGrid(to);
     d = [target[0] - grabbed.x, target[1] - grabbed.y];
   }
   action.moved = true;
@@ -1342,7 +1415,7 @@ function moveNodeAction(evt) {
   for (const k of action.keys) place(k, d);
   for (const pt of action.partners) place(pt.key, pt.vec(d));
   for (const [k, v] of carried) g.corners[k] = v;
-  render();
+  render(null);
 }
 
 // Dragging an edge: the point of the curve under the pointer follows it, by
@@ -1371,7 +1444,7 @@ function bendSegment(evt, p) {
   };
   keepSmooth(a, oa, "out");
   keepSmooth(b, ob, "in");
-  render();
+  render(null);
 }
 
 function endNodeAction(done) {
@@ -1717,12 +1790,14 @@ function drawNodeMarkers(layer, { ghost = false } = {}) {
   outline.forEach((c, ci) => c.nodes.forEach((n, ni) => {
     const selected = nodeSel.has(`${ci}:${ni}`);
     const nx = n.x * cu, ny = -n.y * cu;
-    if (selected) {
+    if (selected || isFreeGrid()) {
       for (const which of ["in", "out"]) {
         if (!n[which]) continue;
         const hx = (n.x + n[which][0]) * cu, hy = -(n.y + n[which][1]) * cu;
-        layer.appendChild(el("line", { x1: nx, y1: ny, x2: hx, y2: hy, stroke: NODE_COLOR, "stroke-width": 0.75, "vector-effect": "non-scaling-stroke" }));
-        layer.appendChild(el("circle", { cx: hx, cy: hy, r: 3 * px, fill: "#fff", stroke: NODE_COLOR, "stroke-width": 1, "vector-effect": "non-scaling-stroke" }));
+        // Free grid: handles of unchosen nodes are quieter.
+        const quiet = !selected;
+        layer.appendChild(el("line", { x1: nx, y1: ny, x2: hx, y2: hy, stroke: NODE_COLOR, "stroke-width": 0.75, "stroke-opacity": quiet ? 0.45 : 1, "vector-effect": "non-scaling-stroke" }));
+        layer.appendChild(el("circle", { cx: hx, cy: hy, r: (quiet ? 2.5 : 3) * px, fill: quiet ? NODE_COLOR : "#fff", "fill-opacity": quiet ? 0.7 : 1, stroke: NODE_COLOR, "stroke-width": 1, "vector-effect": "non-scaling-stroke" }));
       }
     }
     const color = isSmoothNode(n) ? SMOOTH_COLOR : NODE_COLOR;
@@ -1918,6 +1993,12 @@ let penDraft = null; // { nodes: [{ x, y, in, out }], hover: [x, y] | null }
 function penPress(evt) {
   // Cmd/Ctrl turns the pen into the arrow, as in Illustrator and Glyphs.
   if ((evt.metaKey || evt.ctrlKey) && !penDraft) { startNodeAction(evt); return; }
+  // Pressing on a node or a handle of a finished shape edits it, with no
+  // need to change tools (as in FontBob).
+  if (!penDraft && !evt.altKey) {
+    const o = editableOutline(), c = toCells(evt), tol = pxToCells(8);
+    if (handleHit(o, c, tol) || nodeHit(o, c, tol)) { startNodeAction(evt); return; }
+  }
   const at = snapPoly(evt);
   const start = { sx: evt.clientX, sy: evt.clientY };
   if (!penDraft) penDraft = { nodes: [], hover: at };
@@ -3106,26 +3187,29 @@ function syncGlyphPanel() {
   $("glyphCode").textContent = alt ? `Alternativa ${alt.n} de «${alt.base}» · ${codepoint(char)}` : codepoint(char);
   $("removeDingbat").hidden = !isDingbat(shown);
   $("boardChar").textContent = $("glyphChar").textContent;
-  $("boardInfo").textContent = `${codepoint(char)} · ${g.cols} col`;
+  const free = isFreeGrid(g);
+  $("boardInfo").textContent = free ? `${codepoint(char)} · ${Math.round(g.cols * font.cell)} u` : `${codepoint(char)} · ${g.cols} col`;
   drawGlyph($("glyphThumb"), font, g, { frame: "advance" });
   const gridSelect = $("glyphGrid");
   gridSelect.replaceChildren(new Option(`Como la fuente (${GRIDS[font.grid]})`, ""));
   for (const [value, name] of Object.entries(GRIDS)) gridSelect.appendChild(new Option(name, value));
   gridSelect.value = g.grid ?? "";
+  // Free grid: no width control, the drawing sets it.
+  $("cols").closest(".range-row").hidden = free;
   $("cols").value = g.cols;
   $("colsOut").textContent = g.cols;
   $("lsb").value = g.lsb;
   $("rsb").value = g.rsb;
   const spacing = spacingKey(font, font.active);
   $("advanceInfo").textContent =
-    `avance = ${g.lsb} + ${g.cols} × ${font.cell} + ${g.rsb} = ${advanceWidth(font, g)} u`
+    (free ? `avance = ${g.lsb} + dibujo ${Math.round(g.cols * font.cell)} + ${g.rsb} = ${Math.round(advanceWidth(font, g))} u`
+      : `avance = ${g.lsb} + ${g.cols} × ${font.cell} + ${g.rsb} = ${advanceWidth(font, g)} u`)
     + (spacing === font.active ? "" : ` · márgenes y kerning de «${spacing}»`);
   renderComponents();
   renderAlternates();
   syncKernGroups();
   syncPieceList();
   const edited = !!g.outline;
-  const free = isFreeGrid(g);
   $("editNodes").hidden = edited || free;
   $("backToGrid").hidden = !edited || free;
   $("nodeInfo").textContent = free
@@ -4162,7 +4246,7 @@ $("tipClose").addEventListener("click", () => {
 
 // Saves the open font, then opens `data` under `id` with a fresh history.
 function switchTo(id, data) {
-  persist();
+  persistNow();
   library.active = id;
   font = data;
   undoHistory.clear();
@@ -4212,7 +4296,7 @@ $("newFont").addEventListener("click", () => {
 });
 
 $("saveFont").addEventListener("click", () => {
-  persist();
+  persistNow();
   if (!saveFailed) toast(`«${fontName(font)}» guardada en este navegador`);
 });
 

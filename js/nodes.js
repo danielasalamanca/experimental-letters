@@ -110,6 +110,19 @@ export function nearestSegment(outline, [x, y]) {
   return best;
 }
 
+// Rightmost point of an outline, curves included (sampled along every segment).
+export function outlineMaxX(outline) {
+  let max = -Infinity;
+  for (const contour of outline) {
+    const count = contour.closed ? contour.nodes.length : contour.nodes.length - 1;
+    for (let i = 0; i < count; i++) {
+      const seg = segment(contour, i);
+      for (let k = 0; k <= 24; k++) max = Math.max(max, bezierAt(seg, k / 24)[0]);
+    }
+  }
+  return max;
+}
+
 // Adds a node on segment `index` at parameter t, keeping the curve's shape.
 export function splitSegment(outline, ci, index, t) {
   const contour = outline[ci];

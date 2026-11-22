@@ -6,11 +6,11 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=107" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=111" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=107" : "favicon-light.png?v=107"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=111" : "favicon-light.png?v=111"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,11 +18,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=107">
+  <link rel="stylesheet" href="style.css?v=111">
 </head>
 <body>
   <header class="topbar">
-    <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=107" width="461" height="33" alt="Experimental Letters"></h1>
+    <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=111" width="461" height="33" alt="Experimental Letters"></h1>
     <div class="font-picker">
       <label for="fontSelect" class="sr-only">Tipografía abierta</label>
       <select id="fontSelect" title="Tus tipografías en este navegador"></select>
@@ -610,30 +610,30 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=107",
-        "./js/geometry.js": "./js/geometry.js?v=107",
-        "./js/model.js": "./js/model.js?v=107",
-        "./js/render.js": "./js/render.js?v=107",
-        "./js/tools.js": "./js/tools.js?v=107",
-        "./js/library.js": "./js/library.js?v=107",
-        "./js/history.js": "./js/history.js?v=107",
-        "./js/pieces.js": "./js/pieces.js?v=107",
-        "./js/serifs.js": "./js/serifs.js?v=107",
-        "./js/nodes.js": "./js/nodes.js?v=107",
-        "./js/shapes.js": "./js/shapes.js?v=107",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=107",
-        "./js/outline.js": "./js/outline.js?v=107",
-        "./js/otf.js": "./js/otf.js?v=107",
-        "./js/masters.js": "./js/masters.js?v=107",
-        "./js/variable.js": "./js/variable.js?v=107",
-        "./js/woff.js": "./js/woff.js?v=107",
-        "./js/export.js": "./js/export.js?v=107",
-        "./js/testbar.js": "./js/testbar.js?v=107",
-        "./js/guide.js": "./js/guide.js?v=107",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=107"
+        "./js/charset.js": "./js/charset.js?v=111",
+        "./js/geometry.js": "./js/geometry.js?v=111",
+        "./js/model.js": "./js/model.js?v=111",
+        "./js/render.js": "./js/render.js?v=111",
+        "./js/tools.js": "./js/tools.js?v=111",
+        "./js/library.js": "./js/library.js?v=111",
+        "./js/history.js": "./js/history.js?v=111",
+        "./js/pieces.js": "./js/pieces.js?v=111",
+        "./js/serifs.js": "./js/serifs.js?v=111",
+        "./js/nodes.js": "./js/nodes.js?v=111",
+        "./js/shapes.js": "./js/shapes.js?v=111",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=111",
+        "./js/outline.js": "./js/outline.js?v=111",
+        "./js/otf.js": "./js/otf.js?v=111",
+        "./js/masters.js": "./js/masters.js?v=111",
+        "./js/variable.js": "./js/variable.js?v=111",
+        "./js/woff.js": "./js/woff.js?v=111",
+        "./js/export.js": "./js/export.js?v=111",
+        "./js/testbar.js": "./js/testbar.js?v=111",
+        "./js/guide.js": "./js/guide.js?v=111",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=111"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=107"></script>
+  <script type="module" src="js/main.js?v=111"></script>
 </body>
 </html>
