@@ -1388,7 +1388,9 @@ function moveNodeAction(evt) {
     n[action.which] = v;
     // A smooth node keeps both handles in line (Alt breaks them apart).
     const other = action.which === "in" ? "out" : "in";
-    if (action.smooth && !evt.altKey && n[other]) {
+    // Free grid, as in FontBob: each handle is its own; Alt mirrors the other
+    // one. Elsewhere a smooth node keeps both in line (Alt breaks them apart).
+    if ((isFreeGrid() ? evt.altKey : action.smooth && !evt.altKey) && n[other]) {
       const len = Math.hypot(...n[other]), lv = Math.hypot(...v) || 1;
       n[other] = [-v[0] / lv * len, -v[1] / lv * len];
     }
@@ -1946,6 +1948,25 @@ function drawNodeMarkers(layer, { ghost = false } = {}) {
     ...(rounded ? { "stroke-dasharray": "3 3", "stroke-opacity": 0.55 } : {}),
   }));
   if (rounded) drawRoundedNodes(layer, rounded, outline);
+  // The segments next to a chosen node are drawn heavier, as in FontBob.
+  if (isFreeGrid() && nodeSel.size) {
+    const hi = new Set();
+    outline.forEach((c, ci) => c.nodes.forEach((_, ni) => {
+      if (!nodeSel.has(`${ci}:${ni}`)) return;
+      const n = c.nodes.length;
+      hi.add(`${ci}:${(ni - 1 + n) % n}`);
+      hi.add(`${ci}:${ni}`);
+    }));
+    const parts = [];
+    for (const k of hi) {
+      const [ci, i] = k.split(":").map(Number);
+      const c = outline[ci], n = c.nodes.length;
+      if (!c.closed && i >= n - 1) continue;
+      const cmds = outlineToCommands([{ closed: false, nodes: [c.nodes[i], c.nodes[(i + 1) % n]] }]).flat().filter((cm) => cm.type !== "Z");
+      parts.push(contoursToPath([cmds], cu));
+    }
+    if (parts.length) layer.appendChild(el("path", { d: parts.join(" "), fill: "none", stroke: NODE_COLOR, "stroke-width": 2.5, "vector-effect": "non-scaling-stroke" }));
+  }
   outline.forEach((c, ci) => c.nodes.forEach((n, ni) => {
     const selected = nodeSel.has(`${ci}:${ni}`);
     const nx = n.x * cu, ny = -n.y * cu;
@@ -1960,7 +1981,7 @@ function drawNodeMarkers(layer, { ghost = false } = {}) {
       }
     }
     const color = isSmoothNode(n) ? SMOOTH_COLOR : NODE_COLOR;
-    const attrs = { fill: selected ? color : "#fff", stroke: color, "stroke-width": 1.2, "vector-effect": "non-scaling-stroke" };
+    const attrs = { fill: selected ? (isFreeGrid() ? "#1d1d1b" : color) : "#fff", stroke: color, "stroke-width": 1.2, "vector-effect": "non-scaling-stroke" };
     if (isSmoothNode(n)) layer.appendChild(el("circle", { cx: nx, cy: ny, r: 3 * px, ...attrs }));
     else {
       const size = 5.5 * px;
@@ -3302,7 +3323,8 @@ window.addEventListener("keydown", (e) => {
   if ((tool === "nodes" || tool === "move") && arrows[k] && nodeSel.size) {
     // Nodes move a quarter of a cell (Shift: a whole cell).
     e.preventDefault();
-    const step = e.shiftKey ? 1 : 0.25;
+    // Free grid: 1 unit (Shift: 10) for precise adjustments.
+    const step = isFreeGrid() ? (e.shiftKey ? 10 : 1) / font.cell : e.shiftKey ? 1 : 0.25;
     nudgeNodes(arrows[k][0] * step, arrows[k][1] * step);
   }
   else if ((k === "delete" || k === "backspace") && !nodeSel.size && !selection.size && (tool === "select" || tool === "nodes" || tool === "move") && pickedPart()) {
