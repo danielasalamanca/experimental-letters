@@ -352,6 +352,10 @@ export function drawShapes(font, cellList, { grid, curve, rounding, corners = {}
 // --- Test text ---
 export const KERN_COLOR = "#ff52a9";
 
+// Ids are shared by the whole page, so every drawing needs its own: with
+// repeated ids, <use> takes the letters of the first SVG that has them.
+let textDrawings = 0;
+
 // Draws `text` set in the font. Each distinct glyph is drawn once in <defs>
 // and placed with <use>. Options: size (em in px), ink, paper,
 // pair ({ line, index } of the left character of the selected pair).
@@ -388,9 +392,10 @@ export function drawText(svg, font, text, { size, ink, paper, pair = null, metri
 
   const defs = el("defs");
   const ids = new Map();
+  const drawing = ++textDrawings;
   for (const { char, glyph } of layout.items) {
     if (!glyph || ids.has(char)) continue;
-    const id = `t${ids.size}`;
+    const id = `t${drawing}-${ids.size}`;
     ids.set(char, id);
     let shapes;
     if (weighted) {

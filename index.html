@@ -6,11 +6,11 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=121" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=122" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=121" : "favicon-light.png?v=121"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=122" : "favicon-light.png?v=122"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,100..1000&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=121">
+  <link rel="stylesheet" href="style.css?v=122">
 </head>
 <body>
   <script>document.body.dataset.view = location.hash === "#editor" ? "editor" : "home";</script>
@@ -42,7 +42,7 @@
 
   <main class="home" id="home" aria-label="Inicio">
     <div class="home-head">
-      <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=121" width="461" height="33" alt="Experimental Letters"></h1>
+      <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=122" width="461" height="33" alt="Experimental Letters"></h1>
       <div class="home-actions">
         <button id="newFont" type="button" class="primary" title="Empieza una tipografía nueva; las demás quedan guardadas">+ Nueva tipografía</button>
         <button id="homeOpen" type="button" title="Abre un proyecto .json como una tipografía nueva de tu biblioteca">Abrir archivo .json</button>
@@ -652,31 +652,31 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=121",
-        "./js/geometry.js": "./js/geometry.js?v=121",
-        "./js/model.js": "./js/model.js?v=121",
-        "./js/render.js": "./js/render.js?v=121",
-        "./js/tools.js": "./js/tools.js?v=121",
-        "./js/library.js": "./js/library.js?v=121",
-        "./js/history.js": "./js/history.js?v=121",
-        "./js/pieces.js": "./js/pieces.js?v=121",
-        "./js/serifs.js": "./js/serifs.js?v=121",
-        "./js/nodes.js": "./js/nodes.js?v=121",
-        "./js/shapes.js": "./js/shapes.js?v=121",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=121",
-        "./js/outline.js": "./js/outline.js?v=121",
-        "./js/otf.js": "./js/otf.js?v=121",
-        "./js/masters.js": "./js/masters.js?v=121",
-        "./js/variable.js": "./js/variable.js?v=121",
-        "./js/woff.js": "./js/woff.js?v=121",
-        "./js/export.js": "./js/export.js?v=121",
-        "./js/testbar.js": "./js/testbar.js?v=121",
-        "./js/guide.js": "./js/guide.js?v=121",
-        "./js/home.js": "./js/home.js?v=121",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=121"
+        "./js/charset.js": "./js/charset.js?v=122",
+        "./js/geometry.js": "./js/geometry.js?v=122",
+        "./js/model.js": "./js/model.js?v=122",
+        "./js/render.js": "./js/render.js?v=122",
+        "./js/tools.js": "./js/tools.js?v=122",
+        "./js/library.js": "./js/library.js?v=122",
+        "./js/history.js": "./js/history.js?v=122",
+        "./js/pieces.js": "./js/pieces.js?v=122",
+        "./js/serifs.js": "./js/serifs.js?v=122",
+        "./js/nodes.js": "./js/nodes.js?v=122",
+        "./js/shapes.js": "./js/shapes.js?v=122",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=122",
+        "./js/outline.js": "./js/outline.js?v=122",
+        "./js/otf.js": "./js/otf.js?v=122",
+        "./js/masters.js": "./js/masters.js?v=122",
+        "./js/variable.js": "./js/variable.js?v=122",
+        "./js/woff.js": "./js/woff.js?v=122",
+        "./js/export.js": "./js/export.js?v=122",
+        "./js/testbar.js": "./js/testbar.js?v=122",
+        "./js/guide.js": "./js/guide.js?v=122",
+        "./js/home.js": "./js/home.js?v=122",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=122"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=121"></script>
+  <script type="module" src="js/main.js?v=122"></script>
 </body>
 </html>

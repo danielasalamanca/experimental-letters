@@ -13,11 +13,14 @@ const drawnCount = (font) =>
 const isDrawn = (g) => !!(g && (g.cells?.length || g.outline?.length || g.pieces?.length));
 
 // What the preview spells: the font's name if its letters are drawn, else
-// the first letters that are.
+// the first characters that are (letters before figures and signs).
 function previewText(font, name) {
   const spell = [...name].filter((c) => c === " " || isDrawn(font.glyphs?.[c])).join("").trim();
   if (spell.replace(/ /g, "").length >= Math.min(4, name.replace(/ /g, "").length)) return spell.slice(0, 22);
-  return Object.keys(font.glyphs ?? {}).filter((k) => [...k].length === 1 && isDrawn(font.glyphs[k])).slice(0, 8).join("");
+  // Object keys list the figures first, so the letters are moved to the front.
+  const drawn = Object.keys(font.glyphs ?? {}).filter((k) => [...k].length === 1 && isDrawn(font.glyphs[k]));
+  const isLetter = (k) => /\p{L}/u.test(k);
+  return [...drawn.filter(isLetter), ...drawn.filter((k) => !isLetter(k))].slice(0, 8).join("");
 }
 
 const when = (time) => {
