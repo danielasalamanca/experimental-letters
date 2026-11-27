@@ -276,6 +276,18 @@ grilla:
   primera o la izquierda de la segunda) para elegir el par; ajústalo con − y +,
   con las flechas ← → (Shift: de a 50 u) o escribiendo el valor. Los pares
   ajustados aparecen como etiquetas debajo; clic para volver a uno.
+- **Kerning automático:** el botón **Kerning auto** de la barra de prueba
+  calcula cada par a partir del dibujo: mide el blanco que queda entre las dos
+  letras, fila por fila, y lo compara con el de las letras de control (n y o en
+  minúsculas, H y O en mayúsculas; si aún no están dibujadas, con los márgenes
+  de tus letras). Los pares tan abiertos como esos no se tocan; los demás (AV,
+  To, LT, T.) se compensan. Los valores se actualizan solos al cambiar un
+  dibujo o un margen, se ven en azul sobre el texto y se incluyen en la fuente
+  exportada. **Intensidad** regula cuánto se compensa. Un valor puesto a mano
+  (de un par o de sus grupos) siempre manda, incluso si es 0; **Volver a auto**
+  lo borra. No se kernea una minúscula seguida de mayúscula, ni letras con
+  números o símbolos. En la fuente variable, los dos pesos usan los valores
+  calculados sobre el Regular.
 - **Grupos de kerning** (como en Glyphs): en **Esta letra › Grupos de
   kerning** cada letra puede tener un grupo por lado. Si V y W tienen el grupo
   izquierdo «V» y A el derecho «A», un solo valor de AV vale para AV, AW, ÁV,

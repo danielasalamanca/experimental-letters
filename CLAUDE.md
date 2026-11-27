@@ -29,6 +29,8 @@ When checking changes in the browser, prefer `http://127.0.0.1:8123` over `local
 
 **Kerning.** Pairs in `font.kerning` (`"AV": -40`) plus Glyphs-style groups: `font.groups.left/right` name each glyph's group per side (accented letters and alternates inherit their letter's), and `font.groupKerning[rightGroup][leftGroup]` holds group values. A pair of its own is an exception (even at 0). Export expands everything into glyph pairs (`kerningPairs`). With `font.allCaps`, lowercase letters are set and exported as their capitals (`capitalOf`).
 
+**Automatic kerning (`js/autokern.js`).** With `font.autoKern.enabled`, pairs without a manual value (pair or group) get one computed from the final contours: scanline profiles, the white between two letters compared with that of nn/no/oo and HH/HO/OO, limited by a minimum distance. Nothing is stored. The module registers itself in model.js (`setAutoKernSource`), so whoever needs the values imports it (testbar.js, otf.js, variable.js). `autoKerner(font)` is only valid for one pass: make a new one after any change.
+
 **Two grids, one drawing.** The same cells render as either:
 - *circles* — each cell is a concave star between four circles (`geometry.js`); exact export outlines built analytically in `outline.js` (`glyphContours`), with optional "unión mínima" bridges.
 - *squares* — rounded squares (`outline.js` `squareContours`), with global and per-corner rounding.

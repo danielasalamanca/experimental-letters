@@ -6,11 +6,11 @@
   <title>Experimental Letters</title>
   <!-- Black icon on light systems, acid icon on dark ones. Swapped by script:
        not every browser honors `media` on icons (Safari ignores it). -->
-  <link rel="icon" type="image/png" href="favicon-light.png?v=122" id="favicon">
+  <link rel="icon" type="image/png" href="favicon-light.png?v=123" id="favicon">
   <script>
     (() => {
       const dark = matchMedia("(prefers-color-scheme: dark)");
-      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=122" : "favicon-light.png?v=122"; };
+      const set = () => { document.getElementById("favicon").href = dark.matches ? "favicon.png?v=123" : "favicon-light.png?v=123"; };
       set();
       dark.addEventListener("change", set);
     })();
@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,100..1000&family=Familjen+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
-  <link rel="stylesheet" href="style.css?v=122">
+  <link rel="stylesheet" href="style.css?v=123">
 </head>
 <body>
   <script>document.body.dataset.view = location.hash === "#editor" ? "editor" : "home";</script>
@@ -42,7 +42,7 @@
 
   <main class="home" id="home" aria-label="Inicio">
     <div class="home-head">
-      <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=122" width="461" height="33" alt="Experimental Letters"></h1>
+      <h1 class="brand"><img class="wordmark" src="img/wordmark.svg?v=123" width="461" height="33" alt="Experimental Letters"></h1>
       <div class="home-actions">
         <button id="newFont" type="button" class="primary" title="Empieza una tipografía nueva; las demás quedan guardadas">+ Nueva tipografía</button>
         <button id="homeOpen" type="button" title="Abre un proyecto .json como una tipografía nueva de tu biblioteca">Abrir archivo .json</button>
@@ -508,6 +508,8 @@
       </div>
       <label class="test-weight" title="Peso del texto de prueba, entre los dos másteres">Peso <input type="range" id="testWeight" step="1"> <output id="testWeightOut"></output></label>
       <button id="testInvert" type="button" class="ghost" aria-pressed="false">Invertir</button>
+      <button id="autoKern" type="button" class="ghost" aria-pressed="false" title="Calcula el kerning de cada par a partir del dibujo de las letras, comparándolo con n y o (H y O en mayúsculas)">Kerning auto</button>
+      <label class="test-weight" id="autoKernStrengthBox" title="Cuánto se compensa cada par: menos deja el texto más parejo a sus márgenes, más junta más" hidden>Intensidad <input type="range" id="autoKernStrength" min="25" max="200" step="5"> <output id="autoKernStrengthOut"></output></label>
       <div class="kern" id="kernBox">
         <span class="kern-label">Kerning</span>
         <strong id="kernPair" class="kern-pair">—</strong>
@@ -529,7 +531,7 @@
     <div class="test-foot">
       <span id="testCount" class="counter"></span>
       <div id="kernList" class="kern-list"></div>
-      <span class="test-hint">clic entre dos letras para ajustar el kerning&nbsp; ← → · <span class="kern-legend group">grupos</span> <span class="kern-legend exception">excepción</span> <span class="kern-legend pair">par</span></span>
+      <span class="test-hint">clic entre dos letras para ajustar el kerning&nbsp; ← → · <span class="kern-legend group">grupos</span> <span class="kern-legend exception">excepción</span> <span class="kern-legend pair">par</span> <span class="kern-legend auto" id="kernLegendAuto" hidden>auto</span></span>
     </div>
   </section>
 
@@ -652,31 +654,32 @@
   <script type="importmap">
     {
       "imports": {
-        "./js/charset.js": "./js/charset.js?v=122",
-        "./js/geometry.js": "./js/geometry.js?v=122",
-        "./js/model.js": "./js/model.js?v=122",
-        "./js/render.js": "./js/render.js?v=122",
-        "./js/tools.js": "./js/tools.js?v=122",
-        "./js/library.js": "./js/library.js?v=122",
-        "./js/history.js": "./js/history.js?v=122",
-        "./js/pieces.js": "./js/pieces.js?v=122",
-        "./js/serifs.js": "./js/serifs.js?v=122",
-        "./js/nodes.js": "./js/nodes.js?v=122",
-        "./js/shapes.js": "./js/shapes.js?v=122",
-        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=122",
-        "./js/outline.js": "./js/outline.js?v=122",
-        "./js/otf.js": "./js/otf.js?v=122",
-        "./js/masters.js": "./js/masters.js?v=122",
-        "./js/variable.js": "./js/variable.js?v=122",
-        "./js/woff.js": "./js/woff.js?v=122",
-        "./js/export.js": "./js/export.js?v=122",
-        "./js/testbar.js": "./js/testbar.js?v=122",
-        "./js/guide.js": "./js/guide.js?v=122",
-        "./js/home.js": "./js/home.js?v=122",
-        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=122"
+        "./js/autokern.js": "./js/autokern.js?v=123",
+        "./js/charset.js": "./js/charset.js?v=123",
+        "./js/geometry.js": "./js/geometry.js?v=123",
+        "./js/model.js": "./js/model.js?v=123",
+        "./js/render.js": "./js/render.js?v=123",
+        "./js/tools.js": "./js/tools.js?v=123",
+        "./js/library.js": "./js/library.js?v=123",
+        "./js/history.js": "./js/history.js?v=123",
+        "./js/pieces.js": "./js/pieces.js?v=123",
+        "./js/serifs.js": "./js/serifs.js?v=123",
+        "./js/nodes.js": "./js/nodes.js?v=123",
+        "./js/shapes.js": "./js/shapes.js?v=123",
+        "./js/vendor/clipper.js": "./js/vendor/clipper.js?v=123",
+        "./js/outline.js": "./js/outline.js?v=123",
+        "./js/otf.js": "./js/otf.js?v=123",
+        "./js/masters.js": "./js/masters.js?v=123",
+        "./js/variable.js": "./js/variable.js?v=123",
+        "./js/woff.js": "./js/woff.js?v=123",
+        "./js/export.js": "./js/export.js?v=123",
+        "./js/testbar.js": "./js/testbar.js?v=123",
+        "./js/guide.js": "./js/guide.js?v=123",
+        "./js/home.js": "./js/home.js?v=123",
+        "./js/vendor/opentype.min.js": "./js/vendor/opentype.min.js?v=123"
       }
     }
   </script>
-  <script type="module" src="js/main.js?v=122"></script>
+  <script type="module" src="js/main.js?v=123"></script>
 </body>
 </html>

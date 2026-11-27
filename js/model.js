@@ -322,6 +322,9 @@ export function createFont() {
     // the values between them ({ A: { V: -60 } }). See kernGroup.
     groups: { left: {}, right: {} },
     groupKerning: {},
+    // Automatic kerning for the pairs without a value of their own, from the
+    // drawings (see autokern.js). `strength` is a percentage.
+    autoKern: { enabled: false, strength: 100 },
     // "Solo mayúsculas": lowercase letters are typed as their capitals.
     allCaps: false,
     // Weight axis: Regular and bold master weights, and how much the
@@ -394,6 +397,7 @@ export function normalizeFont(data) {
     kerning: { ...data.kerning },
     groups: { left: { ...data.groups?.left }, right: { ...data.groups?.right } },
     groupKerning: Object.fromEntries(Object.entries(data.groupKerning ?? {}).map(([a, row]) => [a, { ...row }])),
+    autoKern: { ...base.autoKern, ...data.autoKern },
     axis: { ...base.axis, ...data.axis },
     glyphs: { ...data.glyphs },
     drafts: [...(data.drafts ?? [])],
@@ -857,11 +861,25 @@ export function pairGroups(font, left, right) {
 
 export const groupKerningValue = (font, a, b) => font.groupKerning[a]?.[b];
 
-export function kerningValue(font, left, right) {
+// The value set by hand (the pair's own, else its groups'), if any.
+export function manualKerning(font, left, right) {
   const own = pairKerning(font, left, right);
   if (own !== undefined) return own;
   const groups = pairGroups(font, left, right);
-  return (groups && groupKerningValue(font, ...groups)) ?? 0;
+  return groups ? groupKerningValue(font, ...groups) : undefined;
+}
+
+// Automatic kerning lives in autokern.js, which registers itself here (it
+// needs the drawings' outlines, built on top of this module).
+let autoSource = null;
+export const setAutoKernSource = (source) => { autoSource = source; };
+
+// A function giving the automatic value of a pair, or null while it is off.
+// Make one per pass over the font: it measures each letter only once.
+export const autoKerner = (font) => (font.autoKern?.enabled && autoSource ? autoSource(font) : null);
+
+export function kerningValue(font, left, right, auto = autoKerner(font)) {
+  return manualKerning(font, left, right) ?? auto?.(left, right) ?? 0;
 }
 
 // What editing a pair changes: its own value when it has one (an
@@ -870,29 +888,35 @@ export const kerningTarget = (font, left, right) =>
   font.kerning[pairKey(left, right)] === undefined && pairGroups(font, left, right) ? "group" : "pair";
 
 // Sets the pair's own value. A 0 is kept while the pair's groups have a
-// value, as an exception that cancels it.
+// value, or with automatic kerning on, as an exception that cancels it.
 export function setKerning(font, left, right, value) {
   const k = pairKey(left, right);
   const v = Math.round(value);
   const groups = pairGroups(font, left, right);
-  if (v === 0 && !(groups && groupKerningValue(font, ...groups))) delete font.kerning[k];
+  const cancels = font.autoKern?.enabled || (groups && groupKerningValue(font, ...groups));
+  if (v === 0 && !cancels) delete font.kerning[k];
   else font.kerning[k] = v;
 }
 
 export const removeKerning = (font, left, right) => { delete font.kerning[pairKey(left, right)]; };
 
+// A 0 is only kept with automatic kerning on, to cancel it.
 export function setGroupKerning(font, a, b, value) {
   const v = Math.round(value);
-  if (v) (font.groupKerning[a] ??= {})[b] = v;
-  else if (font.groupKerning[a]) {
-    delete font.groupKerning[a][b];
-    if (!Object.keys(font.groupKerning[a]).length) delete font.groupKerning[a];
-  }
+  if (v || font.autoKern?.enabled) (font.groupKerning[a] ??= {})[b] = v;
+  else removeGroupKerning(font, a, b);
+}
+
+export function removeGroupKerning(font, a, b) {
+  if (!font.groupKerning[a]) return;
+  delete font.groupKerning[a][b];
+  if (!Object.keys(font.groupKerning[a]).length) delete font.groupKerning[a];
 }
 
 // Kerning pairs for the font files, as [left, right, value] glyph keys:
 // group values become pairs of their members, and a letter's pairs also
-// apply to its alternates, on either side.
+// apply to its alternates, on either side. With automatic kerning, every pair
+// of exported glyphs it gives a value to is included.
 export function kerningPairs(font) {
   const keys = allChars(font);
   const family = (char) => [char, ...alternates(font, char)];
@@ -916,13 +940,24 @@ export function kerningPairs(font) {
       for (const l of rights.get(a) ?? []) for (const r of lefts.get(b) ?? []) add(l, r);
     }
   }
-  const out = [];
-  for (const [l, r] of candidates.values()) {
-    const v = Math.round(kerningValue(font, l, r));
-    if (v) out.push([l, r, v]);
+  const auto = autoKerner(font);
+  if (auto) {
+    const exported = exportChars(font);
+    for (const l of exported) for (const r of exported) if (auto(l, r)) add(l, r);
   }
-  return out;
+  const out = [], automatic = [];
+  for (const [l, r] of candidates.values()) {
+    const manual = manualKerning(font, l, r);
+    const v = Math.round(manual ?? auto?.(l, r) ?? 0);
+    if (v) (manual === undefined ? automatic : out).push([l, r, v]);
+  }
+  // The GPOS table has room for about 16000 pairs: past that, the smallest
+  // automatic values are left out.
+  automatic.sort((a, b) => Math.abs(b[2]) - Math.abs(a[2]));
+  return [...out, ...automatic.slice(0, Math.max(0, MAX_PAIRS - out.length))];
 }
+
+const MAX_PAIRS = 12000;
 
 // Characters outside the set are shown as an empty box this wide.
 export const missingAdvance = (font) => Math.round(font.upm / 2);
@@ -931,7 +966,7 @@ export const missingAdvance = (font) => Math.round(font.upm / 2);
 // kerning (in an all-caps font, lowercase letters are set as capitals). Returns one item per character: { char, line, index, x, advance,
 // glyph, kern } where `kern` is the kerning applied after it.
 // `advanceOf(char, glyph)` can give other widths (e.g. at another weight).
-export function layoutText(font, text, advanceOf = null) {
+export function layoutText(font, text, advanceOf = null, auto = autoKerner(font)) {
   const items = [];
   const lines = text.split("\n");
   let width = 0;
@@ -943,7 +978,7 @@ export function layoutText(font, text, advanceOf = null) {
       const glyph = font.glyphs[char] ?? null;
       const advance = glyph ? (advanceOf ? advanceOf(char, glyph) : advanceWidth(font, glyph)) : missingAdvance(font);
       const next = chars[i + 1];
-      const kern = next !== undefined ? kerningValue(font, char, capitalOf(font, next) ?? next) : 0;
+      const kern = next !== undefined ? kerningValue(font, char, capitalOf(font, next) ?? next, auto) : 0;
       items.push({ char, line: li, index: i, x, advance, glyph, kern });
       x += advance + kern;
     });

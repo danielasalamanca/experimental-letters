@@ -6,6 +6,7 @@ import { glyphFinalContours } from "./shapes.js";
 import { glyphName, alternateOf } from "./charset.js";
 import { advanceWidth, exportChars, charUnicodes, kerningPairs } from "./model.js";
 import { atWeight, normalizeAxis, weightName } from "./masters.js";
+import "./autokern.js";
 
 const loadOpentype = () => import("./vendor/opentype.min.js");
 

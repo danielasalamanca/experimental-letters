@@ -3,7 +3,7 @@
 
 import { starPath, joinBridges, parseKey } from "./geometry.js";
 import { squareGlyphContours, roundedContours, contoursWithPieces } from "./pieces.js";
-import { METRICS, glyphShape, glyphGrid, resolvedCells, resolvedOutline, advanceWidth, layoutText } from "./model.js";
+import { METRICS, glyphShape, glyphGrid, resolvedCells, resolvedOutline, advanceWidth, layoutText, autoKerner } from "./model.js";
 import { outlineToCommands } from "./nodes.js";
 import { glyphContours } from "./outline.js";
 
@@ -351,6 +351,7 @@ export function drawShapes(font, cellList, { grid, curve, rounding, corners = {}
 
 // --- Test text ---
 export const KERN_COLOR = "#ff52a9";
+const AUTO_KERN_COLOR = "#2f6bff";
 
 // Ids are shared by the whole page, so every drawing needs its own: with
 // repeated ids, <use> takes the letters of the first SVG that has them.
@@ -364,8 +365,9 @@ let textDrawings = 0;
 // { contours (cells), advance, lsb } (see masters.js atWeight).
 // `kernLabel(left, right, selected)`, when given, labels pairs above the
 // text with their kerning, like Glyphs' kerning mode: it returns
-// { text, kind } ("group", "exception" or "pair") or null for no label.
-export function drawText(svg, font, text, { size, ink, paper, pair = null, metrics = false, weighted = null, kernLabel = null }) {
+// { text, kind } ("group", "exception", "pair" or "auto") or null for no
+// label. `auto` is the automatic kerner to set the text with (see model.js).
+export function drawText(svg, font, text, { size, ink, paper, pair = null, metrics = false, weighted = null, kernLabel = null, auto = autoKerner(font) }) {
   const cu = font.cell;
   const m = font.metrics;
   const asc = m.ascender * cu, desc = m.descender * cu;
@@ -378,7 +380,7 @@ export function drawText(svg, font, text, { size, ink, paper, pair = null, metri
     if (!atWeight.has(char)) atWeight.set(char, weighted(char));
     return atWeight.get(char);
   };
-  const layout = layoutText(font, text, weighted ? (char) => weightedOf(char).advance : null);
+  const layout = layoutText(font, text, weighted ? (char) => weightedOf(char).advance : null, auto);
   const w = Math.max(layout.width, cu) + pad * 2;
   const h = layout.lines * lineHeight + pad;
   const top = -asc - pad / 2 - labelSpace;
@@ -458,7 +460,7 @@ export function drawText(svg, font, text, { size, ink, paper, pair = null, metri
   // Kerning values above the pairs: group values in ink, exceptions in
   // pink, pairs of letters without groups paler.
   if (kernLabel) {
-    const colors = { group: ink, exception: KERN_COLOR, pair: ink };
+    const colors = { group: ink, exception: KERN_COLOR, pair: ink, auto: AUTO_KERN_COLOR };
     layout.items.forEach((item, i) => {
       const next = layout.items[i + 1];
       if (!next || next.line !== item.line) return;

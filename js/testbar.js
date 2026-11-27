@@ -1,12 +1,13 @@
-// "Prueba": the text set in the font, at any weight, and kerning — pick a
-// pair by clicking between two letters, then adjust it (its own value or its
-// groups', see model.js). The editor passes in what it owns (see initTestbar).
+// "Prueba": the text set in the font, at any weight, and kerning — automatic
+// (see autokern.js) and by hand: pick a pair by clicking between two letters,
+// then adjust it (its own value or its groups', see model.js). The editor passes in what it owns (see initTestbar).
 
 import { drawText } from "./render.js";
 import {
   layoutText, capitalOf, kerningValue, setKerning, removeKerning, setGroupKerning, kerningTarget,
-  pairGroups, pairKerning, kernGroup, groupMembers,
+  pairGroups, pairKerning, kernGroup, groupMembers, manualKerning, removeGroupKerning, autoKerner,
 } from "./model.js";
+import "./autokern.js";
 import { atWeight, normalizeAxis, instances } from "./masters.js";
 
 const $ = (id) => document.getElementById(id);
@@ -34,6 +35,7 @@ const TEST_KEY = "experimental-letters:test-hidden";
 export function initTestbar({ getFont, checkpoint, persist, updateInfo, toast, selectGlyph, editGroups, isEmptyGlyph }) {
   let kernPair = null; // { left, right, line, index } — line/index when it is in the text
   let testLayout = null;
+  let auto = null; // the automatic kerner of the last drawing, null while off
   let testFrame = 0;
 
   function scheduleTest() {
@@ -49,9 +51,10 @@ export function initTestbar({ getFont, checkpoint, persist, updateInfo, toast, s
     const t = font.view.test;
     const ink = t.inverted ? font.view.paper : font.view.ink;
     const paper = t.inverted ? font.view.ink : font.view.paper;
+    auto = autoKerner(font);
     // Keep the pair's position only while the text still has it there.
     if (kernPair?.line != null) {
-      const items = layoutText(font, t.text).items;
+      const items = layoutText(font, t.text, null, auto).items;
       const i = items.findIndex((it) => it.line === kernPair.line && it.index === kernPair.index);
       if (i < 0 || items[i].char !== kernPair.left || items[i + 1]?.char !== kernPair.right || items[i + 1]?.line !== kernPair.line) {
         kernPair = { left: kernPair.left, right: kernPair.right };
@@ -60,12 +63,13 @@ export function initTestbar({ getFont, checkpoint, persist, updateInfo, toast, s
     const axis = normalizeAxis(font.axis);
     const weight = Math.min(axis.max, Math.max(axis.min, t.weight ?? axis.min));
     testLayout = drawText($("testSvg"), font, t.text, {
-      size: t.size, ink, paper, pair: kernPair?.line != null ? kernPair : null,
+      size: t.size, ink, paper, pair: kernPair?.line != null ? kernPair : null, auto,
       weighted: weight > axis.min ? (char) => atWeight(font, char, weight) : null,
       // Every kerned pair shows its value; the chosen one even at 0.
       kernLabel: (left, right, selected) => {
-        const value = kerningValue(font, left, right);
+        const value = kerningValue(font, left, right, auto);
         if (!value && !selected) return null;
+        if (auto && manualKerning(font, left, right) === undefined) return { text: String(value), kind: "auto" };
         const own = pairKerning(font, left, right) !== undefined;
         return { text: String(value), kind: own ? (pairGroups(font, left, right) ? "exception" : "pair") : "group" };
       },
@@ -86,9 +90,22 @@ export function initTestbar({ getFont, checkpoint, persist, updateInfo, toast, s
     $("testInvert").classList.toggle("active", t.inverted);
     $("testInvert").setAttribute("aria-pressed", t.inverted);
 
+    const { enabled, strength } = font.autoKern;
+    $("autoKern").setAttribute("aria-pressed", enabled);
+    $("autoKern").classList.toggle("active", enabled);
+    $("autoKernStrengthBox").hidden = !enabled;
+    $("autoKernStrength").value = strength;
+    $("autoKernStrengthOut").textContent = `${strength}%`;
+    $("kernLegendAuto").hidden = !enabled;
+
     const has = !!kernPair;
     $("kernPair").hidden = true;
-    $("kernValue").value = has ? kerningValue(font, kernPair.left, kernPair.right) : "";
+    $("kernValue").value = has ? kerningValue(font, kernPair.left, kernPair.right, auto) : "";
+    // Whether the chosen pair's value is the automatic one.
+    const isAuto = has && !!auto && manualKerning(font, kernPair.left, kernPair.right) === undefined;
+    const clear = $("kernClear");
+    clear.textContent = auto && has && !isAuto ? "Volver a auto" : "Quitar";
+    clear.title = !auto ? "" : isAuto ? "Dejar este par en 0" : "Borrar el valor puesto a mano y usar el automático";
     for (const id of ["kernMinus", "kernValue", "kernPlus", "kernClear"]) $(id).disabled = !has;
     // Each letter with the group of the side that kerns, like Glyphs: the
     // first letter's right group and the second's left group.
@@ -115,13 +132,19 @@ export function initTestbar({ getFont, checkpoint, persist, updateInfo, toast, s
       // letters without groups.
       const pair = `${shown(left)}${shown(right)}`;
       const kind = !groups ? "pair" : kerningTarget(font, left, right) === "group" ? "group" : "exception";
-      scope.className = `kern-scope ${kind}`;
+      scope.className = `kern-scope ${isAuto ? "auto" : kind}`;
       scope.textContent = { group: `Grupos @${groups?.[0]} @${groups?.[1]}`, exception: `Excepción ${pair}`, pair: `Solo el par ${pair}` }[kind];
       scope.title = {
         group: `El valor vale para todos los pares de @${groups?.[0]} con @${groups?.[1]}. Clic: excepción solo para ${pair}.`,
         exception: `Excepción: el valor es solo para ${pair}, por encima de los grupos. Clic: volver al valor de los grupos @${groups?.[0]} @${groups?.[1]}.`,
         pair: `Estas letras no tienen grupo en el lado que kernea: el valor es solo para ${pair}. Dales grupo con «sin grupo».`,
       }[kind];
+      if (isAuto) {
+        scope.textContent = "Automático";
+        scope.title = `Calculado a partir del dibujo de ${pair}. Ajustarlo con − o + lo reemplaza por un valor a mano${groups ? " para sus grupos" : ""}. Clic: fijar este valor solo para ${pair}.`;
+      } else if (auto && kind === "pair") {
+        scope.title = `Valor a mano para ${pair}. Clic: volver al automático.`;
+      }
     }
 
     const list = $("kernList");
@@ -176,7 +199,21 @@ export function initTestbar({ getFont, checkpoint, persist, updateInfo, toast, s
     if (!kernPair) return;
     const font = getFont();
     const { left, right } = kernPair;
+    if (auto && manualKerning(font, left, right) === undefined) {
+      checkpoint();
+      font.kerning[left + right] = kerningValue(font, left, right);
+      toast(`${left}${right} queda fijo: ya no cambia con el dibujo.`);
+      kerningChanged();
+      return;
+    }
     if (!pairGroups(font, left, right)) {
+      if (auto) {
+        checkpoint();
+        removeKerning(font, left, right);
+        toast(`${left}${right} vuelve al kerning automático.`);
+        kerningChanged();
+        return;
+      }
       toast("Para kernear por grupos, dales grupo a las dos letras: clic en «sin grupo».");
       return;
     }
@@ -269,16 +306,42 @@ export function initTestbar({ getFont, checkpoint, persist, updateInfo, toast, s
   $("kernMinus").addEventListener("click", (e) => adjustKerning(e.shiftKey ? -KERN_STEP * 5 : -KERN_STEP));
   $("kernPlus").addEventListener("click", (e) => adjustKerning(e.shiftKey ? KERN_STEP * 5 : KERN_STEP));
   $("kernValue").addEventListener("change", (e) => setPairKerning(+e.target.value || 0));
-  // "Quitar": an exception goes back to its groups; otherwise the value is removed.
+  // "Quitar": an exception goes back to its groups; otherwise the value is
+  // removed. With automatic kerning, a value set by hand goes back to it.
   $("kernClear").addEventListener("click", () => {
     if (!kernPair) return;
     const font = getFont();
     const { left, right } = kernPair;
-    if (font.kerning[left + right] !== undefined && pairGroups(font, left, right)) {
+    const groups = pairGroups(font, left, right);
+    const own = font.kerning[left + right] !== undefined;
+    if (own && (groups || font.autoKern.enabled)) {
       checkpoint();
       removeKerning(font, left, right);
       kerningChanged();
+    } else if (font.autoKern.enabled && manualKerning(font, left, right) !== undefined) {
+      checkpoint();
+      // The group's value, or one an alternate takes from its letter.
+      if (groups && pairKerning(font, left, right) === undefined) {
+        removeGroupKerning(font, ...groups);
+        kerningChanged();
+      } else setPairKerning(0);
     } else setPairKerning(0);
+  });
+
+  $("autoKern").addEventListener("click", () => {
+    const font = getFont();
+    checkpoint();
+    font.autoKern.enabled = !font.autoKern.enabled;
+    toast(font.autoKern.enabled
+      ? "Kerning automático activado: tus valores a mano se mantienen."
+      : "Kerning automático desactivado.");
+    kerningChanged();
+  });
+
+  $("autoKernStrength").addEventListener("input", (e) => {
+    checkpoint("autokern");
+    getFont().autoKern.strength = +e.target.value;
+    kerningChanged();
   });
 
   for (const text of PRESETS) $("testPreset").appendChild(new Option(text, text));

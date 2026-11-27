@@ -9,6 +9,7 @@
 import { glyphName } from "./charset.js";
 import { exportChars, charUnicodes, kerningPairs } from "./model.js";
 import { masterPair, normalizeAxis, instances } from "./masters.js";
+import "./autokern.js";
 import { gposKerning, gsubAlternates, alternateGroups, notdefContours, readSfnt, writeSfnt, Writer } from "./otf.js";
 
 const loadOpentype = () => import("./vendor/opentype.min.js");
